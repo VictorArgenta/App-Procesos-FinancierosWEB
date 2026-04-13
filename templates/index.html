@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Inicio — Procesos Financieros{% endblock %}
+
+{% block content %}
+<div style="text-align: center; padding: 3rem 0 2rem;">
+    <h1 style="color: #003366; font-size: 2.5rem; margin-bottom: 0.5rem;">Procesos Financieros</h1>
+    <p style="color: #5a6d80; font-size: 1.15rem; max-width: 600px; margin: 0 auto;">
+        Plataforma de análisis financiero con inteligencia artificial.
+        Obtén datos de mercado en tiempo real y genera informes profesionales.
+    </p>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
+    <!-- Card Análisis Individual -->
+    <div class="card" style="border-top: 4px solid #004a99;">
+        <div style="font-size: 2.5rem; margin-bottom: 1rem;">&#128200;</div>
+        <h2>Análisis Individual</h2>
+        <p style="color: #5a6d80; line-height: 1.7; margin-bottom: 1.5rem;">
+            Introduce un ticker bursátil y obtén un desglose completo de sus métricas financieras:
+            ingresos, costes, márgenes, EBITDA y beneficio neto. Incluye una nota de memoria
+            explicativa generada por IA y opción de descarga en Word.
+        </p>
+        <ul style="color: #5a6d80; margin-bottom: 1.5rem; padding-left: 1.2rem; line-height: 2;">
+            <li>Datos de Yahoo Finance en tiempo real</li>
+            <li>Tabla con métricas y porcentajes</li>
+            <li>Nota de memoria generada por Claude</li>
+            <li>Descarga en formato Word (.docx)</li>
+        </ul>
+        <a href="/analisis" class="btn btn-primary">Iniciar análisis</a>
+    </div>
+
+    <!-- Card Comparador -->
+    <div class="card" style="border-top: 4px solid #22965d;">
+        <div style="font-size: 2.5rem; margin-bottom: 1rem;">&#128202;</div>
+        <h2>Comparador de Empresas</h2>
+        <p style="color: #5a6d80; line-height: 1.7; margin-bottom: 1.5rem;">
+            Compara hasta 3 empresas lado a lado. Visualiza sus métricas financieras principales
+            en una tabla comparativa y recibe un análisis detallado generado por IA que identifica
+            fortalezas, debilidades y la empresa con mejor salud financiera.
+        </p>
+        <ul style="color: #5a6d80; margin-bottom: 1.5rem; padding-left: 1.2rem; line-height: 2;">
+            <li>Comparación de hasta 3 empresas</li>
+            <li>Tabla comparativa lado a lado</li>
+            <li>Análisis comparativo por Claude</li>
+            <li>Descarga del informe comparativo</li>
+        </ul>
+        <a href="/comparador" class="btn btn-success">Comparar empresas</a>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 1rem; text-align: center; background: linear-gradient(135deg, #f0f6fc, #e8eef4);">
+    <h3 style="color: #003366; margin-bottom: 0.5rem;">Tecnología utilizada</h3>
+    <p style="color: #5a6d80;">
+        Python &middot; Flask &middot; Yahoo Finance &middot; Anthropic Claude &middot; python-docx
+    </p>
+</div>
+{% endblock %}

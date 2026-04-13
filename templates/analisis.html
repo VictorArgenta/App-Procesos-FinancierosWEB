@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Análisis Individual — Procesos Financieros{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Análisis Financiero Individual</h2>
+    <p style="color: #5a6d80; margin-bottom: 1.5rem;">
+        Introduce el ticker de una empresa cotizada para obtener sus datos financieros
+        y una nota de memoria explicativa generada por inteligencia artificial.
+    </p>
+
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/analisis" onsubmit="showLoading()">
+        <div class="form-group">
+            <label for="ticker">Ticker de la empresa</label>
+            <input type="text" id="ticker" name="ticker" placeholder="Ej: AAPL, MSFT, GOOGL" required
+                   style="text-transform: uppercase;">
+        </div>
+        <button type="submit" class="btn btn-primary">Analizar</button>
+    </form>
+</div>
+
+<div class="card" style="background: linear-gradient(135deg, #f0f6fc, #e8eef4);">
+    <h3 style="color: #003366; margin-bottom: 0.8rem;">Ejemplos de tickers</h3>
+    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">AAPL — Apple</span>
+        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">MSFT — Microsoft</span>
+        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">GOOGL — Alphabet</span>
+        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">AMZN — Amazon</span>
+        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">TSLA — Tesla</span>
+        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">META — Meta</span>
+    </div>
+</div>
+{% endblock %}
