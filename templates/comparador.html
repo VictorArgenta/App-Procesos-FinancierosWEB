@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Comparador de Empresas — Procesos Financieros{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Comparador de Empresas</h2>
+    <p style="color: #5a6d80; margin-bottom: 1.5rem;">
+        Introduce entre 2 y 3 tickers para obtener una tabla comparativa con las métricas
+        financieras principales y un análisis comparativo generado por inteligencia artificial.
+    </p>
+
+    {% if error %}
+    <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/comparador" onsubmit="showLoading()">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <div class="form-group">
+                <label for="ticker1">Empresa 1 (obligatorio)</label>
+                <input type="text" id="ticker1" name="ticker1" placeholder="Ej: AAPL" required
+                       style="text-transform: uppercase;">
+            </div>
+            <div class="form-group">
+                <label for="ticker2">Empresa 2 (obligatorio)</label>
+                <input type="text" id="ticker2" name="ticker2" placeholder="Ej: MSFT" required
+                       style="text-transform: uppercase;">
+            </div>
+            <div class="form-group">
+                <label for="ticker3">Empresa 3 (opcional)</label>
+                <input type="text" id="ticker3" name="ticker3" placeholder="Ej: GOOGL"
+                       style="text-transform: uppercase;">
+            </div>
+        </div>
+        <button type="submit" class="btn btn-success">Comparar</button>
+    </form>
+</div>
+
+<div class="card" style="background: linear-gradient(135deg, #f0f6fc, #e8eef4);">
+    <h3 style="color: #003366; margin-bottom: 0.8rem;">Sugerencias de comparación</h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+        <div>
+            <p style="font-weight: 600; color: #003366; margin-bottom: 0.3rem;">Big Tech</p>
+            <p style="color: #5a6d80; font-size: 0.9rem;">AAPL vs MSFT vs GOOGL</p>
+        </div>
+        <div>
+            <p style="font-weight: 600; color: #003366; margin-bottom: 0.3rem;">Automoción EV</p>
+            <p style="color: #5a6d80; font-size: 0.9rem;">TSLA vs F vs GM</p>
+        </div>
+        <div>
+            <p style="font-weight: 600; color: #003366; margin-bottom: 0.3rem;">Redes sociales</p>
+            <p style="color: #5a6d80; font-size: 0.9rem;">META vs SNAP vs PINS</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

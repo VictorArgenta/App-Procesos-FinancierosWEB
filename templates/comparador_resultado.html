@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Comparativa — Procesos Financieros{% endblock %}
+
+{% block content %}
+<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+    <div>
+        <h1 style="color: #003366; font-size: 1.8rem;">Comparativa Financiera</h1>
+        <p style="color: #5a6d80;">
+            {% for d in datos_empresas %}
+                {{ d.nombre }} ({{ d.ticker }}){% if not loop.last %} vs {% endif %}
+            {% endfor %}
+        </p>
+    </div>
+    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <form method="POST" action="/descargar_comparativo" style="display: inline;">
+            <input type="hidden" name="tickers" value="{{ datos_empresas | map(attribute='ticker') | join(',') }}">
+            <button type="submit" class="btn btn-success" onclick="showLoading()">Descargar Word</button>
+        </form>
+        <a href="/comparador" class="btn btn-secondary">Nueva comparación</a>
+    </div>
+</div>
+
+{% if errores %}
+<div class="alert alert-warning">
+    <strong>Advertencia:</strong> {{ errores | join('; ') }}
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>Tabla Comparativa — Último Periodo</h2>
+    <div style="overflow-x: auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Métrica</th>
+                    {% for d in datos_empresas %}
+                    <th>{{ d.nombre }}<br><span style="font-weight: 400; font-size: 0.8rem; opacity: 0.8;">{{ d.ticker }}</span></th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Periodo</strong></td>
+                    {% for d in datos_empresas %}
+                    <td>{{ d.periodos[0].periodo }}</td>
+                    {% endfor %}
+                </tr>
+                <tr>
+                    <td><strong>Ingresos</strong></td>
+                    {% for d in datos_empresas %}
+                    <td>{{ formatear(d.periodos[0].ingresos) }}</td>
+                    {% endfor %}
+                </tr>
+                <tr>
+                    <td><strong>Coste de ventas</strong></td>
+                    {% for d in datos_empresas %}
+                    <td>{{ formatear(d.periodos[0].coste_ventas) }}</td>
+                    {% endfor %}
+                </tr>
+                <tr>
+                    <td><strong>Margen bruto</strong></td>
+                    {% for d in datos_empresas %}
+                    <td>{{ formatear(d.periodos[0].margen_bruto) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ d.periodos[0].pct_margen_bruto }}%)</span></td>
+                    {% endfor %}
+                </tr>
+                <tr>
+                    <td><strong>Gastos operativos</strong></td>
+                    {% for d in datos_empresas %}
+                    <td>{{ formatear(d.periodos[0].gastos_operativos) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ d.periodos[0].pct_gastos_operativos }}%)</span></td>
+                    {% endfor %}
+                </tr>
+                <tr>
+                    <td><strong>EBITDA</strong></td>
+                    {% for d in datos_empresas %}
+                    <td>{{ formatear(d.periodos[0].ebitda) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ d.periodos[0].pct_ebitda }}%)</span></td>
+                    {% endfor %}
+                </tr>
+                <tr>
+                    <td><strong>Beneficio neto</strong></td>
+                    {% for d in datos_empresas %}
+                    <td>{{ formatear(d.periodos[0].beneficio_neto) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ d.periodos[0].pct_beneficio_neto }}%)</span></td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Análisis Comparativo</h2>
+    <div class="nota-memoria">{{ analisis }}</div>
+</div>
+{% endblock %}
