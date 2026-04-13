@@ -407,12 +407,45 @@
             document.getElementById('loadingSpinner').classList.add('active');
         }
 
-        function showDownloadLoading() {
+        function downloadFile(form) {
             var spinner = document.getElementById('loadingSpinner');
+            spinner.querySelector('p').textContent = 'Generando documento Word...';
             spinner.classList.add('active');
-            setTimeout(function() {
+
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form)
+            })
+            .then(function(response) {
+                if (!response.ok) {
+                    return response.text().then(function(text) { throw new Error(text); });
+                }
+                var disposition = response.headers.get('Content-Disposition') || '';
+                var match = disposition.match(/filename=([^;]+)/);
+                var filename = match ? match[1].trim().replace(/"/g, '') : 'documento.docx';
+                return response.blob().then(function(blob) {
+                    return { blob: blob, filename: filename };
+                });
+            })
+            .then(function(result) {
+                var url = window.URL.createObjectURL(result.blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = result.filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            })
+            .catch(function(error) {
+                alert('Error al generar el documento: ' + error.message);
+            })
+            .finally(function() {
                 spinner.classList.remove('active');
-            }, 3000);
+                spinner.querySelector('p').textContent = 'Procesando datos financieros...';
+            });
+
+            return false;
         }
     </script>
     {% block scripts %}{% endblock %}

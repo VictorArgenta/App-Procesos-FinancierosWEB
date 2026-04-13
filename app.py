@@ -1,5 +1,6 @@
 import os
 import io
+import uuid
 import markdown
 from flask import Flask, render_template, request, send_file
 from dotenv import load_dotenv
@@ -14,6 +15,9 @@ load_dotenv()
 app = Flask(__name__)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+
+# Cache en memoria para evitar re-llamar a las APIs al descargar Word
+_download_cache = {}
 
 
 def obtener_datos_financieros(ticker_symbol):
@@ -303,10 +307,15 @@ def analisis():
 
             nota = generar_nota_memoria(datos)
             nota_html = markdown.markdown(nota)
+
+            cache_id = str(uuid.uuid4())
+            _download_cache[cache_id] = {"datos": datos, "nota": nota}
+
             return render_template(
                 "resultado.html",
                 datos=datos,
                 nota=nota_html,
+                cache_id=cache_id,
                 formatear=formatear_numero,
             )
         except Exception as e:
@@ -348,11 +357,19 @@ def comparador():
 
             analisis = generar_analisis_comparativo(datos_empresas)
             analisis_html = markdown.markdown(analisis)
+
+            cache_id = str(uuid.uuid4())
+            _download_cache[cache_id] = {
+                "datos_empresas": datos_empresas,
+                "analisis": analisis,
+            }
+
             return render_template(
                 "comparador_resultado.html",
                 datos_empresas=datos_empresas,
                 analisis=analisis_html,
                 errores=errores,
+                cache_id=cache_id,
                 formatear=formatear_numero,
             )
         except Exception as e:
@@ -363,15 +380,19 @@ def comparador():
 
 @app.route("/descargar_word", methods=["POST"])
 def descargar_word():
-    ticker_symbol = request.form.get("ticker", "").strip().upper()
+    cache_id = request.form.get("cache_id", "")
+    cached = _download_cache.get(cache_id)
+    if not cached:
+        return "Sesión expirada. Por favor, realiza el análisis de nuevo.", 400
+
+    datos = cached["datos"]
+    nota = cached["nota"]
     try:
-        datos = obtener_datos_financieros(ticker_symbol)
-        nota = generar_nota_memoria(datos)
         buffer = crear_documento_word(datos, nota)
         return send_file(
             buffer,
             as_attachment=True,
-            download_name=f"informe_{ticker_symbol}.docx",
+            download_name=f"informe_{datos['ticker']}.docx",
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     except Exception as e:
@@ -380,16 +401,14 @@ def descargar_word():
 
 @app.route("/descargar_comparativo", methods=["POST"])
 def descargar_comparativo():
-    tickers_raw = request.form.get("tickers", "")
-    tickers = [t.strip().upper() for t in tickers_raw.split(",") if t.strip()]
-    try:
-        datos_empresas = []
-        for t in tickers:
-            datos = obtener_datos_financieros(t)
-            if datos:
-                datos_empresas.append(datos)
+    cache_id = request.form.get("cache_id", "")
+    cached = _download_cache.get(cache_id)
+    if not cached:
+        return "Sesión expirada. Por favor, realiza la comparación de nuevo.", 400
 
-        analisis = generar_analisis_comparativo(datos_empresas)
+    datos_empresas = cached["datos_empresas"]
+    analisis = cached["analisis"]
+    try:
         buffer = crear_documento_comparativo(datos_empresas, analisis)
         nombre = "_vs_".join([d["ticker"] for d in datos_empresas])
         return send_file(
