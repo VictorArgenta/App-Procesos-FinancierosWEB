@@ -1,5 +1,6 @@
 import os
 import io
+import markdown
 from flask import Flask, render_template, request, send_file
 from dotenv import load_dotenv
 import yfinance as yf
@@ -301,10 +302,11 @@ def analisis():
                 )
 
             nota = generar_nota_memoria(datos)
+            nota_html = markdown.markdown(nota)
             return render_template(
                 "resultado.html",
                 datos=datos,
-                nota=nota,
+                nota=nota_html,
                 formatear=formatear_numero,
             )
         except Exception as e:
@@ -345,10 +347,11 @@ def comparador():
                 )
 
             analisis = generar_analisis_comparativo(datos_empresas)
+            analisis_html = markdown.markdown(analisis)
             return render_template(
                 "comparador_resultado.html",
                 datos_empresas=datos_empresas,
-                analisis=analisis,
+                analisis=analisis_html,
                 errores=errores,
                 formatear=formatear_numero,
             )

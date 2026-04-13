@@ -11,7 +11,7 @@
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <form method="POST" action="/descargar_word" style="display: inline;">
             <input type="hidden" name="ticker" value="{{ datos.ticker }}">
-            <button type="submit" class="btn btn-success" onclick="showLoading()">Descargar Word</button>
+            <button type="submit" class="btn btn-success" onclick="showDownloadLoading()">Descargar Word</button>
         </form>
         <a href="/analisis" class="btn btn-secondary">Nuevo análisis</a>
     </div>
@@ -73,6 +73,6 @@
 
 <div class="card">
     <h2>Nota de Memoria Explicativa</h2>
-    <div class="nota-memoria">{{ nota }}</div>
+    <div class="nota-memoria">{{ nota|safe }}</div>
 </div>
 {% endblock %}
