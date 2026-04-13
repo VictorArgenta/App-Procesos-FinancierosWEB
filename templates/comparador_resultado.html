@@ -15,7 +15,7 @@
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <form method="POST" action="/descargar_comparativo" style="display: inline;">
             <input type="hidden" name="tickers" value="{{ datos_empresas | map(attribute='ticker') | join(',') }}">
-            <button type="submit" class="btn btn-success" onclick="showLoading()">Descargar Word</button>
+            <button type="submit" class="btn btn-success" onclick="showDownloadLoading()">Descargar Word</button>
         </form>
         <a href="/comparador" class="btn btn-secondary">Nueva comparación</a>
     </div>
@@ -89,6 +89,6 @@
 
 <div class="card">
     <h2>Análisis Comparativo</h2>
-    <div class="nota-memoria">{{ analisis }}</div>
+    <div class="nota-memoria">{{ analisis|safe }}</div>
 </div>
 {% endblock %}
