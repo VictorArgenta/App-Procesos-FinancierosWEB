@@ -1,5 +1,6 @@
 import os
 import io
+import time
 import uuid
 import markdown
 from flask import Flask, render_template, request, send_file
@@ -18,6 +19,58 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # Cache en memoria para evitar re-llamar a las APIs al descargar Word
 _download_cache = {}
+
+
+def llamar_claude_con_reintentos(prompt, max_tokens, max_reintentos=4):
+    """Llama a la API de Anthropic con reintentos y backoff exponencial.
+
+    Reintenta automáticamente en errores transitorios (529 overloaded, 429
+    rate limit, 500, 503). En el último intento relanza la excepción con
+    un mensaje amigable en español.
+    """
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, max_retries=0)
+    errores_reintentables = (
+        anthropic.APIStatusError,
+        anthropic.APIConnectionError,
+        anthropic.RateLimitError,
+    )
+    status_reintentables = {429, 500, 502, 503, 504, 529}
+
+    ultimo_error = None
+    for intento in range(max_reintentos):
+        try:
+            message = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=max_tokens,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return message.content[0].text
+        except errores_reintentables as e:
+            ultimo_error = e
+            status = getattr(e, "status_code", None)
+            if status is not None and status not in status_reintentables:
+                raise
+            if intento < max_reintentos - 1:
+                espera = 2 ** intento  # 1s, 2s, 4s, 8s
+                time.sleep(espera)
+                continue
+            break
+
+    if ultimo_error is not None:
+        status = getattr(ultimo_error, "status_code", None)
+        if status == 529:
+            raise RuntimeError(
+                "El servicio de IA está sobrecargado en este momento. "
+                "Por favor, inténtalo de nuevo en unos segundos."
+            )
+        if status == 429:
+            raise RuntimeError(
+                "Se ha superado el límite de peticiones a la IA. "
+                "Por favor, espera un momento antes de volver a intentarlo."
+            )
+        raise RuntimeError(
+            f"Error al comunicar con el servicio de IA: {str(ultimo_error)}"
+        )
 
 
 def obtener_datos_financieros(ticker_symbol):
@@ -87,8 +140,6 @@ def obtener_datos_financieros(ticker_symbol):
 
 def generar_nota_memoria(datos):
     """Genera nota de memoria explicativa usando la API de Anthropic."""
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
     tabla_texto = f"Empresa: {datos['nombre']} ({datos['ticker']})\n\n"
     for p in datos["periodos"]:
         tabla_texto += f"""Periodo: {p['periodo']}
@@ -100,30 +151,19 @@ def generar_nota_memoria(datos):
   Beneficio neto: {p['beneficio_neto']:,.0f} ({p['pct_beneficio_neto']}%)
 """
 
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2000,
-        messages=[
-            {
-                "role": "user",
-                "content": f"""Eres un analista financiero experto. Genera una nota de memoria explicativa
+    prompt = f"""Eres un analista financiero experto. Genera una nota de memoria explicativa
 en español sobre los resultados financieros de la siguiente empresa.
 La nota debe ser profesional, incluir análisis de tendencias entre periodos,
 destacar fortalezas y debilidades, y ofrecer una conclusión.
 
 Datos financieros:
-{tabla_texto}""",
-            }
-        ],
-    )
+{tabla_texto}"""
 
-    return message.content[0].text
+    return llamar_claude_con_reintentos(prompt, max_tokens=2000)
 
 
 def generar_analisis_comparativo(datos_empresas):
     """Genera un análisis comparativo de hasta 3 empresas usando Anthropic."""
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
     texto = ""
     for datos in datos_empresas:
         texto += f"\n{'='*50}\nEmpresa: {datos['nombre']} ({datos['ticker']})\n"
@@ -137,24 +177,15 @@ def generar_analisis_comparativo(datos_empresas):
   Beneficio neto: {p['beneficio_neto']:,.0f} ({p['pct_beneficio_neto']}%)
 """
 
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=2500,
-        messages=[
-            {
-                "role": "user",
-                "content": f"""Eres un analista financiero experto. Genera un análisis comparativo detallado
+    prompt = f"""Eres un analista financiero experto. Genera un análisis comparativo detallado
 en español de las siguientes empresas. Compara sus métricas financieras, identifica
 cuál tiene mejor rendimiento en cada categoría, analiza las diferencias en márgenes
 y rentabilidad, y ofrece una conclusión sobre cuál presenta mejor salud financiera.
 
 Datos financieros comparativos:
-{texto}""",
-            }
-        ],
-    )
+{texto}"""
 
-    return message.content[0].text
+    return llamar_claude_con_reintentos(prompt, max_tokens=2500)
 
 
 def crear_documento_word(datos, nota):
