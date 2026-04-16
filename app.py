@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import time
 import uuid
 import markdown
@@ -240,6 +241,14 @@ en español sobre los resultados financieros de la siguiente empresa.
 La nota debe ser profesional, incluir análisis de tendencias entre periodos,
 destacar fortalezas y debilidades, y ofrecer una conclusión.
 
+Reglas de formato OBLIGATORIAS:
+- NO uses tablas Markdown (prohibidos los caracteres `|`, `---`, `:---:`).
+- NO uses bloques de código ni triple acento grave.
+- Estructura el contenido con encabezados Markdown `## Sección` y `### Subsección`.
+- Usa párrafos en prosa profesional y listas con guion `-` cuando enumeres puntos.
+- Usa `**negrita**` para resaltar términos clave (no más de uno o dos por párrafo).
+- Cifras siempre con separadores de miles y unidades (millones / %).
+
 Datos financieros:
 {tabla_texto}"""
 
@@ -266,10 +275,93 @@ en español de las siguientes empresas. Compara sus métricas financieras, ident
 cuál tiene mejor rendimiento en cada categoría, analiza las diferencias en márgenes
 y rentabilidad, y ofrece una conclusión sobre cuál presenta mejor salud financiera.
 
+Reglas de formato OBLIGATORIAS:
+- NO uses tablas Markdown (prohibidos los caracteres `|`, `---`, `:---:`).
+- NO uses bloques de código ni triple acento grave.
+- Estructura el contenido con encabezados Markdown `## Sección` y `### Subsección`.
+- Usa párrafos en prosa profesional y listas con guion `-` cuando enumeres puntos.
+- Usa `**negrita**` para resaltar términos clave (no más de uno o dos por párrafo).
+- Cifras siempre con separadores de miles y unidades (millones / %).
+
 Datos financieros comparativos:
 {texto}"""
 
     return llamar_ia_con_reintentos(prompt, max_tokens=2500, modelo=modelo)
+
+
+_RE_TABLA_MD = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$")
+_RE_INLINE = re.compile(r"(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)")
+
+
+def _añadir_runs_con_formato(paragraph, texto):
+    """Añade runs al párrafo aplicando **negrita**, *cursiva* y `código`."""
+    for parte in _RE_INLINE.split(texto):
+        if not parte:
+            continue
+        if parte.startswith("**") and parte.endswith("**") and len(parte) > 4:
+            run = paragraph.add_run(parte[2:-2])
+            run.bold = True
+        elif parte.startswith("*") and parte.endswith("*") and len(parte) > 2:
+            run = paragraph.add_run(parte[1:-1])
+            run.italic = True
+        elif parte.startswith("`") and parte.endswith("`") and len(parte) > 2:
+            run = paragraph.add_run(parte[1:-1])
+            run.font.name = "Consolas"
+        else:
+            paragraph.add_run(parte)
+
+
+def añadir_markdown_a_docx(doc, texto):
+    """Convierte texto Markdown ligero a párrafos Word con encabezados y listas.
+
+    Soporta encabezados `#`/`##`/`###`, listas con `-`/`*`/numeradas, y
+    formato inline `**negrita**`, `*cursiva*` y `` `código` ``. Las filas de
+    tablas Markdown se transforman en líneas legibles separadas por ` · `.
+    """
+    if not texto:
+        return
+
+    lineas = texto.replace("\r\n", "\n").split("\n")
+    for linea in lineas:
+        stripped = linea.strip()
+        if not stripped:
+            continue
+        # Filas separadoras de tabla Markdown: |---|---|
+        if _RE_TABLA_MD.match(stripped):
+            continue
+        # Filas de tabla Markdown: convertir a "celda1 · celda2 · celda3"
+        if stripped.startswith("|") and stripped.endswith("|") and stripped.count("|") >= 2:
+            celdas = [c.strip() for c in stripped.strip("|").split("|")]
+            celdas = [c for c in celdas if c]
+            if celdas:
+                p = doc.add_paragraph()
+                _añadir_runs_con_formato(p, " · ".join(celdas))
+            continue
+        # Encabezados
+        if stripped.startswith("### "):
+            doc.add_heading(stripped[4:].strip(" *"), level=3)
+            continue
+        if stripped.startswith("## "):
+            doc.add_heading(stripped[3:].strip(" *"), level=2)
+            continue
+        if stripped.startswith("# "):
+            doc.add_heading(stripped[2:].strip(" *"), level=1)
+            continue
+        # Listas con viñetas
+        m = re.match(r"^[-*]\s+(.*)", stripped)
+        if m:
+            p = doc.add_paragraph(style="List Bullet")
+            _añadir_runs_con_formato(p, m.group(1))
+            continue
+        # Listas numeradas
+        m = re.match(r"^\d+\.\s+(.*)", stripped)
+        if m:
+            p = doc.add_paragraph(style="List Number")
+            _añadir_runs_con_formato(p, m.group(1))
+            continue
+        # Párrafo normal
+        p = doc.add_paragraph()
+        _añadir_runs_con_formato(p, stripped)
 
 
 def crear_documento_word(datos, nota):
@@ -322,7 +414,7 @@ def crear_documento_word(datos, nota):
 
     doc.add_paragraph("")
     doc.add_heading("Nota de Memoria Explicativa", level=1)
-    doc.add_paragraph(nota)
+    añadir_markdown_a_docx(doc, nota)
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -382,7 +474,7 @@ def crear_documento_comparativo(datos_empresas, analisis):
 
     doc.add_paragraph("")
     doc.add_heading("Análisis Comparativo", level=1)
-    doc.add_paragraph(analisis)
+    añadir_markdown_a_docx(doc, analisis)
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -427,7 +519,7 @@ def analisis():
                 )
 
             nota = generar_nota_memoria(datos, modelo)
-            nota_html = markdown.markdown(nota)
+            nota_html = markdown.markdown(nota, extensions=["tables", "fenced_code", "sane_lists"])
 
             cache_id = str(uuid.uuid4())
             _download_cache[cache_id] = {"datos": datos, "nota": nota}
@@ -484,7 +576,7 @@ def comparador():
                 )
 
             analisis = generar_analisis_comparativo(datos_empresas, modelo)
-            analisis_html = markdown.markdown(analisis)
+            analisis_html = markdown.markdown(analisis, extensions=["tables", "fenced_code", "sane_lists"])
 
             cache_id = str(uuid.uuid4())
             _download_cache[cache_id] = {
