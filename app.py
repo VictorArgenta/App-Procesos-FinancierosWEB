@@ -36,6 +36,10 @@ MODELOS_GOOGLE = {
 MODELOS_DISPONIBLES = MODELOS_ANTHROPIC | MODELOS_GOOGLE
 MODELO_POR_DEFECTO = "claude-sonnet-4-6"
 
+# Regex compartidas para detectar tablas Markdown producidas por la IA
+_RE_TABLA_SEP_MD = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$")
+_RE_TABLA_FILA_MD = re.compile(r"^\s*\|.+\|\s*$")
+
 # Cache en memoria para evitar re-llamar a las APIs al descargar Word
 _download_cache = {}
 
@@ -99,10 +103,50 @@ def llamar_claude_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
         )
 
 
+def _extraer_texto_gemini(respuesta):
+    """Extrae texto de una respuesta Gemini, o relanza un error legible.
+
+    Maneja los casos en que `response.text` falla por bloqueo de seguridad,
+    truncado por `MAX_TOKENS`, o candidatos vacíos.
+    """
+    candidatos = getattr(respuesta, "candidates", None) or []
+    if not candidatos:
+        prompt_feedback = getattr(respuesta, "prompt_feedback", None)
+        raise RuntimeError(
+            f"Gemini no devolvió respuesta. Detalle: {prompt_feedback}"
+        )
+
+    candidato = candidatos[0]
+    partes = []
+    contenido = getattr(candidato, "content", None)
+    if contenido and getattr(contenido, "parts", None):
+        for parte in contenido.parts:
+            texto_parte = getattr(parte, "text", None)
+            if texto_parte:
+                partes.append(texto_parte)
+
+    texto = "".join(partes).strip()
+    if texto:
+        return texto
+
+    finish_reason = getattr(candidato, "finish_reason", None)
+    if finish_reason and str(finish_reason).endswith("MAX_TOKENS"):
+        raise RuntimeError(
+            "Gemini agotó el presupuesto de tokens antes de producir texto "
+            "(probablemente por el proceso de razonamiento interno). "
+            "Inténtalo de nuevo o selecciona otro modelo."
+        )
+    raise RuntimeError(
+        f"Gemini no generó texto (finish_reason={finish_reason})."
+    )
+
+
 def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
     """Llama a la API de Google Gemini con reintentos y backoff exponencial.
 
     Reintenta en errores transitorios (429 rate limit, 500, 503, timeouts).
+    Los modelos Gemini 2.5 usan tokens adicionales para "thinking", por lo
+    que se aplica un presupuesto de salida generoso.
     """
     if not GOOGLE_API_KEY:
         raise RuntimeError(
@@ -118,15 +162,22 @@ def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
         google_exceptions.Aborted,
     )
 
+    # Los modelos Gemini 2.5 consumen tokens en razonamiento interno antes
+    # de emitir texto. Se amplía el presupuesto a 4x o un mínimo de 8192.
+    max_output_tokens = max(max_tokens * 4, 8192)
+
     ultimo_error = None
     for intento in range(max_reintentos):
         try:
             cliente = genai.GenerativeModel(modelo)
             respuesta = cliente.generate_content(
                 prompt,
-                generation_config={"max_output_tokens": max_tokens},
+                generation_config={
+                    "max_output_tokens": max_output_tokens,
+                    "temperature": 0.7,
+                },
             )
-            return respuesta.text
+            return _extraer_texto_gemini(respuesta)
         except errores_reintentables as e:
             ultimo_error = e
             if intento < max_reintentos - 1:
@@ -156,6 +207,57 @@ def llamar_ia_con_reintentos(prompt, max_tokens, modelo):
     if modelo in MODELOS_ANTHROPIC:
         return llamar_claude_con_reintentos(prompt, max_tokens, modelo)
     return llamar_gemini_con_reintentos(prompt, max_tokens, modelo)
+
+
+def _limpiar_respuesta_ia(texto):
+    """Saneamiento post-hoc de la respuesta del modelo.
+
+    Elimina bloques de código y convierte cualquier tabla Markdown que el
+    modelo haya emitido (pese a las instrucciones) en una lista con
+    etiquetas claras, preservando los datos sin los caracteres `|` y `---`.
+    """
+    if not texto:
+        return texto
+
+    texto = re.sub(r"```[^\n`]*\n?", "", texto)
+    texto = texto.replace("```", "")
+
+    lineas = texto.split("\n")
+    resultado = []
+    encabezados_tabla = None
+
+    for linea in lineas:
+        stripped = linea.strip()
+
+        if _RE_TABLA_SEP_MD.match(stripped):
+            # Fila separadora: descarta y marca que lo siguiente es cuerpo
+            continue
+
+        if _RE_TABLA_FILA_MD.match(stripped) and stripped.count("|") >= 2:
+            celdas = [c.strip() for c in stripped.strip("|").split("|")]
+            celdas = [c for c in celdas if c]
+            if not celdas:
+                continue
+            if encabezados_tabla is None:
+                encabezados_tabla = celdas
+                continue
+            if len(celdas) == len(encabezados_tabla):
+                partes = [
+                    f"**{h}:** {v}" for h, v in zip(encabezados_tabla, celdas)
+                ]
+                resultado.append("- " + " — ".join(partes))
+            else:
+                resultado.append("- " + " · ".join(celdas))
+            continue
+
+        # Línea fuera de tabla: reinicia el tracking de encabezados
+        encabezados_tabla = None
+        resultado.append(linea)
+
+    # Colapsa múltiples líneas en blanco a una sola
+    limpio = "\n".join(resultado)
+    limpio = re.sub(r"\n{3,}", "\n\n", limpio).strip()
+    return limpio
 
 
 def obtener_datos_financieros(ticker_symbol):
@@ -241,18 +343,22 @@ en español sobre los resultados financieros de la siguiente empresa.
 La nota debe ser profesional, incluir análisis de tendencias entre periodos,
 destacar fortalezas y debilidades, y ofrecer una conclusión.
 
-Reglas de formato OBLIGATORIAS:
-- NO uses tablas Markdown (prohibidos los caracteres `|`, `---`, `:---:`).
-- NO uses bloques de código ni triple acento grave.
+Reglas de formato OBLIGATORIAS (bajo ningún concepto las infrinjas):
+- PROHIBIDO usar tablas Markdown: no escribas NUNCA los caracteres `|`, `---` o `:---:`.
+- En lugar de tablas, usa listas con guion `-` y negritas para las etiquetas, por ejemplo:
+  `- **FY2024:** ingresos de 60.922 M USD (+125,8% interanual).`
+- NO uses bloques de código ni acentos graves triples.
 - Estructura el contenido con encabezados Markdown `## Sección` y `### Subsección`.
-- Usa párrafos en prosa profesional y listas con guion `-` cuando enumeres puntos.
-- Usa `**negrita**` para resaltar términos clave (no más de uno o dos por párrafo).
+- Usa párrafos en prosa profesional; resalta términos clave con `**negrita**` (uno o dos por párrafo).
 - Cifras siempre con separadores de miles y unidades (millones / %).
+- Asegúrate de cerrar todas las secciones: termina con una sección final de "## Conclusión".
 
 Datos financieros:
 {tabla_texto}"""
 
-    return llamar_ia_con_reintentos(prompt, max_tokens=2000, modelo=modelo)
+    return _limpiar_respuesta_ia(
+        llamar_ia_con_reintentos(prompt, max_tokens=4000, modelo=modelo)
+    )
 
 
 def generar_analisis_comparativo(datos_empresas, modelo):
@@ -275,21 +381,24 @@ en español de las siguientes empresas. Compara sus métricas financieras, ident
 cuál tiene mejor rendimiento en cada categoría, analiza las diferencias en márgenes
 y rentabilidad, y ofrece una conclusión sobre cuál presenta mejor salud financiera.
 
-Reglas de formato OBLIGATORIAS:
-- NO uses tablas Markdown (prohibidos los caracteres `|`, `---`, `:---:`).
-- NO uses bloques de código ni triple acento grave.
+Reglas de formato OBLIGATORIAS (bajo ningún concepto las infrinjas):
+- PROHIBIDO usar tablas Markdown: no escribas NUNCA los caracteres `|`, `---` o `:---:`.
+- En lugar de tablas, usa listas con guion `-` y negritas para las etiquetas, por ejemplo:
+  `- **Margen bruto:** Empresa A 45,2% vs Empresa B 38,1%.`
+- NO uses bloques de código ni acentos graves triples.
 - Estructura el contenido con encabezados Markdown `## Sección` y `### Subsección`.
-- Usa párrafos en prosa profesional y listas con guion `-` cuando enumeres puntos.
-- Usa `**negrita**` para resaltar términos clave (no más de uno o dos por párrafo).
+- Usa párrafos en prosa profesional; resalta términos clave con `**negrita**` (uno o dos por párrafo).
 - Cifras siempre con separadores de miles y unidades (millones / %).
+- Asegúrate de cerrar todas las secciones: termina con una sección final de "## Conclusión".
 
 Datos financieros comparativos:
 {texto}"""
 
-    return llamar_ia_con_reintentos(prompt, max_tokens=2500, modelo=modelo)
+    return _limpiar_respuesta_ia(
+        llamar_ia_con_reintentos(prompt, max_tokens=5000, modelo=modelo)
+    )
 
 
-_RE_TABLA_MD = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$")
 _RE_INLINE = re.compile(r"(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)")
 
 
@@ -327,7 +436,7 @@ def añadir_markdown_a_docx(doc, texto):
         if not stripped:
             continue
         # Filas separadoras de tabla Markdown: |---|---|
-        if _RE_TABLA_MD.match(stripped):
+        if _RE_TABLA_SEP_MD.match(stripped):
             continue
         # Filas de tabla Markdown: convertir a "celda1 · celda2 · celda3"
         if stripped.startswith("|") and stripped.endswith("|") and stripped.count("|") >= 2:
