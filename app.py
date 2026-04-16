@@ -7,6 +7,8 @@ from flask import Flask, render_template, request, send_file
 from dotenv import load_dotenv
 import yfinance as yf
 import anthropic
+import google.generativeai as genai
+from google.api_core import exceptions as google_exceptions
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -16,12 +18,35 @@ load_dotenv()
 app = Flask(__name__)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
+if GOOGLE_API_KEY:
+    genai.configure(api_key=GOOGLE_API_KEY)
+
+MODELOS_ANTHROPIC = {
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5-20251001",
+}
+MODELOS_GOOGLE = {
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+}
+MODELOS_DISPONIBLES = MODELOS_ANTHROPIC | MODELOS_GOOGLE
+MODELO_POR_DEFECTO = "claude-sonnet-4-6"
 
 # Cache en memoria para evitar re-llamar a las APIs al descargar Word
 _download_cache = {}
 
 
-def llamar_claude_con_reintentos(prompt, max_tokens, max_reintentos=4):
+def _normalizar_modelo(modelo):
+    """Devuelve el modelo si es válido, o el modelo por defecto."""
+    if modelo in MODELOS_DISPONIBLES:
+        return modelo
+    return MODELO_POR_DEFECTO
+
+
+def llamar_claude_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
     """Llama a la API de Anthropic con reintentos y backoff exponencial.
 
     Reintenta automáticamente en errores transitorios (529 overloaded, 429
@@ -40,7 +65,7 @@ def llamar_claude_con_reintentos(prompt, max_tokens, max_reintentos=4):
     for intento in range(max_reintentos):
         try:
             message = client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model=modelo,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -71,6 +96,65 @@ def llamar_claude_con_reintentos(prompt, max_tokens, max_reintentos=4):
         raise RuntimeError(
             f"Error al comunicar con el servicio de IA: {str(ultimo_error)}"
         )
+
+
+def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
+    """Llama a la API de Google Gemini con reintentos y backoff exponencial.
+
+    Reintenta en errores transitorios (429 rate limit, 500, 503, timeouts).
+    """
+    if not GOOGLE_API_KEY:
+        raise RuntimeError(
+            "No se ha configurado GOOGLE_API_KEY en el archivo .env. "
+            "Añádela para usar los modelos de Google Gemini."
+        )
+
+    errores_reintentables = (
+        google_exceptions.ResourceExhausted,
+        google_exceptions.ServiceUnavailable,
+        google_exceptions.InternalServerError,
+        google_exceptions.DeadlineExceeded,
+        google_exceptions.Aborted,
+    )
+
+    ultimo_error = None
+    for intento in range(max_reintentos):
+        try:
+            cliente = genai.GenerativeModel(modelo)
+            respuesta = cliente.generate_content(
+                prompt,
+                generation_config={"max_output_tokens": max_tokens},
+            )
+            return respuesta.text
+        except errores_reintentables as e:
+            ultimo_error = e
+            if intento < max_reintentos - 1:
+                espera = 2 ** intento  # 1s, 2s, 4s, 8s
+                time.sleep(espera)
+                continue
+            break
+
+    if isinstance(ultimo_error, google_exceptions.ResourceExhausted):
+        raise RuntimeError(
+            "Se ha superado el límite de peticiones a la IA. "
+            "Por favor, espera un momento antes de volver a intentarlo."
+        )
+    if isinstance(ultimo_error, google_exceptions.ServiceUnavailable):
+        raise RuntimeError(
+            "El servicio de IA está sobrecargado en este momento. "
+            "Por favor, inténtalo de nuevo en unos segundos."
+        )
+    raise RuntimeError(
+        f"Error al comunicar con el servicio de IA: {str(ultimo_error)}"
+    )
+
+
+def llamar_ia_con_reintentos(prompt, max_tokens, modelo):
+    """Despacha la llamada al proveedor de IA según el modelo elegido."""
+    modelo = _normalizar_modelo(modelo)
+    if modelo in MODELOS_ANTHROPIC:
+        return llamar_claude_con_reintentos(prompt, max_tokens, modelo)
+    return llamar_gemini_con_reintentos(prompt, max_tokens, modelo)
 
 
 def obtener_datos_financieros(ticker_symbol):
@@ -138,8 +222,8 @@ def obtener_datos_financieros(ticker_symbol):
     return datos
 
 
-def generar_nota_memoria(datos):
-    """Genera nota de memoria explicativa usando la API de Anthropic."""
+def generar_nota_memoria(datos, modelo):
+    """Genera nota de memoria explicativa usando el modelo de IA elegido."""
     tabla_texto = f"Empresa: {datos['nombre']} ({datos['ticker']})\n\n"
     for p in datos["periodos"]:
         tabla_texto += f"""Periodo: {p['periodo']}
@@ -159,11 +243,11 @@ destacar fortalezas y debilidades, y ofrecer una conclusión.
 Datos financieros:
 {tabla_texto}"""
 
-    return llamar_claude_con_reintentos(prompt, max_tokens=2000)
+    return llamar_ia_con_reintentos(prompt, max_tokens=2000, modelo=modelo)
 
 
-def generar_analisis_comparativo(datos_empresas):
-    """Genera un análisis comparativo de hasta 3 empresas usando Anthropic."""
+def generar_analisis_comparativo(datos_empresas, modelo):
+    """Genera un análisis comparativo de hasta 3 empresas con el modelo elegido."""
     texto = ""
     for datos in datos_empresas:
         texto += f"\n{'='*50}\nEmpresa: {datos['nombre']} ({datos['ticker']})\n"
@@ -185,7 +269,7 @@ y rentabilidad, y ofrece una conclusión sobre cuál presenta mejor salud financ
 Datos financieros comparativos:
 {texto}"""
 
-    return llamar_claude_con_reintentos(prompt, max_tokens=2500)
+    return llamar_ia_con_reintentos(prompt, max_tokens=2500, modelo=modelo)
 
 
 def crear_documento_word(datos, nota):
@@ -325,8 +409,13 @@ def index():
 def analisis():
     if request.method == "POST":
         ticker_symbol = request.form.get("ticker", "").strip().upper()
+        modelo = _normalizar_modelo(request.form.get("modelo", MODELO_POR_DEFECTO))
         if not ticker_symbol:
-            return render_template("analisis.html", error="Introduce un ticker válido.")
+            return render_template(
+                "analisis.html",
+                error="Introduce un ticker válido.",
+                modelo_seleccionado=modelo,
+            )
 
         try:
             datos = obtener_datos_financieros(ticker_symbol)
@@ -334,9 +423,10 @@ def analisis():
                 return render_template(
                     "analisis.html",
                     error=f"No se encontraron datos financieros para '{ticker_symbol}'.",
+                    modelo_seleccionado=modelo,
                 )
 
-            nota = generar_nota_memoria(datos)
+            nota = generar_nota_memoria(datos, modelo)
             nota_html = markdown.markdown(nota)
 
             cache_id = str(uuid.uuid4())
@@ -350,9 +440,13 @@ def analisis():
                 formatear=formatear_numero,
             )
         except Exception as e:
-            return render_template("analisis.html", error=f"Error: {str(e)}")
+            return render_template(
+                "analisis.html",
+                error=f"Error: {str(e)}",
+                modelo_seleccionado=modelo,
+            )
 
-    return render_template("analisis.html")
+    return render_template("analisis.html", modelo_seleccionado=MODELO_POR_DEFECTO)
 
 
 @app.route("/comparador", methods=["GET", "POST"])
@@ -363,11 +457,13 @@ def comparador():
             t = request.form.get(f"ticker{i}", "").strip().upper()
             if t:
                 tickers.append(t)
+        modelo = _normalizar_modelo(request.form.get("modelo", MODELO_POR_DEFECTO))
 
         if len(tickers) < 2:
             return render_template(
                 "comparador.html",
                 error="Introduce al menos 2 tickers para comparar.",
+                modelo_seleccionado=modelo,
             )
 
         try:
@@ -384,9 +480,10 @@ def comparador():
                 return render_template(
                     "comparador.html",
                     error="No se pudieron obtener datos suficientes. " + "; ".join(errores),
+                    modelo_seleccionado=modelo,
                 )
 
-            analisis = generar_analisis_comparativo(datos_empresas)
+            analisis = generar_analisis_comparativo(datos_empresas, modelo)
             analisis_html = markdown.markdown(analisis)
 
             cache_id = str(uuid.uuid4())
@@ -404,9 +501,13 @@ def comparador():
                 formatear=formatear_numero,
             )
         except Exception as e:
-            return render_template("comparador.html", error=f"Error: {str(e)}")
+            return render_template(
+                "comparador.html",
+                error=f"Error: {str(e)}",
+                modelo_seleccionado=modelo,
+            )
 
-    return render_template("comparador.html")
+    return render_template("comparador.html", modelo_seleccionado=MODELO_POR_DEFECTO)
 
 
 @app.route("/descargar_word", methods=["POST"])
