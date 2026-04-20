@@ -285,8 +285,19 @@ def obtener_datos_financieros(ticker_symbol):
         return None
 
     nombre = ticker.info.get("shortName", ticker_symbol.upper())
+    moneda = (
+        ticker.info.get("financialCurrency")
+        or ticker.info.get("currency")
+        or ""
+    )
+    moneda = str(moneda).upper().strip() if moneda else ""
 
-    datos = {"ticker": ticker_symbol.upper(), "nombre": nombre, "periodos": []}
+    datos = {
+        "ticker": ticker_symbol.upper(),
+        "nombre": nombre,
+        "moneda": moneda,
+        "periodos": [],
+    }
 
     columnas = income_stmt.columns[:4]  # Últimos 4 periodos disponibles
 
@@ -570,7 +581,9 @@ def _figura_a_bytes(fig):
 def _chart_png_ingresos(graficos):
     fig, ax = plt.subplots(figsize=(6.4, 3.6))
     ax.bar(graficos["labels"], graficos["ingresos"], color=_MPL_GREEN, edgecolor=_MPL_GREEN_DARK)
-    ax.set_title("Evolución de ingresos", fontsize=11, fontweight="bold", loc="left", color=_MPL_BLACK)
+    moneda = graficos.get("moneda", "")
+    titulo = "Evolución de ingresos" + (f" ({moneda})" if moneda else "")
+    ax.set_title(titulo, fontsize=11, fontweight="bold", loc="left", color=_MPL_BLACK)
     ax.yaxis.set_major_formatter(FuncFormatter(_formato_eje_cifra))
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -610,8 +623,10 @@ def _chart_png_estructura(graficos):
     for t in autotexts:
         t.set_color("white")
         t.set_fontsize(9)
+    moneda = graficos.get("moneda", "")
+    sufijo_moneda = f" — {moneda}" if moneda else ""
     ax.set_title(
-        f"Estructura de costes — {graficos['estructura_costes']['periodo']}",
+        f"Estructura de costes — {graficos['estructura_costes']['periodo']}{sufijo_moneda}",
         fontsize=11, fontweight="bold", loc="left", color=_MPL_BLACK,
     )
     ax.legend(wedges, etiquetas, loc="center left", bbox_to_anchor=(1.0, 0.5), frameon=False, fontsize=8.5)
@@ -625,8 +640,10 @@ def _chart_png_metricas(graficos):
     colores = [_MPL_BLACK, _MPL_GREEN_DARK, _MPL_GREEN, _MPL_ORANGE][: len(labels)]
     bars = ax.barh(labels, valores, color=colores, edgecolor="white")
     ax.invert_yaxis()
+    moneda = graficos.get("moneda", "")
+    sufijo_moneda = f" — {moneda}" if moneda else ""
     ax.set_title(
-        f"Métricas clave — {graficos['metricas_clave']['periodo']}",
+        f"Métricas clave — {graficos['metricas_clave']['periodo']}{sufijo_moneda}",
         fontsize=11, fontweight="bold", loc="left", color=_MPL_BLACK,
     )
     ax.xaxis.set_major_formatter(FuncFormatter(_formato_eje_cifra))
@@ -708,7 +725,7 @@ def añadir_markdown_a_docx(doc, texto):
         _añadir_runs_con_formato(p, stripped)
 
 
-def _añadir_tabla_datos_word(doc, datos):
+def _añadir_tabla_datos_word(doc, datos, escala):
     """Añade la tabla de datos con anchuras fijas para que no se corte."""
     from docx.oxml.ns import qn
     from docx.oxml import OxmlElement
@@ -723,7 +740,6 @@ def _añadir_tabla_datos_word(doc, datos):
     layout.set(qn("w:type"), "fixed")
     tblPr.append(layout)
 
-    ancho_util = Inches(6.3)  # A4 con márgenes ~1.1" por lado
     ancho_metrica = Inches(1.8)
     n_periodos = max(len(datos["periodos"]), 1)
     ancho_periodo = Inches((6.3 - 1.8) / n_periodos)
@@ -750,9 +766,9 @@ def _añadir_tabla_datos_word(doc, datos):
         row.cells[0].text = nombre_metrica
         row.cells[0].width = ancho_metrica
         for i, p in enumerate(datos["periodos"]):
-            valor = f"{p[key]:,.0f}"
+            valor = formatear_importe_escalado(p[key], escala)
             if pct_key:
-                valor += f" ({p[pct_key]}%)"
+                valor += f" ({formatear_pct_es(p[pct_key])})"
             row.cells[i + 1].text = valor
             row.cells[i + 1].width = ancho_periodo
         for cell in row.cells:
@@ -830,11 +846,24 @@ def crear_documento_word(datos, nota):
     for run in titulo.runs:
         run.font.color.rgb = RGBColor(0x43, 0xB0, 0x2A)
 
-    doc.add_paragraph(f"Ticker: {datos['ticker']}")
+    escala = determinar_escala_tabla(datos)
+    moneda = datos.get("moneda") or ""
+    subtitulo = doc.add_paragraph()
+    run = subtitulo.add_run(f"Ticker: {datos['ticker']}")
+    run.font.bold = True
+    if moneda:
+        subtitulo.add_run(f"  ·  Moneda de reporting: {moneda}")
     doc.add_paragraph("")
 
     doc.add_heading("Datos Financieros", level=1)
-    _añadir_tabla_datos_word(doc, datos)
+    etiqueta = etiqueta_unidad(escala, moneda)
+    if etiqueta:
+        p = doc.add_paragraph()
+        r = p.add_run(etiqueta)
+        r.italic = True
+        r.font.size = Pt(9)
+        r.font.color.rgb = RGBColor(0x53, 0x56, 0x5A)
+    _añadir_tabla_datos_word(doc, datos, escala)
     doc.add_paragraph("")
 
     doc.add_heading("Nota de Memoria Explicativa", level=1)
@@ -869,27 +898,72 @@ def crear_documento_comparativo(datos_empresas, analisis):
     font.name = "Calibri"
     font.size = Pt(11)
 
+    for section in doc.sections:
+        section.left_margin = Inches(0.9)
+        section.right_margin = Inches(0.9)
+        section.top_margin = Inches(0.9)
+        section.bottom_margin = Inches(0.9)
+
     titulo = doc.add_heading("Informe Comparativo Financiero", level=0)
     titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
     for run in titulo.runs:
-        run.font.color.rgb = RGBColor(0, 51, 102)
+        run.font.color.rgb = RGBColor(0x43, 0xB0, 0x2A)
 
     empresas_nombres = ", ".join([d["nombre"] for d in datos_empresas])
     doc.add_paragraph(f"Empresas comparadas: {empresas_nombres}")
+
+    # Escala y moneda para el comparativo: se elige la escala a partir del
+    # máximo entre todas las empresas para que la tabla sea comparable.
+    datos_combinados = {
+        "periodos": [d["periodos"][0] for d in datos_empresas if d.get("periodos")]
+    }
+    escala = determinar_escala_tabla(datos_combinados)
+    monedas = sorted({d.get("moneda", "") for d in datos_empresas if d.get("moneda")})
+    moneda_display = ", ".join(monedas) if monedas else ""
+    etiqueta = etiqueta_unidad(escala, moneda_display)
+    if etiqueta:
+        p = doc.add_paragraph()
+        r = p.add_run(etiqueta)
+        r.italic = True
+        r.font.size = Pt(9)
+        r.font.color.rgb = RGBColor(0x53, 0x56, 0x5A)
+        if len(monedas) > 1:
+            warn = doc.add_paragraph()
+            wr = warn.add_run(
+                "Atención: las empresas comparadas reportan en monedas distintas; "
+                "las cifras no se han convertido a una moneda única."
+            )
+            wr.italic = True
+            wr.font.size = Pt(9)
+            wr.font.color.rgb = RGBColor(0xED, 0x8B, 0x00)
     doc.add_paragraph("")
 
     doc.add_heading("Tabla Comparativa", level=1)
 
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+
     headers = ["Métrica"] + [d["nombre"] for d in datos_empresas]
     table = doc.add_table(rows=1, cols=len(headers))
     table.style = "Light Grid Accent 1"
+    table.autofit = False
+    tblPr = table._tbl.tblPr
+    layout = OxmlElement("w:tblLayout")
+    layout.set(qn("w:type"), "fixed")
+    tblPr.append(layout)
+
+    ancho_metrica = Inches(1.8)
+    n_empresas = max(len(datos_empresas), 1)
+    ancho_empresa = Inches((6.3 - 1.8) / n_empresas)
 
     for i, header in enumerate(headers):
         cell = table.rows[0].cells[i]
         cell.text = header
+        cell.width = ancho_metrica if i == 0 else ancho_empresa
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:
                 run.font.bold = True
+                run.font.size = Pt(9.5)
 
     metricas = [
         ("Ingresos", "ingresos", None),
@@ -903,12 +977,18 @@ def crear_documento_comparativo(datos_empresas, analisis):
     for nombre_metrica, key, pct_key in metricas:
         row = table.add_row()
         row.cells[0].text = nombre_metrica
+        row.cells[0].width = ancho_metrica
         for i, datos in enumerate(datos_empresas):
             p = datos["periodos"][0]  # Último periodo
-            valor = f"{p[key]:,.0f}"
+            valor = formatear_importe_escalado(p[key], escala)
             if pct_key:
-                valor += f" ({p[pct_key]}%)"
+                valor += f" ({formatear_pct_es(p[pct_key])})"
             row.cells[i + 1].text = valor
+            row.cells[i + 1].width = ancho_empresa
+        for cell in row.cells:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.size = Pt(9.5)
 
     doc.add_paragraph("")
     doc.add_heading("Análisis Comparativo", level=1)
@@ -1063,7 +1143,7 @@ def _dibujar_branding_pdf(canvas, doc):
     canvas.restoreState()
 
 
-def _construir_tabla_datos_pdf(datos, ancho_total):
+def _construir_tabla_datos_pdf(datos, ancho_total, escala):
     """Construye la tabla de datos financieros para PDF ajustada al ancho dado."""
     headers = ["Métrica"] + [p["periodo"] for p in datos["periodos"]]
     filas_metricas = [
@@ -1078,9 +1158,9 @@ def _construir_tabla_datos_pdf(datos, ancho_total):
     for nombre_metrica, key, pct_key in filas_metricas:
         fila = [nombre_metrica]
         for p in datos["periodos"]:
-            valor = f"{p[key]:,.0f}"
+            valor = formatear_importe_escalado(p[key], escala)
             if pct_key:
-                valor += f" ({p[pct_key]}%)"
+                valor += f" ({formatear_pct_es(p[pct_key])})"
             fila.append(valor)
         body_rows.append(fila)
 
@@ -1142,15 +1222,22 @@ def crear_documento_pdf(datos, nota):
     estilos = _estilos_pdf()
     story = []
 
+    escala = determinar_escala_tabla(datos)
+    moneda = datos.get("moneda") or ""
+
     story.append(Paragraph("INFORME FINANCIERO · NOTA DE MEMORIA", estilos["Eyebrow"]))
     story.append(Paragraph(datos["nombre"], estilos["Title"]))
-    story.append(Paragraph(
-        f"Ticker <b>{datos['ticker']}</b> &nbsp;·&nbsp; {len(datos['periodos'])} ejercicios analizados",
-        estilos["Subtitle"],
-    ))
+    sub = f"Ticker <b>{datos['ticker']}</b> &nbsp;·&nbsp; {len(datos['periodos'])} ejercicios analizados"
+    if moneda:
+        sub += f" &nbsp;·&nbsp; Moneda: <b>{moneda}</b>"
+    story.append(Paragraph(sub, estilos["Subtitle"]))
 
     story.append(Paragraph("Datos financieros — serie histórica", estilos["H1"]))
-    story.append(_construir_tabla_datos_pdf(datos, ancho_disponible))
+    etiqueta = etiqueta_unidad(escala, moneda)
+    if etiqueta:
+        story.append(Paragraph(f"<i>{etiqueta}</i>", estilos["Body"]))
+        story.append(Spacer(1, 4))
+    story.append(_construir_tabla_datos_pdf(datos, ancho_disponible, escala))
     story.append(Spacer(1, 14))
 
     story.append(Paragraph("Nota de memoria explicativa", estilos["H1"]))
@@ -1185,6 +1272,63 @@ def formatear_numero(valor):
         return f"{valor:,.0f}"
 
 
+def _fmt_es(valor, decimales):
+    """Aplica formato español: punto como separador de miles, coma como decimal."""
+    s = f"{valor:,.{decimales}f}"
+    return s.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+
+
+def determinar_escala_tabla(datos):
+    """Escoge una escala común para toda la tabla según la cifra máxima.
+
+    Devuelve un dict con `divisor`, `sufijo` (unidad legible) y `decimales`.
+    Usa la misma escala para todas las filas/columnas para garantizar que
+    los importes caben en la tabla y son comparables entre sí.
+    """
+    vals = []
+    for p in datos.get("periodos", []):
+        for k in ("ingresos", "coste_ventas", "margen_bruto",
+                  "gastos_operativos", "ebitda", "beneficio_neto"):
+            v = p.get(k, 0) or 0
+            vals.append(abs(float(v)))
+    max_v = max(vals) if vals else 0
+
+    if max_v >= 1e12:
+        return {"divisor": 1e9, "sufijo": "miles de millones", "decimales": 2}
+    if max_v >= 1e9:
+        return {"divisor": 1e6, "sufijo": "millones", "decimales": 0}
+    if max_v >= 1e6:
+        return {"divisor": 1e6, "sufijo": "millones", "decimales": 1}
+    if max_v >= 1e3:
+        return {"divisor": 1e3, "sufijo": "miles", "decimales": 0}
+    return {"divisor": 1, "sufijo": "", "decimales": 0}
+
+
+def formatear_importe_escalado(valor, escala):
+    """Formatea un importe aplicando una escala y formato español."""
+    divisor = escala.get("divisor", 1) or 1
+    decimales = escala.get("decimales", 0)
+    return _fmt_es(valor / divisor, decimales)
+
+
+def formatear_pct_es(pct):
+    """Formatea un porcentaje con un decimal y formato español."""
+    return _fmt_es(pct, 1) + "%"
+
+
+def etiqueta_unidad(escala, moneda):
+    """Etiqueta legible del tipo 'Cifras en millones de USD'."""
+    sufijo = escala.get("sufijo", "")
+    moneda = (moneda or "").strip()
+    if sufijo and moneda:
+        return f"Cifras en {sufijo} de {moneda}"
+    if sufijo:
+        return f"Cifras en {sufijo}"
+    if moneda:
+        return f"Cifras en {moneda}"
+    return ""
+
+
 def preparar_datos_graficos(datos):
     """Construye un dict JSON-serializable para renderizar gráficos Chart.js.
 
@@ -1212,6 +1356,7 @@ def preparar_datos_graficos(datos):
 
     return {
         "labels": labels,
+        "moneda": datos.get("moneda", ""),
         "ingresos": [p["ingresos"] for p in periodos_ord],
         "margenes": {
             "margen_bruto": [p["pct_margen_bruto"] for p in periodos_ord],

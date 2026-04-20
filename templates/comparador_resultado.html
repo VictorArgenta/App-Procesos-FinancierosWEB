@@ -34,8 +34,19 @@
 </div>
 {% endif %}
 
+{% set monedas_vistas = datos_empresas | map(attribute='moneda') | select | list | unique | list %}
+
 <div class="card">
     <h2>Tabla comparativa — último ejercicio</h2>
+    {% if monedas_vistas %}
+    <p style="color: var(--gray-10); font-size: 0.82rem; margin: -0.4rem 0 0.8rem; font-style: italic;">
+        Monedas de reporting: <strong>{{ monedas_vistas | join(', ') }}</strong>.
+        Abreviaturas: K = miles, M = millones, B = miles de millones.
+        {% if monedas_vistas|length > 1 %}
+        <br><span style="color: var(--warning);">Atención: las empresas reportan en monedas distintas; las cifras no están convertidas a moneda única.</span>
+        {% endif %}
+    </p>
+    {% endif %}
     <div style="overflow-x: auto;">
         <table class="data-table">
             <thead>
