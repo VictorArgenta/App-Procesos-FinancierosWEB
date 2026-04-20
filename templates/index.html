@@ -1,58 +1,159 @@
 {% extends "base.html" %}
 
-{% block title %}Inicio — Procesos Financieros{% endblock %}
+{% block title %}DFin AI — Plataforma de Inteligencia Financiera{% endblock %}
 
 {% block content %}
-<div style="text-align: center; padding: 3rem 0 2rem;">
-    <h1 style="color: #003366; font-size: 2.5rem; margin-bottom: 0.5rem;">Procesos Financieros</h1>
-    <p style="color: #5a6d80; font-size: 1.15rem; max-width: 600px; margin: 0 auto;">
-        Plataforma de análisis financiero con inteligencia artificial.
-        Obtén datos de mercado en tiempo real y genera informes profesionales.
-    </p>
-</div>
-
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 1.5rem; margin-top: 1rem;">
-    <!-- Card Análisis Individual -->
-    <div class="card" style="border-top: 4px solid #004a99;">
-        <div style="font-size: 2.5rem; margin-bottom: 1rem;">&#128200;</div>
-        <h2>Análisis Individual</h2>
-        <p style="color: #5a6d80; line-height: 1.7; margin-bottom: 1.5rem;">
-            Introduce un ticker bursátil y obtén un desglose completo de sus métricas financieras:
-            ingresos, costes, márgenes, EBITDA y beneficio neto. Incluye una nota de memoria
-            explicativa generada por IA y opción de descarga en Word.
+<section style="background: linear-gradient(135deg, #000 0%, #111 55%, #1a2a08 100%); color: #fff; border-radius: 4px; padding: 3rem 2.5rem; margin-bottom: 1.6rem; position: relative; overflow: hidden;">
+    <div style="position:absolute; right:-60px; top:-60px; width:300px; height:300px; background: radial-gradient(circle, rgba(134,188,37,0.35) 0%, rgba(134,188,37,0) 70%);"></div>
+    <div style="position: relative; max-width: 780px;">
+        <span style="display:inline-block; background: rgba(134,188,37,0.18); color:#86BC25; padding: 4px 14px; border-radius: 2px; font-size: 0.72rem; letter-spacing: 2px; font-weight: 700;">DFIN AI · ENTERPRISE EDITION</span>
+        <h1 style="font-size: 2.4rem; font-weight: 700; margin-top: 1rem; line-height: 1.15;">Inteligencia financiera <span style="color:#86BC25;">impulsada por IA</span> para el corporate moderno.</h1>
+        <p style="color: #bfc1c2; font-size: 1.05rem; margin-top: 1rem; line-height: 1.6; max-width: 640px;">
+            Consolida análisis de estados financieros, planificación presupuestaria, conciliación y vigilancia normativa en un único entorno. DFin AI combina datos de mercado en tiempo real con modelos de IA generativa para entregar reporting y toma de decisiones de alta precisión.
         </p>
-        <ul style="color: #5a6d80; margin-bottom: 1.5rem; padding-left: 1.2rem; line-height: 2;">
-            <li>Datos de Yahoo Finance en tiempo real</li>
-            <li>Tabla con métricas y porcentajes</li>
-            <li>Nota de memoria generada por Claude</li>
-            <li>Descarga en formato Word (.docx)</li>
-        </ul>
-        <a href="/analisis" class="btn btn-primary">Iniciar análisis</a>
+        <div style="margin-top: 1.6rem; display: flex; gap: 0.7rem; flex-wrap: wrap;">
+            <a href="/analisis" class="btn btn-primary">Generar Nota de Memoria</a>
+            <a href="/comparador" class="btn btn-secondary" style="background:#1a1a1a; color:#fff; border-color:#333;">Comparar empresas</a>
+            <a href="/admin" class="btn" style="background: transparent; color: #86BC25; border: 1px solid #86BC25;">Explorar panel</a>
+        </div>
     </div>
+</section>
 
-    <!-- Card Comparador -->
-    <div class="card" style="border-top: 4px solid #22965d;">
-        <div style="font-size: 2.5rem; margin-bottom: 1rem;">&#128202;</div>
-        <h2>Comparador de Empresas</h2>
-        <p style="color: #5a6d80; line-height: 1.7; margin-bottom: 1.5rem;">
-            Compara hasta 3 empresas lado a lado. Visualiza sus métricas financieras principales
-            en una tabla comparativa y recibe un análisis detallado generado por IA que identifica
-            fortalezas, debilidades y la empresa con mejor salud financiera.
-        </p>
-        <ul style="color: #5a6d80; margin-bottom: 1.5rem; padding-left: 1.2rem; line-height: 2;">
-            <li>Comparación de hasta 3 empresas</li>
-            <li>Tabla comparativa lado a lado</li>
-            <li>Análisis comparativo por Claude</li>
-            <li>Descarga del informe comparativo</li>
-        </ul>
-        <a href="/comparador" class="btn btn-success">Comparar empresas</a>
+<div class="kpi-grid">
+    <div class="kpi">
+        <div class="kpi-label">Informes generados · YTD</div>
+        <div class="kpi-value">12.847</div>
+        <div class="kpi-delta">+18,4% vs 2025</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label">Tickers cubiertos</div>
+        <div class="kpi-value">8.620</div>
+        <div class="kpi-delta">Mercados globales</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label">Precisión media IA</div>
+        <div class="kpi-value">97,2 %</div>
+        <div class="kpi-delta">Benchmark interno</div>
+    </div>
+    <div class="kpi">
+        <div class="kpi-label">Tiempo medio de análisis</div>
+        <div class="kpi-value">28 s</div>
+        <div class="kpi-delta">-42% vs proceso manual</div>
     </div>
 </div>
 
-<div class="card" style="margin-top: 1rem; text-align: center; background: linear-gradient(135deg, #f0f6fc, #e8eef4);">
-    <h3 style="color: #003366; margin-bottom: 0.5rem;">Tecnología utilizada</h3>
-    <p style="color: #5a6d80;">
-        Python &middot; Flask &middot; Yahoo Finance &middot; Anthropic Claude &middot; python-docx
-    </p>
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Capacidades</span>
+        <h1>Un portfolio completo para el área financiera</h1>
+        <p class="lead">Seleccione el módulo que desee utilizar. Las funcionalidades marcadas como <span class="tag tag-green">Preview</span> se encuentran en fase de rollout controlado.</p>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.2rem;">
+    <div class="card" style="border-top: 3px solid #86BC25;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <h2>Nota de Memoria</h2>
+            <span class="tag tag-green">Disponible</span>
+        </div>
+        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Desglose completo de métricas financieras de una compañía cotizada, con gráficos interactivos y memoria explicativa generada por IA. Exportable en Word y PDF.</p>
+        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
+            <li>Datos históricos Yahoo Finance</li>
+            <li>Visualización Chart.js (4 gráficos)</li>
+            <li>Selector IA: Claude y Gemini</li>
+            <li>Exportación DOCX y PDF</li>
+        </ul>
+        <div style="margin-top: 1rem;"><a href="/analisis" class="btn btn-primary">Acceder</a></div>
+    </div>
+
+    <div class="card" style="border-top: 3px solid #86BC25;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <h2>Comparador de Empresas</h2>
+            <span class="tag tag-green">Disponible</span>
+        </div>
+        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Compara hasta 3 compañías lado a lado. Benchmark de márgenes, EBITDA y rentabilidad con análisis narrativo de la IA.</p>
+        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
+            <li>Hasta 3 tickers simultáneos</li>
+            <li>Tabla comparativa último ejercicio</li>
+            <li>Análisis cualitativo generado</li>
+            <li>Exportación a Word</li>
+        </ul>
+        <div style="margin-top: 1rem;"><a href="/comparador" class="btn btn-primary">Acceder</a></div>
+    </div>
+
+    <div class="card" style="border-top: 3px solid #A7A8AA;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <h2>Elaboración Presupuesto (ML)</h2>
+            <span class="tag tag-orange">Preview</span>
+        </div>
+        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Genera proyecciones presupuestarias a 12/24/36 meses con modelos de Machine Learning entrenados sobre el histórico corporativo.</p>
+        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
+            <li>Forecasting ARIMA / Prophet / XGBoost</li>
+            <li>Escenarios base, optimista, pesimista</li>
+            <li>Detección automática de estacionalidad</li>
+            <li>Versión final — Q3 2026</li>
+        </ul>
+        <div style="margin-top: 1rem;"><a href="/presupuesto" class="btn btn-outline">Explorar Preview</a></div>
+    </div>
+
+    <div class="card" style="border-top: 3px solid #A7A8AA;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <h2>Conciliación Bancaria</h2>
+            <span class="tag tag-orange">Preview</span>
+        </div>
+        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Matching automático entre extractos bancarios y libro mayor mediante reglas de negocio y fuzzy matching.</p>
+        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
+            <li>Carga de CSV, MT940 y ficheros ERP</li>
+            <li>Conciliación 1-a-1, 1-a-N y N-a-N</li>
+            <li>Aprobación de partidas pendientes</li>
+            <li>Auditoría de movimientos</li>
+        </ul>
+        <div style="margin-top: 1rem;"><a href="/conciliacion" class="btn btn-outline">Explorar Preview</a></div>
+    </div>
+
+    <div class="card" style="border-top: 3px solid #A7A8AA;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <h2>Radar Normativo</h2>
+            <span class="tag tag-orange">Preview</span>
+        </div>
+        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Vigilancia automatizada de novedades regulatorias y fiscales. Alertas por categoría, jurisdicción y nivel de impacto.</p>
+        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
+            <li>Cobertura UE, España, LATAM</li>
+            <li>Fiscal, contable, laboral, ESG</li>
+            <li>Resúmenes ejecutivos con IA</li>
+            <li>Feed por email y Teams</li>
+        </ul>
+        <div style="margin-top: 1rem;"><a href="/radar-normativo" class="btn btn-outline">Explorar Preview</a></div>
+    </div>
+
+    <div class="card" style="border-top: 3px solid #A7A8AA;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <h2>Noticias del Sector</h2>
+            <span class="tag tag-orange">Preview</span>
+        </div>
+        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Buscador inteligente de noticias financieras del sector. Agregación multi-fuente y clustering temático.</p>
+        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
+            <li>Reuters, Bloomberg, Expansión, FT</li>
+            <li>Filtros por sector, empresa, geografía</li>
+            <li>Resumen IA por cluster</li>
+            <li>Alertas personalizadas</li>
+        </ul>
+        <div style="margin-top: 1rem;"><a href="/noticias" class="btn btn-outline">Explorar Preview</a></div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 1.5rem; background: linear-gradient(135deg, #fff 0%, #f5f5f4 100%); border-left: 4px solid #86BC25;">
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: center;">
+        <div>
+            <span class="eyebrow" style="color:#43B02A; text-transform:uppercase; letter-spacing:2px; font-size:0.72rem; font-weight:700;">PLATAFORMA</span>
+            <h2 style="margin: 0.4rem 0;">Diseñado para equipos financieros exigentes</h2>
+            <p style="color: var(--gray-10); line-height: 1.6;">Arquitectura cloud-native, SSO corporativo, trazabilidad auditable y controles de acceso granulares. Totalmente compatible con entornos SOX y GDPR.</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap: 0.5rem; text-align:right;">
+            <span class="tag tag-black">SOC 2 Type II</span>
+            <span class="tag tag-black">ISO 27001</span>
+            <span class="tag tag-black">GDPR · SOX Ready</span>
+        </div>
+    </div>
 </div>
 {% endblock %}

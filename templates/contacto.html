@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Contacto — DFin AI{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span class="current">Contacto</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Soporte corporativo</span>
+        <h1>Hablemos de su transformación financiera</h1>
+        <p class="lead">Nuestro equipo estará encantado de mostrarle una demo personalizada, evaluar su roadmap de digitalización financiera o resolver cualquier incidencia del servicio.</p>
+    </div>
+</div>
+
+{% if enviado %}
+<div class="alert alert-success">
+    <strong>Mensaje enviado correctamente.</strong> Un asesor de DFin AI se pondrá en contacto con usted en menos de 24 horas laborables.
+</div>
+{% endif %}
+
+<div style="display:grid; grid-template-columns: 1.4fr 1fr; gap: 1.2rem;">
+    <div class="card">
+        <h2>Formulario de contacto</h2>
+        <form method="POST" action="/contacto">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+                <div class="form-group">
+                    <label for="nombre">Nombre completo</label>
+                    <input type="text" id="nombre" name="nombre" required placeholder="Nombre y apellidos">
+                </div>
+                <div class="form-group">
+                    <label for="empresa">Empresa</label>
+                    <input type="text" id="empresa" name="empresa" required placeholder="Razón social">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email corporativo</label>
+                    <input type="email" id="email" name="email" required placeholder="nombre@empresa.com">
+                </div>
+                <div class="form-group">
+                    <label for="telefono">Teléfono</label>
+                    <input type="text" id="telefono" name="telefono" placeholder="+34 ...">
+                </div>
+                <div class="form-group">
+                    <label for="tipo">Motivo del contacto</label>
+                    <select id="tipo" name="tipo">
+                        <option>Solicitar demo</option>
+                        <option>Información comercial</option>
+                        <option>Soporte técnico</option>
+                        <option>Partnerships / integraciones</option>
+                        <option>Prensa / medios</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="urgencia">Urgencia</label>
+                    <select id="urgencia" name="urgencia">
+                        <option>Estándar (48h)</option>
+                        <option>Alta (24h)</option>
+                        <option>Crítica (4h)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="mensaje">Mensaje</label>
+                <textarea id="mensaje" name="mensaje" required placeholder="Cuéntenos brevemente su necesidad..."></textarea>
+            </div>
+            <div class="form-group">
+                <label style="text-transform:none; letter-spacing:0; font-weight: 400; color: var(--gray-11); font-size: 0.83rem;">
+                    <input type="checkbox" name="consentimiento" required style="margin-right: 6px;">
+                    He leído y acepto la política de privacidad y el tratamiento de mis datos con fines comerciales.
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary">Enviar mensaje</button>
+            <button type="reset" class="btn btn-secondary" style="margin-left:0.4rem;">Limpiar</button>
+        </form>
+    </div>
+
+    <div>
+        <div class="card">
+            <h2>Oficinas</h2>
+            <h3 style="color: var(--deloitte-green-dark); margin-top: 0.4rem;">Madrid — Sede Central</h3>
+            <p style="color: var(--gray-11); line-height: 1.65; font-size: 0.88rem;">
+                Torre DFin · Plaza Pablo Ruiz Picasso, 1<br>
+                28020 Madrid, España<br>
+                <strong>+34 917 450 300</strong>
+            </p>
+            <h3 style="color: var(--deloitte-green-dark); margin-top: 1rem;">Barcelona</h3>
+            <p style="color: var(--gray-11); line-height: 1.65; font-size: 0.88rem;">
+                Avinguda Diagonal, 605<br>
+                08028 Barcelona, España<br>
+                <strong>+34 932 534 700</strong>
+            </p>
+            <h3 style="color: var(--deloitte-green-dark); margin-top: 1rem;">Lisboa</h3>
+            <p style="color: var(--gray-11); line-height: 1.65; font-size: 0.88rem;">
+                Av. da República, 90<br>
+                1600-206 Lisboa, Portugal<br>
+                <strong>+351 21 042 0800</strong>
+            </p>
+        </div>
+
+        <div class="card">
+            <h2>Canales de soporte</h2>
+            <ul style="list-style:none; color: var(--gray-11); font-size: 0.9rem; line-height: 1.9;">
+                <li><strong>Email comercial:</strong> sales@dfin.ai</li>
+                <li><strong>Soporte 24/7:</strong> support@dfin.ai</li>
+                <li><strong>Portal de tickets:</strong> help.dfin.ai</li>
+                <li><strong>Status de servicio:</strong> status.dfin.ai</li>
+                <li><strong>SLA Enterprise:</strong> 99,95% uptime</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

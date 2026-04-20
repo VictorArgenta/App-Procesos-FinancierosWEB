@@ -1,35 +1,42 @@
 {% extends "base.html" %}
 
-{% block title %}Comparador de Empresas — Procesos Financieros{% endblock %}
+{% block title %}Comparador de Empresas — DFin AI{% endblock %}
 
 {% block content %}
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span>Análisis</span><span class="sep">/</span>
+    <span class="current">Comparador de Empresas</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Módulo · Análisis Comparativo</span>
+        <h1>Comparador de Empresas</h1>
+        <p class="lead">Introduzca entre 2 y 3 tickers para obtener una tabla comparativa y un análisis cualitativo generado por IA. Identifica fortalezas, debilidades y la compañía con mejor salud financiera.</p>
+    </div>
+</div>
+
 <div class="card">
-    <h2>Comparador de Empresas</h2>
-    <p style="color: #5a6d80; margin-bottom: 1.5rem;">
-        Introduce entre 2 y 3 tickers para obtener una tabla comparativa con las métricas
-        financieras principales y un análisis comparativo generado por inteligencia artificial.
-    </p>
+    <h2>Parámetros de la comparación</h2>
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
     {% endif %}
 
     <form method="POST" action="/comparador" onsubmit="showLoading()">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
             <div class="form-group">
-                <label for="ticker1">Empresa 1 (obligatorio)</label>
-                <input type="text" id="ticker1" name="ticker1" placeholder="Ej: AAPL" required
-                       style="text-transform: uppercase;">
+                <label for="ticker1">Empresa 1 <span style="color: var(--deloitte-green-dark);">*</span></label>
+                <input type="text" id="ticker1" name="ticker1" placeholder="Ej: AAPL" required style="text-transform: uppercase;">
             </div>
             <div class="form-group">
-                <label for="ticker2">Empresa 2 (obligatorio)</label>
-                <input type="text" id="ticker2" name="ticker2" placeholder="Ej: MSFT" required
-                       style="text-transform: uppercase;">
+                <label for="ticker2">Empresa 2 <span style="color: var(--deloitte-green-dark);">*</span></label>
+                <input type="text" id="ticker2" name="ticker2" placeholder="Ej: MSFT" required style="text-transform: uppercase;">
             </div>
             <div class="form-group">
-                <label for="ticker3">Empresa 3 (opcional)</label>
-                <input type="text" id="ticker3" name="ticker3" placeholder="Ej: GOOGL"
-                       style="text-transform: uppercase;">
+                <label for="ticker3">Empresa 3 <span style="color: var(--gray-7);">(opcional)</span></label>
+                <input type="text" id="ticker3" name="ticker3" placeholder="Ej: GOOGL" style="text-transform: uppercase;">
             </div>
         </div>
         <div class="form-group">
@@ -48,24 +55,29 @@
             </select>
             {% endwith %}
         </div>
-        <button type="submit" class="btn btn-success">Comparar</button>
+        <button type="submit" class="btn btn-primary">Ejecutar comparación</button>
+        <a href="/" class="btn btn-secondary" style="margin-left: 0.4rem;">Cancelar</a>
     </form>
 </div>
 
-<div class="card" style="background: linear-gradient(135deg, #f0f6fc, #e8eef4);">
-    <h3 style="color: #003366; margin-bottom: 0.8rem;">Sugerencias de comparación</h3>
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-        <div>
-            <p style="font-weight: 600; color: #003366; margin-bottom: 0.3rem;">Big Tech</p>
-            <p style="color: #5a6d80; font-size: 0.9rem;">AAPL vs MSFT vs GOOGL</p>
+<div class="card">
+    <h2>Sugerencias de comparación</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem;">
+        <div style="border:1px solid var(--gray-border); padding: 14px; border-radius:3px;">
+            <p style="font-weight: 700; color: var(--black); margin-bottom: 0.2rem;">Big Tech</p>
+            <p style="color: var(--gray-10); font-size: 0.85rem;">AAPL · MSFT · GOOGL</p>
         </div>
-        <div>
-            <p style="font-weight: 600; color: #003366; margin-bottom: 0.3rem;">Automoción EV</p>
-            <p style="color: #5a6d80; font-size: 0.9rem;">TSLA vs F vs GM</p>
+        <div style="border:1px solid var(--gray-border); padding: 14px; border-radius:3px;">
+            <p style="font-weight: 700; color: var(--black); margin-bottom: 0.2rem;">Automoción EV</p>
+            <p style="color: var(--gray-10); font-size: 0.85rem;">TSLA · F · GM</p>
         </div>
-        <div>
-            <p style="font-weight: 600; color: #003366; margin-bottom: 0.3rem;">Redes sociales</p>
-            <p style="color: #5a6d80; font-size: 0.9rem;">META vs SNAP vs PINS</p>
+        <div style="border:1px solid var(--gray-border); padding: 14px; border-radius:3px;">
+            <p style="font-weight: 700; color: var(--black); margin-bottom: 0.2rem;">Redes sociales</p>
+            <p style="color: var(--gray-10); font-size: 0.85rem;">META · SNAP · PINS</p>
+        </div>
+        <div style="border:1px solid var(--gray-border); padding: 14px; border-radius:3px;">
+            <p style="font-weight: 700; color: var(--black); margin-bottom: 0.2rem;">Banca US</p>
+            <p style="color: var(--gray-10); font-size: 0.85rem;">JPM · BAC · WFC</p>
         </div>
     </div>
 </div>

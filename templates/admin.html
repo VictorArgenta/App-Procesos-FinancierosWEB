@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de Administración — DFin AI{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span class="current">Administración</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Panel corporativo</span>
+        <h1>Administración de la plataforma</h1>
+        <p class="lead">Gestión de usuarios, consumo de APIs, trazabilidad y parametrización del tenant corporativo.</p>
+    </div>
+    <div style="display:flex; gap:0.4rem;">
+        <button class="btn btn-secondary">Exportar auditoría</button>
+        <button class="btn btn-primary" onclick="alert('Ajustes guardados (demo)')">Guardar cambios</button>
+    </div>
+</div>
+
+<div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Usuarios activos</div><div class="kpi-value">127</div><div class="kpi-delta">+12 este mes</div></div>
+    <div class="kpi"><div class="kpi-label">Consumo IA · Abril</div><div class="kpi-value">4,2 M tokens</div><div class="kpi-delta">78% del cupo</div></div>
+    <div class="kpi"><div class="kpi-label">Informes mensuales</div><div class="kpi-value">1.084</div><div class="kpi-delta">+22%</div></div>
+    <div class="kpi"><div class="kpi-label">Incidencias abiertas</div><div class="kpi-value">3</div><div class="kpi-delta">SLA: 1,8h</div></div>
+</div>
+
+<div style="display:grid; grid-template-columns: 2fr 1fr; gap: 1.2rem;">
+    <div class="card">
+        <h2>Gestión de usuarios</h2>
+        <div style="margin-bottom: 0.8rem; display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <input type="text" placeholder="Buscar usuario..." style="flex:1; min-width:200px; padding:8px 12px; border:1px solid var(--gray-1); border-radius:3px;">
+            <button class="btn btn-primary btn-sm" onclick="alert('Formulario de alta de usuario (demo)')">Añadir usuario</button>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="data-table">
+                <thead>
+                    <tr><th>Nombre</th><th>Email</th><th>Rol</th><th>Departamento</th><th>Estado</th><th></th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Alejandra Martín</td><td>alejandra.martin@argenta.corp</td><td><span class="tag tag-black">Admin</span></td><td>Finanzas</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>Carlos Ribera</td><td>c.ribera@argenta.corp</td><td><span class="tag">Analista</span></td><td>Controlling</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>Pilar Sáez</td><td>p.saez@argenta.corp</td><td><span class="tag">Aprobador</span></td><td>Tesorería</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>Miguel Delgado</td><td>m.delgado@argenta.corp</td><td><span class="tag">Analista</span></td><td>Compliance</td><td><span class="tag">Invitado</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>Nuria López</td><td>n.lopez@argenta.corp</td><td><span class="tag">Lectura</span></td><td>Auditoría</td><td><span class="tag tag-red">Bloqueado</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>Enrique Ossorio</td><td>e.ossorio@argenta.corp</td><td><span class="tag tag-black">Admin</span></td><td>IT Finance</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Consumo de IA por modelo</h2>
+        <div style="position:relative; height:220px;"><canvas id="chartConsumo"></canvas></div>
+        <h3 style="margin-top: 1rem;">Cupos y límites</h3>
+        <ul style="color: var(--gray-11); font-size: 0.88rem; line-height: 1.9;">
+            <li>Tope mensual: <strong>5,4 M tokens</strong></li>
+            <li>Alerta al 85%: <strong>4,59 M tokens</strong></li>
+            <li>Rate limit: <strong>60 req/min</strong></li>
+        </ul>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Parámetros del tenant</h2>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+        <div class="form-group">
+            <label>Modelo IA por defecto</label>
+            <select>
+                <option>claude-sonnet-4-6</option>
+                <option>claude-opus-4-6</option>
+                <option>claude-haiku-4-5-20251001</option>
+                <option>gemini-2.5-flash</option>
+                <option>gemini-2.5-flash-lite</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Idioma de informes</label>
+            <select>
+                <option>Español (ES)</option>
+                <option>Inglés (EN)</option>
+                <option>Portugués (PT)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Moneda base</label>
+            <select><option>EUR</option><option>USD</option><option>GBP</option></select>
+        </div>
+        <div class="form-group">
+            <label>Retención de informes</label>
+            <select><option>12 meses</option><option selected>24 meses</option><option>60 meses</option></select>
+        </div>
+        <div class="form-group">
+            <label>SSO corporativo</label>
+            <select><option>Microsoft Entra ID</option><option>Okta</option><option>Google Workspace</option></select>
+        </div>
+        <div class="form-group">
+            <label>Nivel de auditoría</label>
+            <select><option>Básico</option><option selected>Detallado</option><option>Forense</option></select>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Registro de actividad (últimas acciones)</h2>
+    <div style="overflow-x:auto;">
+        <table class="data-table">
+            <thead><tr><th>Timestamp</th><th>Usuario</th><th>Módulo</th><th>Acción</th><th>Resultado</th></tr></thead>
+            <tbody>
+                <tr><td>20/04/2026 09:41</td><td>alejandra.martin</td><td>Nota de Memoria</td><td>Generar informe AAPL</td><td><span class="tag tag-green">OK</span></td></tr>
+                <tr><td>20/04/2026 09:28</td><td>c.ribera</td><td>Comparador</td><td>Benchmark Big Tech</td><td><span class="tag tag-green">OK</span></td></tr>
+                <tr><td>20/04/2026 09:02</td><td>p.saez</td><td>Conciliación</td><td>Aprobación lote 042026</td><td><span class="tag tag-green">OK</span></td></tr>
+                <tr><td>20/04/2026 08:55</td><td>m.delgado</td><td>Radar Normativo</td><td>Suscripción alerta fiscal</td><td><span class="tag tag-green">OK</span></td></tr>
+                <tr><td>20/04/2026 08:12</td><td>n.lopez</td><td>Panel</td><td>Intento inicio sesión</td><td><span class="tag tag-red">Bloqueado</span></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+new Chart(document.getElementById('chartConsumo'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Claude Sonnet 4.6', 'Claude Opus 4.6', 'Gemini Flash', 'Claude Haiku'],
+        datasets: [{
+            data: [2100000, 1200000, 680000, 220000],
+            backgroundColor: ['#43B02A', '#000000', '#86BC25', '#53565A'],
+            borderColor: '#fff',
+            borderWidth: 2
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+    }
+});
+</script>
+{% endblock %}

@@ -3,460 +3,694 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Procesos Financieros{% endblock %}</title>
+    <title>{% block title %}DFin AI — Financial Intelligence Platform{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo-mark.svg') }}">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --deloitte-green: #86BC25;
+            --deloitte-green-dark: #43B02A;
+            --deloitte-green-soft: #e8f2d5;
+            --black: #000000;
+            --white: #FFFFFF;
+            --gray-11: #53565A;
+            --gray-10: #63666A;
+            --gray-7: #97999B;
+            --gray-6: #A7A8AA;
+            --gray-3: #BBBCBC;
+            --gray-1: #D0D0CE;
+            --gray-bg: #F5F5F4;
+            --gray-border: #E4E4E2;
+            --danger: #DA291C;
+            --warning: #ED8B00;
+            --info: #00A3E0;
         }
 
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body { height: 100%; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f4f8;
-            color: #1a1a2e;
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--gray-bg);
+            color: var(--black);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            font-size: 14px;
+            line-height: 1.5;
         }
 
-        /* Navbar */
-        nav {
-            background: linear-gradient(135deg, #003366 0%, #004a99 100%);
-            padding: 0 2rem;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
+        a { color: inherit; }
 
-        .nav-container {
-            max-width: 1200px;
+        /* Topbar (breadcrumb + user zone) */
+        .topbar {
+            background: var(--black);
+            color: var(--gray-3);
+            font-size: 0.78rem;
+            padding: 6px 0;
+            border-bottom: 1px solid #1a1a1a;
+        }
+        .topbar-inner {
+            max-width: 1320px;
             margin: 0 auto;
+            padding: 0 1.5rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            height: 70px;
+            gap: 1rem;
+        }
+        .topbar-left span { color: var(--gray-6); letter-spacing: 0.3px; }
+        .topbar-right { display: flex; align-items: center; gap: 1.2rem; }
+        .topbar-right a { color: var(--gray-3); text-decoration: none; transition: color .15s; }
+        .topbar-right a:hover { color: var(--deloitte-green); }
+        .topbar-right .sep { color: var(--gray-10); }
+        .user-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #111;
+            border: 1px solid #222;
+            padding: 3px 10px;
+            border-radius: 12px;
+            color: var(--white);
+        }
+        .user-chip::before {
+            content: "";
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--deloitte-green);
+            box-shadow: 0 0 6px var(--deloitte-green);
         }
 
+        /* Navbar */
+        nav.main-nav {
+            background: var(--white);
+            border-bottom: 1px solid var(--gray-border);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .nav-container {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 72px;
+        }
         .nav-brand {
             display: flex;
             align-items: center;
-            gap: 12px;
             text-decoration: none;
-            color: white;
         }
-
-        .nav-brand img {
-            height: 42px;
-            width: auto;
-        }
-
-        .nav-brand span {
-            font-size: 1.3rem;
-            font-weight: 700;
-            letter-spacing: 0.5px;
-        }
+        .nav-brand img { height: 44px; width: auto; display: block; }
 
         .nav-links {
             display: flex;
-            gap: 8px;
+            align-items: stretch;
             list-style: none;
+            height: 100%;
         }
-
-        .nav-links a {
-            color: rgba(255, 255, 255, 0.85);
+        .nav-links > li {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+        }
+        .nav-links > li > a,
+        .nav-links > li > button {
+            background: none;
+            border: 0;
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: var(--gray-11);
             text-decoration: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            transition: all 0.2s ease;
+            padding: 0 18px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            border-bottom: 3px solid transparent;
+            transition: color .15s, border-color .15s;
+        }
+        .nav-links > li > a:hover,
+        .nav-links > li > button:hover,
+        .nav-links > li.open > button,
+        .nav-links > li > a.active {
+            color: var(--black);
+            border-bottom-color: var(--deloitte-green);
+        }
+        .nav-links .caret {
+            display: inline-block;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid currentColor;
+            transform: translateY(1px);
         }
 
-        .nav-links a:hover,
-        .nav-links a.active {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: var(--white);
+            min-width: 280px;
+            border: 1px solid var(--gray-border);
+            border-top: 3px solid var(--deloitte-green);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+            padding: 8px 0;
+            display: none;
+            z-index: 1100;
+        }
+        .nav-links > li.open .dropdown-menu { display: block; }
+        .dropdown-menu a {
+            display: block;
+            padding: 10px 18px;
+            text-decoration: none;
+            color: var(--gray-11);
+            font-size: 0.88rem;
+            border-left: 3px solid transparent;
+            transition: background .12s, color .12s, border-color .12s;
+        }
+        .dropdown-menu a small {
+            display: block;
+            color: var(--gray-7);
+            font-weight: 400;
+            font-size: 0.75rem;
+            margin-top: 2px;
+        }
+        .dropdown-menu a:hover {
+            background: var(--gray-bg);
+            color: var(--black);
+            border-left-color: var(--deloitte-green);
+        }
+        .dropdown-menu a .badge {
+            float: right;
+            background: var(--deloitte-green);
+            color: var(--black);
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 1px 7px;
+            border-radius: 10px;
+            letter-spacing: 0.3px;
+        }
+        .dropdown-menu a .badge.soon {
+            background: var(--gray-1);
+            color: var(--gray-11);
+        }
+
+        .nav-cta {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-left: 1rem;
+        }
+        .icon-btn {
+            width: 38px; height: 38px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            border: 1px solid var(--gray-border);
+            background: var(--white);
+            color: var(--gray-11);
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background .12s, color .12s, border-color .12s;
+        }
+        .icon-btn:hover {
+            border-color: var(--deloitte-green);
+            color: var(--deloitte-green);
         }
 
         /* Main content */
         main {
             flex: 1;
-            max-width: 1200px;
+            max-width: 1320px;
             margin: 0 auto;
-            padding: 2rem;
+            padding: 1.5rem;
             width: 100%;
+        }
+
+        /* Page header */
+        .page-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            padding-bottom: 1rem;
+            margin-bottom: 1.2rem;
+            border-bottom: 1px solid var(--gray-border);
+        }
+        .page-header .eyebrow {
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.72rem;
+            color: var(--deloitte-green-dark);
+            font-weight: 700;
+        }
+        .page-header h1 {
+            color: var(--black);
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .page-header p.lead {
+            color: var(--gray-10);
+            font-size: 0.95rem;
+            margin-top: 6px;
+            max-width: 720px;
         }
 
         /* Cards */
         .card {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-            padding: 2rem;
-            margin-bottom: 1.5rem;
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-radius: 4px;
+            padding: 1.6rem;
+            margin-bottom: 1.2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        .card h2 {
+            color: var(--black);
+            margin-bottom: 1rem;
+            font-size: 1.15rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card h2::before {
+            content: "";
+            width: 4px;
+            height: 18px;
+            background: var(--deloitte-green);
+            display: inline-block;
+        }
+        .card h3 {
+            color: var(--black);
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
         }
 
-        .card h2 {
-            color: #003366;
-            margin-bottom: 1rem;
-            font-size: 1.5rem;
+        /* KPI row */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.2rem;
         }
+        .kpi {
+            background: var(--white);
+            border: 1px solid var(--gray-border);
+            border-left: 4px solid var(--deloitte-green);
+            padding: 1rem 1.2rem;
+            border-radius: 3px;
+        }
+        .kpi .kpi-label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            color: var(--gray-10);
+            letter-spacing: 1.3px;
+            font-weight: 600;
+        }
+        .kpi .kpi-value {
+            font-size: 1.55rem;
+            color: var(--black);
+            font-weight: 700;
+            margin-top: 4px;
+        }
+        .kpi .kpi-delta {
+            font-size: 0.78rem;
+            color: var(--deloitte-green-dark);
+            font-weight: 600;
+            margin-top: 2px;
+        }
+        .kpi .kpi-delta.neg { color: var(--danger); }
 
         /* Forms */
         .form-group {
-            margin-bottom: 1.2rem;
+            margin-bottom: 1.1rem;
         }
-
         .form-group label {
             display: block;
             font-weight: 600;
-            margin-bottom: 0.4rem;
-            color: #003366;
+            margin-bottom: 0.35rem;
+            color: var(--black);
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
         }
-
-        .form-group input {
+        .form-group .hint {
+            display: block;
+            color: var(--gray-10);
+            font-size: 0.78rem;
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+            margin-top: 0.3rem;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="email"],
+        .form-group input[type="number"],
+        .form-group input[type="date"],
+        .form-group input[type="password"],
+        .form-group select,
+        .form-group textarea {
             width: 100%;
-            max-width: 400px;
-            padding: 12px 16px;
-            border: 2px solid #d0d8e0;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.2s;
+            max-width: 560px;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-1);
+            border-radius: 3px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            background: var(--white);
+            color: var(--black);
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
-
-        .form-group input:focus {
+        .form-group textarea { min-height: 110px; resize: vertical; }
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
             outline: none;
-            border-color: #004a99;
-            box-shadow: 0 0 0 3px rgba(0, 74, 153, 0.1);
-        }
-
-        .form-group select {
-            width: 100%;
-            max-width: 400px;
-            padding: 12px 16px;
-            border: 2px solid #d0d8e0;
-            border-radius: 8px;
-            font-size: 1rem;
-            background-color: white;
-            color: #1a1a2e;
-            transition: border-color 0.2s;
-            cursor: pointer;
-        }
-
-        .form-group select:focus {
-            outline: none;
-            border-color: #004a99;
-            box-shadow: 0 0 0 3px rgba(0, 74, 153, 0.1);
+            border-color: var(--deloitte-green);
+            box-shadow: 0 0 0 3px rgba(134, 188, 37, 0.18);
         }
 
         /* Buttons */
         .btn {
-            display: inline-block;
-            padding: 12px 28px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px;
+            border: 1px solid transparent;
+            border-radius: 3px;
+            font-size: 0.85rem;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s;
             text-decoration: none;
+            font-family: inherit;
+            letter-spacing: 0.3px;
         }
-
         .btn-primary {
-            background: linear-gradient(135deg, #003366, #004a99);
-            color: white;
+            background: var(--deloitte-green);
+            color: var(--black);
+            border-color: var(--deloitte-green);
         }
-
         .btn-primary:hover {
-            background: linear-gradient(135deg, #002244, #003a77);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 51, 102, 0.3);
+            background: var(--deloitte-green-dark);
+            border-color: var(--deloitte-green-dark);
+            color: var(--white);
         }
-
+        .btn-dark {
+            background: var(--black);
+            color: var(--white);
+        }
+        .btn-dark:hover { background: #2a2a2a; }
         .btn-secondary {
-            background: #e8eef4;
-            color: #003366;
+            background: var(--white);
+            color: var(--black);
+            border-color: var(--gray-1);
         }
-
-        .btn-secondary:hover {
-            background: #d0dbe6;
+        .btn-secondary:hover { border-color: var(--black); }
+        .btn-outline {
+            background: transparent;
+            color: var(--deloitte-green-dark);
+            border-color: var(--deloitte-green);
         }
-
-        .btn-success {
-            background: linear-gradient(135deg, #1a7a4c, #22965d);
-            color: white;
+        .btn-outline:hover {
+            background: var(--deloitte-green);
+            color: var(--black);
         }
-
-        .btn-success:hover {
-            background: linear-gradient(135deg, #146040, #1a7a4c);
-            transform: translateY(-1px);
-        }
+        .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
 
         /* Tables */
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin: 1rem 0;
-            font-size: 0.95rem;
+            margin: 0.6rem 0;
+            font-size: 0.88rem;
         }
-
         .data-table thead {
-            background: linear-gradient(135deg, #003366, #004a99);
-            color: white;
+            background: var(--black);
+            color: var(--white);
         }
-
         .data-table th {
-            padding: 14px 16px;
-            text-align: left;
-            font-weight: 600;
-        }
-
-        .data-table td {
-            padding: 12px 16px;
-            border-bottom: 1px solid #e8eef4;
-        }
-
-        .data-table tbody tr:hover {
-            background-color: #f0f6fc;
-        }
-
-        .data-table tbody tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
-
-        .data-table tbody tr:nth-child(even):hover {
-            background-color: #f0f6fc;
-        }
-
-        /* Alerts */
-        .alert {
-            padding: 14px 20px;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-            font-weight: 500;
-        }
-
-        .alert-error {
-            background: #fef2f2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
-        }
-
-        .alert-warning {
-            background: #fffbeb;
-            color: #92400e;
-            border: 1px solid #fed7aa;
-        }
-
-        .alert-info {
-            background: #eff6ff;
-            color: #1e40af;
-            border: 1px solid #bfdbfe;
-        }
-
-        /* Nota de memoria */
-        .nota-memoria {
-            background: #f8fafc;
-            border-left: 4px solid #004a99;
-            padding: 1.5rem 2rem;
-            border-radius: 0 8px 8px 0;
-            line-height: 1.8;
-            color: #1a1a2e;
-        }
-
-        .nota-memoria h1,
-        .nota-memoria h2,
-        .nota-memoria h3 {
-            color: #003366;
-            margin-top: 1.5rem;
-            margin-bottom: 0.6rem;
-            padding-bottom: 0.4rem;
-            border-bottom: 1px solid #d0d8e0;
-        }
-
-        .nota-memoria h1:first-child,
-        .nota-memoria h2:first-child,
-        .nota-memoria h3:first-child {
-            margin-top: 0;
-        }
-
-        .nota-memoria h1 { font-size: 1.4rem; }
-        .nota-memoria h2 { font-size: 1.2rem; }
-        .nota-memoria h3 { font-size: 1.05rem; border-bottom: none; }
-
-        .nota-memoria p {
-            margin-bottom: 0.8rem;
-        }
-
-        .nota-memoria ul,
-        .nota-memoria ol {
-            margin: 0.5rem 0 1rem 1.5rem;
-        }
-
-        .nota-memoria li {
-            margin-bottom: 0.3rem;
-        }
-
-        .nota-memoria strong {
-            color: #003366;
-        }
-
-        .nota-memoria table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-            font-size: 0.95rem;
-            background: white;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        }
-
-        .nota-memoria thead {
-            background: linear-gradient(135deg, #003366, #004a99);
-            color: white;
-        }
-
-        .nota-memoria th {
             padding: 12px 14px;
             text-align: left;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-size: 0.73rem;
+            border-bottom: 3px solid var(--deloitte-green);
+        }
+        .data-table td {
+            padding: 11px 14px;
+            border-bottom: 1px solid var(--gray-border);
+        }
+        .data-table tbody tr:hover { background-color: var(--gray-bg); }
+
+        /* Alerts */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 3px;
+            margin-bottom: 1.2rem;
+            font-size: 0.88rem;
+            border-left: 4px solid;
+            background: var(--white);
+        }
+        .alert-error {
+            background: #fdecec;
+            color: #7a1818;
+            border-left-color: var(--danger);
+        }
+        .alert-warning {
+            background: #fdf4e7;
+            color: #7a4500;
+            border-left-color: var(--warning);
+        }
+        .alert-info {
+            background: #e8f4fc;
+            color: #0d5a80;
+            border-left-color: var(--info);
+        }
+        .alert-success {
+            background: var(--deloitte-green-soft);
+            color: #2d5f12;
+            border-left-color: var(--deloitte-green);
         }
 
-        .nota-memoria td {
-            padding: 10px 14px;
-            border-bottom: 1px solid #e8eef4;
+        /* Badges / tags */
+        .tag {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            background: var(--gray-bg);
+            color: var(--gray-11);
+            border: 1px solid var(--gray-border);
         }
+        .tag-green { background: var(--deloitte-green-soft); color: #2d5f12; border-color: #c3dc91; }
+        .tag-black { background: var(--black); color: var(--white); border-color: var(--black); }
+        .tag-red { background: #fdecec; color: #7a1818; border-color: #f3bcbc; }
+        .tag-orange { background: #fdf4e7; color: #7a4500; border-color: #f5d4a3; }
+        .tag-blue { background: #e8f4fc; color: #0d5a80; border-color: #aed6ee; }
 
-        .nota-memoria tbody tr:nth-child(even) {
-            background-color: #f8fafc;
+        /* Nota de memoria */
+        .nota-memoria {
+            background: var(--white);
+            border-left: 4px solid var(--deloitte-green);
+            padding: 1.4rem 1.8rem;
+            border-radius: 0 3px 3px 0;
+            line-height: 1.7;
+            color: var(--black);
         }
-
+        .nota-memoria h1, .nota-memoria h2, .nota-memoria h3 {
+            color: var(--black);
+            margin-top: 1.3rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.3rem;
+            border-bottom: 1px solid var(--gray-border);
+            font-weight: 700;
+        }
+        .nota-memoria h1:first-child, .nota-memoria h2:first-child, .nota-memoria h3:first-child { margin-top: 0; }
+        .nota-memoria h1 { font-size: 1.3rem; }
+        .nota-memoria h2 { font-size: 1.1rem; }
+        .nota-memoria h3 { font-size: 1rem; border-bottom: none; }
+        .nota-memoria p { margin-bottom: 0.7rem; }
+        .nota-memoria ul, .nota-memoria ol { margin: 0.4rem 0 1rem 1.4rem; }
+        .nota-memoria li { margin-bottom: 0.25rem; }
+        .nota-memoria strong { color: var(--black); }
         .nota-memoria code {
-            background: #eef2f7;
-            padding: 2px 6px;
-            border-radius: 4px;
+            background: var(--gray-bg);
+            padding: 1px 6px;
+            border-radius: 3px;
             font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 0.9em;
-            color: #003366;
+            font-size: 0.88em;
         }
 
-        .nota-memoria pre {
-            background: #1a1a2e;
-            color: #f0f4f8;
-            padding: 1rem;
-            border-radius: 8px;
-            overflow-x: auto;
-            margin: 1rem 0;
-        }
-
-        .nota-memoria pre code {
-            background: transparent;
-            color: inherit;
-            padding: 0;
-        }
-
-        /* Loading spinner */
+        /* Spinner overlay */
         .spinner-overlay {
             display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 51, 102, 0.3);
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.55);
             z-index: 9999;
             justify-content: center;
             align-items: center;
         }
-
-        .spinner-overlay.active {
-            display: flex;
-        }
-
+        .spinner-overlay.active { display: flex; }
         .spinner-box {
-            background: white;
-            padding: 2.5rem 3rem;
-            border-radius: 16px;
+            background: var(--white);
+            padding: 2rem 2.5rem;
+            border-radius: 4px;
             text-align: center;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            border-top: 4px solid var(--deloitte-green);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
         }
-
         .spinner {
-            width: 48px;
-            height: 48px;
-            border: 4px solid #e8eef4;
-            border-top: 4px solid #004a99;
+            width: 42px; height: 42px;
+            border: 3px solid var(--gray-border);
+            border-top: 3px solid var(--deloitte-green);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
             margin: 0 auto 1rem;
         }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .spinner-box p {
-            color: #003366;
-            font-weight: 600;
-            font-size: 1.05rem;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-box p { color: var(--black); font-weight: 600; }
 
         /* Footer */
-        footer {
-            background: #003366;
-            color: rgba(255, 255, 255, 0.7);
-            text-align: center;
-            padding: 1.2rem;
+        footer.site-footer {
+            background: var(--black);
+            color: var(--gray-3);
+            margin-top: 3rem;
+            padding: 2.5rem 0 0;
             font-size: 0.85rem;
         }
+        .footer-top {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 0 1.5rem 2rem;
+            display: grid;
+            grid-template-columns: 1.4fr 1fr 1fr 1fr;
+            gap: 2rem;
+            border-bottom: 1px solid #1f1f1f;
+        }
+        .footer-top h4 {
+            color: var(--white);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 0.9rem;
+        }
+        .footer-top ul { list-style: none; }
+        .footer-top li { margin-bottom: 0.4rem; }
+        .footer-top a { color: var(--gray-6); text-decoration: none; transition: color .15s; }
+        .footer-top a:hover { color: var(--deloitte-green); }
+        .footer-top .brand p { color: var(--gray-6); margin-top: 0.6rem; max-width: 320px; line-height: 1.55; }
+        .footer-accent {
+            height: 4px;
+            background: linear-gradient(90deg, var(--deloitte-green) 0%, var(--deloitte-green-dark) 60%, var(--black) 100%);
+        }
+        .footer-bottom {
+            max-width: 1320px;
+            margin: 0 auto;
+            padding: 1rem 1.5rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            color: var(--gray-7);
+            font-size: 0.78rem;
+        }
+
+        /* Breadcrumbs */
+        .breadcrumbs {
+            font-size: 0.78rem;
+            color: var(--gray-10);
+            margin-bottom: 1rem;
+        }
+        .breadcrumbs a { color: var(--gray-10); text-decoration: none; }
+        .breadcrumbs a:hover { color: var(--deloitte-green-dark); }
+        .breadcrumbs .sep { margin: 0 6px; color: var(--gray-6); }
+        .breadcrumbs .current { color: var(--black); font-weight: 600; }
 
         /* Responsive */
-        @media (max-width: 768px) {
-            nav {
-                padding: 0 1rem;
-            }
-
-            .nav-container {
-                flex-wrap: wrap;
-                height: auto;
-                padding: 0.8rem 0;
-                gap: 0.5rem;
-            }
-
-            .nav-links {
-                width: 100%;
-                justify-content: center;
-            }
-
-            main {
-                padding: 1rem;
-            }
-
-            .data-table {
-                font-size: 0.8rem;
-            }
-
-            .data-table th,
-            .data-table td {
-                padding: 8px 10px;
-            }
+        @media (max-width: 960px) {
+            .nav-container { height: 64px; }
+            .nav-links > li > a, .nav-links > li > button { padding: 0 12px; font-size: 0.82rem; }
+            .nav-brand img { height: 38px; }
+            .footer-top { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 720px) {
+            .nav-links { display: none; }
+            .topbar-inner { font-size: 0.7rem; }
+            .page-header h1 { font-size: 1.4rem; }
+            .footer-top { grid-template-columns: 1fr; }
+            .data-table th, .data-table td { padding: 8px 10px; font-size: 0.78rem; }
         }
     </style>
 </head>
 <body>
-    <nav>
+    <div class="topbar">
+        <div class="topbar-inner">
+            <div class="topbar-left">
+                <span>DFin AI &middot; Financial Intelligence Platform</span>
+            </div>
+            <div class="topbar-right">
+                <a href="/admin">Panel</a>
+                <span class="sep">|</span>
+                <a href="/contacto">Soporte</a>
+                <span class="sep">|</span>
+                <a href="#">ES / EN</a>
+                <span class="sep">|</span>
+                <span class="user-chip">Alejandra Martín · Argenta Corp</span>
+            </div>
+        </div>
+    </div>
+
+    <nav class="main-nav">
         <div class="nav-container">
-            <a href="/" class="nav-brand">
-                <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
-                <span>Procesos Financieros</span>
+            <a href="/" class="nav-brand" aria-label="Inicio DFin AI">
+                <img src="{{ url_for('static', filename='logo.svg') }}" alt="DFin AI">
             </a>
             <ul class="nav-links">
-                <li><a href="/" class="{% if request.path == '/' %}active{% endif %}">Inicio</a></li>
-                <li><a href="/analisis" class="{% if request.path == '/analisis' %}active{% endif %}">Análisis Individual</a></li>
-                <li><a href="/comparador" class="{% if request.path == '/comparador' %}active{% endif %}">Comparador</a></li>
+                <li>
+                    <a href="/" class="{% if request.path == '/' %}active{% endif %}">Inicio</a>
+                </li>
+                <li class="has-dropdown">
+                    <button type="button" aria-haspopup="true">Análisis <span class="caret"></span></button>
+                    <div class="dropdown-menu">
+                        <a href="/analisis">Generación Nota de Memoria<small>Informe individual con IA + gráficos</small></a>
+                        <a href="/comparador">Comparador de Empresas<small>Benchmark hasta 3 compañías</small></a>
+                    </div>
+                </li>
+                <li class="has-dropdown">
+                    <button type="button" aria-haspopup="true">Funcionalidades <span class="caret"></span></button>
+                    <div class="dropdown-menu">
+                        <a href="/presupuesto">Elaboración de Presupuesto (ML)<small>Forecasting con Machine Learning</small><span class="badge soon">Preview</span></a>
+                        <a href="/conciliacion">Conciliación Bancaria<small>Matching automático de movimientos</small><span class="badge soon">Preview</span></a>
+                        <a href="/radar-normativo">Radar Normativo<small>Alertas regulatorias y fiscales</small><span class="badge soon">Preview</span></a>
+                        <a href="/noticias">Noticias del Sector<small>Buscador de actualidad financiera</small><span class="badge soon">Preview</span></a>
+                    </div>
+                </li>
+                <li>
+                    <a href="/admin" class="{% if request.path.startswith('/admin') %}active{% endif %}">Administración</a>
+                </li>
+                <li>
+                    <a href="/contacto" class="{% if request.path == '/contacto' %}active{% endif %}">Contacto</a>
+                </li>
+                <li class="nav-cta">
+                    <button class="icon-btn" title="Notificaciones" aria-label="Notificaciones">&#9873;</button>
+                    <a href="/analisis" class="btn btn-primary btn-sm">Nuevo análisis</a>
+                </li>
             </ul>
         </div>
     </nav>
@@ -465,8 +699,45 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer>
-        &copy; 2026 Procesos Financieros — Análisis financiero con inteligencia artificial
+    <footer class="site-footer">
+        <div class="footer-top">
+            <div class="brand">
+                <h4>DFin AI</h4>
+                <p>Plataforma corporativa de inteligencia financiera. Analítica avanzada con IA generativa, automatización de procesos contables y supervisión normativa en un único entorno.</p>
+            </div>
+            <div>
+                <h4>Producto</h4>
+                <ul>
+                    <li><a href="/analisis">Nota de Memoria</a></li>
+                    <li><a href="/comparador">Comparador</a></li>
+                    <li><a href="/presupuesto">Presupuesto ML</a></li>
+                    <li><a href="/conciliacion">Conciliación</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>Inteligencia</h4>
+                <ul>
+                    <li><a href="/radar-normativo">Radar Normativo</a></li>
+                    <li><a href="/noticias">Noticias del Sector</a></li>
+                    <li><a href="#">API &amp; Integraciones</a></li>
+                    <li><a href="#">Changelog</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4>Organización</h4>
+                <ul>
+                    <li><a href="/admin">Administración</a></li>
+                    <li><a href="/contacto">Contacto &amp; Soporte</a></li>
+                    <li><a href="#">Política de privacidad</a></li>
+                    <li><a href="#">Términos de servicio</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="footer-accent"></div>
+        <div class="footer-bottom">
+            <span>&copy; 2026 DFin AI. Todos los derechos reservados.</span>
+            <span>v1.4.0 · Build 2026.04 · Región EU-WEST-1</span>
+        </div>
     </footer>
 
     <div class="spinner-overlay" id="loadingSpinner">
@@ -477,13 +748,31 @@
     </div>
 
     <script>
+        // Dropdowns (click-to-open, close on outside click)
+        (function() {
+            var items = document.querySelectorAll('.nav-links .has-dropdown');
+            items.forEach(function(item) {
+                var btn = item.querySelector('button');
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var isOpen = item.classList.contains('open');
+                    items.forEach(function(i) { i.classList.remove('open'); });
+                    if (!isOpen) item.classList.add('open');
+                });
+            });
+            document.addEventListener('click', function() {
+                items.forEach(function(i) { i.classList.remove('open'); });
+            });
+        })();
+
         function showLoading() {
             document.getElementById('loadingSpinner').classList.add('active');
         }
 
         function downloadFile(form) {
             var spinner = document.getElementById('loadingSpinner');
-            spinner.querySelector('p').textContent = 'Generando documento Word...';
+            var originalText = spinner.querySelector('p').textContent;
+            spinner.querySelector('p').textContent = 'Generando documento...';
             spinner.classList.add('active');
 
             fetch(form.action, {
@@ -496,7 +785,7 @@
                 }
                 var disposition = response.headers.get('Content-Disposition') || '';
                 var match = disposition.match(/filename=([^;]+)/);
-                var filename = match ? match[1].trim().replace(/"/g, '') : 'documento.docx';
+                var filename = match ? match[1].trim().replace(/"/g, '') : 'documento';
                 return response.blob().then(function(blob) {
                     return { blob: blob, filename: filename };
                 });
@@ -516,7 +805,7 @@
             })
             .finally(function() {
                 spinner.classList.remove('active');
-                spinner.querySelector('p').textContent = 'Procesando datos financieros...';
+                spinner.querySelector('p').textContent = originalText;
             });
 
             return false;

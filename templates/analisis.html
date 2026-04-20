@@ -1,54 +1,71 @@
 {% extends "base.html" %}
 
-{% block title %}Análisis Individual — Procesos Financieros{% endblock %}
+{% block title %}Generación Nota de Memoria — DFin AI{% endblock %}
 
 {% block content %}
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span>Análisis</span><span class="sep">/</span>
+    <span class="current">Generación Nota de Memoria</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Módulo · Análisis Individual</span>
+        <h1>Generación Nota de Memoria</h1>
+        <p class="lead">Introduzca el ticker de la compañía cotizada para generar un informe financiero completo, con gráficos interactivos y una nota de memoria explicativa producida por IA. Exportable en Word y PDF.</p>
+    </div>
+</div>
+
 <div class="card">
-    <h2>Análisis Financiero Individual</h2>
-    <p style="color: #5a6d80; margin-bottom: 1.5rem;">
-        Introduce el ticker de una empresa cotizada para obtener sus datos financieros
-        y una nota de memoria explicativa generada por inteligencia artificial.
-    </p>
+    <h2>Parámetros del informe</h2>
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
     {% endif %}
 
     <form method="POST" action="/analisis" onsubmit="showLoading()">
-        <div class="form-group">
-            <label for="ticker">Ticker de la empresa</label>
-            <input type="text" id="ticker" name="ticker" placeholder="Ej: AAPL, MSFT, GOOGL" required
-                   style="text-transform: uppercase;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+            <div class="form-group">
+                <label for="ticker">Ticker de la empresa</label>
+                <input type="text" id="ticker" name="ticker" placeholder="Ej: AAPL, MSFT, GOOGL" required
+                       style="text-transform: uppercase;">
+                <span class="hint">Símbolo bursátil según Yahoo Finance.</span>
+            </div>
+            <div class="form-group">
+                <label for="modelo">Modelo de IA</label>
+                {% with seleccionado = modelo_seleccionado or 'claude-sonnet-4-6' %}
+                <select id="modelo" name="modelo">
+                    <optgroup label="Anthropic Claude (de pago)">
+                        <option value="claude-opus-4-6" {% if seleccionado == 'claude-opus-4-6' %}selected{% endif %}>claude-opus-4-6 — Máxima calidad</option>
+                        <option value="claude-sonnet-4-6" {% if seleccionado == 'claude-sonnet-4-6' %}selected{% endif %}>claude-sonnet-4-6 — Recomendado</option>
+                        <option value="claude-haiku-4-5-20251001" {% if seleccionado == 'claude-haiku-4-5-20251001' %}selected{% endif %}>claude-haiku-4-5-20251001 — Más económico</option>
+                    </optgroup>
+                    <optgroup label="Google Gemini (gratuito)">
+                        <option value="gemini-2.5-flash" {% if seleccionado == 'gemini-2.5-flash' %}selected{% endif %}>gemini-2.5-flash — Recomendado gratuito</option>
+                        <option value="gemini-2.5-flash-lite" {% if seleccionado == 'gemini-2.5-flash-lite' %}selected{% endif %}>gemini-2.5-flash-lite — Ligero gratuito</option>
+                    </optgroup>
+                </select>
+                {% endwith %}
+                <span class="hint">Los modelos gratuitos requieren GOOGLE_API_KEY.</span>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="modelo">Modelo de IA</label>
-            {% with seleccionado = modelo_seleccionado or 'claude-sonnet-4-6' %}
-            <select id="modelo" name="modelo">
-                <optgroup label="Anthropic Claude (de pago)">
-                    <option value="claude-opus-4-6" {% if seleccionado == 'claude-opus-4-6' %}selected{% endif %}>claude-opus-4-6 — Máxima calidad</option>
-                    <option value="claude-sonnet-4-6" {% if seleccionado == 'claude-sonnet-4-6' %}selected{% endif %}>claude-sonnet-4-6 — Recomendado</option>
-                    <option value="claude-haiku-4-5-20251001" {% if seleccionado == 'claude-haiku-4-5-20251001' %}selected{% endif %}>claude-haiku-4-5-20251001 — Más económico</option>
-                </optgroup>
-                <optgroup label="Google Gemini (gratuito)">
-                    <option value="gemini-2.5-flash" {% if seleccionado == 'gemini-2.5-flash' %}selected{% endif %}>gemini-2.5-flash — Recomendado gratuito</option>
-                    <option value="gemini-2.5-flash-lite" {% if seleccionado == 'gemini-2.5-flash-lite' %}selected{% endif %}>gemini-2.5-flash-lite — Ligero gratuito</option>
-                </optgroup>
-            </select>
-            {% endwith %}
+        <div style="margin-top: 0.5rem;">
+            <button type="submit" class="btn btn-primary">Generar Nota de Memoria</button>
+            <a href="/" class="btn btn-secondary" style="margin-left: 0.4rem;">Cancelar</a>
         </div>
-        <button type="submit" class="btn btn-primary">Analizar</button>
     </form>
 </div>
 
-<div class="card" style="background: linear-gradient(135deg, #f0f6fc, #e8eef4);">
-    <h3 style="color: #003366; margin-bottom: 0.8rem;">Ejemplos de tickers</h3>
-    <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">AAPL — Apple</span>
-        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">MSFT — Microsoft</span>
-        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">GOOGL — Alphabet</span>
-        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">AMZN — Amazon</span>
-        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">TSLA — Tesla</span>
-        <span style="background: white; padding: 6px 14px; border-radius: 6px; font-size: 0.9rem; color: #003366; font-weight: 600;">META — Meta</span>
+<div class="card">
+    <h2>Ejemplos de tickers frecuentes</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.6rem;">
+        {% for t, n in [('AAPL','Apple'), ('MSFT','Microsoft'), ('GOOGL','Alphabet'), ('AMZN','Amazon'), ('TSLA','Tesla'), ('META','Meta'), ('NVDA','NVIDIA'), ('JPM','JPMorgan')] %}
+        <div style="border:1px solid var(--gray-border); padding: 10px 14px; border-radius:3px; background: var(--white);">
+            <div style="font-weight:700; color: var(--black);">{{ t }}</div>
+            <div style="font-size:0.8rem; color: var(--gray-10);">{{ n }}</div>
+        </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %}

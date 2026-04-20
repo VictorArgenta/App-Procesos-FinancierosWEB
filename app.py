@@ -13,6 +13,15 @@ from google.api_core import exceptions as google_exceptions
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm, mm
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    PageBreak, KeepTogether, ListFlowable, ListItem,
+)
 
 load_dotenv()
 
@@ -591,6 +600,217 @@ def crear_documento_comparativo(datos_empresas, analisis):
     return buffer
 
 
+def _md_inline_a_html(texto):
+    """Convierte **negrita**, *cursiva* y `código` a tags reportlab/HTML seguros."""
+    if not texto:
+        return ""
+    seguro = (
+        texto.replace("&", "&amp;")
+             .replace("<", "&lt;")
+             .replace(">", "&gt;")
+    )
+    seguro = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", seguro)
+    seguro = re.sub(r"(?<!\w)\*([^*]+)\*(?!\w)", r"<i>\1</i>", seguro)
+    seguro = re.sub(r"`([^`]+)`", r"<font face='Courier'>\1</font>", seguro)
+    return seguro
+
+
+def _markdown_a_flowables_pdf(texto, estilos):
+    """Convierte texto Markdown ligero a una lista de flowables para ReportLab."""
+    flow = []
+    if not texto:
+        return flow
+
+    lineas = texto.replace("\r\n", "\n").split("\n")
+    bullets = []
+
+    def _volcar_bullets():
+        if not bullets:
+            return
+        items = [
+            ListItem(Paragraph(_md_inline_a_html(b), estilos["Body"]), leftIndent=10)
+            for b in bullets
+        ]
+        flow.append(ListFlowable(items, bulletType="bullet", start="•",
+                                 leftIndent=14, bulletFontSize=9))
+        flow.append(Spacer(1, 4))
+        bullets.clear()
+
+    for linea in lineas:
+        stripped = linea.strip()
+        if not stripped:
+            _volcar_bullets()
+            flow.append(Spacer(1, 4))
+            continue
+        if _RE_TABLA_SEP_MD.match(stripped):
+            continue
+        if stripped.startswith("|") and stripped.endswith("|") and stripped.count("|") >= 2:
+            _volcar_bullets()
+            celdas = [c.strip() for c in stripped.strip("|").split("|") if c.strip()]
+            if celdas:
+                flow.append(Paragraph(_md_inline_a_html(" · ".join(celdas)), estilos["Body"]))
+            continue
+        if stripped.startswith("### "):
+            _volcar_bullets()
+            flow.append(Paragraph(_md_inline_a_html(stripped[4:].strip(" *")), estilos["H3"]))
+            continue
+        if stripped.startswith("## "):
+            _volcar_bullets()
+            flow.append(Paragraph(_md_inline_a_html(stripped[3:].strip(" *")), estilos["H2"]))
+            continue
+        if stripped.startswith("# "):
+            _volcar_bullets()
+            flow.append(Paragraph(_md_inline_a_html(stripped[2:].strip(" *")), estilos["H1"]))
+            continue
+        m = re.match(r"^[-*]\s+(.*)", stripped)
+        if m:
+            bullets.append(m.group(1))
+            continue
+        m = re.match(r"^\d+\.\s+(.*)", stripped)
+        if m:
+            bullets.append(m.group(1))
+            continue
+        _volcar_bullets()
+        flow.append(Paragraph(_md_inline_a_html(stripped), estilos["Body"]))
+
+    _volcar_bullets()
+    return flow
+
+
+DELOITTE_GREEN = colors.HexColor("#86BC25")
+DELOITTE_GREEN_DARK = colors.HexColor("#43B02A")
+DELOITTE_BLACK = colors.HexColor("#000000")
+DELOITTE_GRAY_11 = colors.HexColor("#53565A")
+DELOITTE_GRAY_BORDER = colors.HexColor("#D0D0CE")
+DELOITTE_GRAY_BG = colors.HexColor("#F5F5F4")
+
+
+def _estilos_pdf():
+    base = getSampleStyleSheet()
+    return {
+        "Title": ParagraphStyle(
+            "DFTitle", parent=base["Title"],
+            fontName="Helvetica-Bold", fontSize=20, leading=24,
+            textColor=DELOITTE_BLACK, alignment=TA_LEFT, spaceAfter=6,
+        ),
+        "Eyebrow": ParagraphStyle(
+            "DFEyebrow", fontName="Helvetica-Bold", fontSize=8, leading=11,
+            textColor=DELOITTE_GREEN_DARK, spaceAfter=2,
+        ),
+        "Subtitle": ParagraphStyle(
+            "DFSub", fontName="Helvetica", fontSize=10, leading=14,
+            textColor=DELOITTE_GRAY_11, spaceAfter=14,
+        ),
+        "H1": ParagraphStyle(
+            "DFH1", fontName="Helvetica-Bold", fontSize=14, leading=18,
+            textColor=DELOITTE_BLACK, spaceBefore=12, spaceAfter=6,
+        ),
+        "H2": ParagraphStyle(
+            "DFH2", fontName="Helvetica-Bold", fontSize=12, leading=16,
+            textColor=DELOITTE_BLACK, spaceBefore=10, spaceAfter=5,
+        ),
+        "H3": ParagraphStyle(
+            "DFH3", fontName="Helvetica-Bold", fontSize=10.5, leading=14,
+            textColor=DELOITTE_GRAY_11, spaceBefore=8, spaceAfter=3,
+        ),
+        "Body": ParagraphStyle(
+            "DFBody", fontName="Helvetica", fontSize=9.5, leading=14,
+            textColor=DELOITTE_BLACK, alignment=TA_JUSTIFY, spaceAfter=4,
+        ),
+    }
+
+
+def _dibujar_branding_pdf(canvas, doc):
+    canvas.saveState()
+    # Barra lateral verde Deloitte
+    canvas.setFillColor(DELOITTE_GREEN)
+    canvas.rect(0, 0, 6, A4[1], stroke=0, fill=1)
+    # Cabecera
+    canvas.setFillColor(DELOITTE_BLACK)
+    canvas.setFont("Helvetica-Bold", 10)
+    canvas.drawString(18 * mm, A4[1] - 12 * mm, "DFin AI")
+    canvas.setFillColor(DELOITTE_GREEN_DARK)
+    canvas.setFont("Helvetica-Bold", 10)
+    canvas.drawString(18 * mm + 18, A4[1] - 12 * mm, "· Financial Intelligence")
+    canvas.setStrokeColor(DELOITTE_GREEN)
+    canvas.setLineWidth(1)
+    canvas.line(18 * mm, A4[1] - 14 * mm, A4[0] - 18 * mm, A4[1] - 14 * mm)
+    # Pie
+    canvas.setFillColor(DELOITTE_GRAY_11)
+    canvas.setFont("Helvetica", 8)
+    canvas.drawString(18 * mm, 10 * mm, "DFin AI · Informe confidencial")
+    canvas.drawRightString(A4[0] - 18 * mm, 10 * mm, f"Página {canvas.getPageNumber()}")
+    canvas.restoreState()
+
+
+def crear_documento_pdf(datos, nota):
+    """Crea un PDF de la nota de memoria con branding DFin AI / paleta Deloitte."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=18 * mm, rightMargin=18 * mm,
+        topMargin=22 * mm, bottomMargin=18 * mm,
+        title=f"Informe DFin AI — {datos['nombre']}",
+        author="DFin AI",
+    )
+    estilos = _estilos_pdf()
+    story = []
+
+    story.append(Paragraph("INFORME FINANCIERO · NOTA DE MEMORIA", estilos["Eyebrow"]))
+    story.append(Paragraph(datos["nombre"], estilos["Title"]))
+    story.append(Paragraph(
+        f"Ticker <b>{datos['ticker']}</b> &nbsp;·&nbsp; {len(datos['periodos'])} ejercicios &nbsp;·&nbsp; Fuente: Yahoo Finance",
+        estilos["Subtitle"],
+    ))
+
+    # Tabla de datos financieros
+    headers = ["Métrica"] + [p["periodo"] for p in datos["periodos"]]
+    filas_metricas = [
+        ("Ingresos", "ingresos", None),
+        ("Coste de ventas", "coste_ventas", None),
+        ("Margen bruto", "margen_bruto", "pct_margen_bruto"),
+        ("Gastos operativos", "gastos_operativos", "pct_gastos_operativos"),
+        ("EBITDA", "ebitda", "pct_ebitda"),
+        ("Beneficio neto", "beneficio_neto", "pct_beneficio_neto"),
+    ]
+    body_rows = []
+    for nombre_metrica, key, pct_key in filas_metricas:
+        fila = [nombre_metrica]
+        for p in datos["periodos"]:
+            valor = f"{p[key]:,.0f}"
+            if pct_key:
+                valor += f" ({p[pct_key]}%)"
+            fila.append(valor)
+        body_rows.append(fila)
+    tabla = Table([headers] + body_rows, hAlign="LEFT", repeatRows=1)
+    tabla.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), DELOITTE_BLACK),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 8.5),
+        ("LINEBELOW", (0, 0), (-1, 0), 1.5, DELOITTE_GREEN),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
+        ("TOPPADDING", (0, 0), (-1, 0), 7),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 1), (-1, -1), 8.5),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.25, DELOITTE_GRAY_BORDER),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, DELOITTE_GRAY_BG]),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+    ]))
+    story.append(Paragraph("Datos financieros — serie histórica", estilos["H1"]))
+    story.append(tabla)
+    story.append(Spacer(1, 14))
+
+    story.append(Paragraph("Nota de memoria explicativa", estilos["H1"]))
+    story.extend(_markdown_a_flowables_pdf(nota, estilos))
+
+    doc.build(story, onFirstPage=_dibujar_branding_pdf, onLaterPages=_dibujar_branding_pdf)
+    buffer.seek(0)
+    return buffer
+
+
 def formatear_numero(valor):
     """Formatea números grandes para mostrar en la UI."""
     if abs(valor) >= 1_000_000_000:
@@ -814,6 +1034,177 @@ def descargar_comparativo():
         )
     except Exception as e:
         return f"Error generando documento: {str(e)}", 500
+
+
+@app.route("/descargar_pdf", methods=["POST"])
+def descargar_pdf():
+    cache_id = request.form.get("cache_id", "")
+    cached = _download_cache.get(cache_id)
+    if not cached or "datos" not in cached:
+        return "Sesión expirada. Por favor, realiza el análisis de nuevo.", 400
+
+    datos = cached["datos"]
+    nota = cached["nota"]
+    try:
+        buffer = crear_documento_pdf(datos, nota)
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=f"informe_{datos['ticker']}.pdf",
+            mimetype="application/pdf",
+        )
+    except Exception as e:
+        return f"Error generando documento: {str(e)}", 500
+
+
+# --- Funcionalidades mock (navegación completa, sin lógica productiva) ---
+
+@app.route("/presupuesto")
+def presupuesto():
+    return render_template("presupuesto.html")
+
+
+@app.route("/conciliacion")
+def conciliacion():
+    return render_template("conciliacion.html")
+
+
+@app.route("/radar-normativo")
+def radar_normativo():
+    alertas = [
+        {
+            "categoria": "Fiscal",
+            "tag": "tag-red",
+            "color": "#DA291C",
+            "jurisdiccion": "España",
+            "impacto": "Alto",
+            "fecha": "18/04/2026",
+            "fuente": "BOE",
+            "titulo": "Nueva obligación de reporte trimestral para pagos internacionales",
+            "resumen": (
+                "La AEAT publica la Orden HAC/392/2026 que amplía el Modelo 349 e introduce "
+                "un reporte trimestral obligatorio para operaciones de servicios intragrupo "
+                "por encima de 50.000 €. Entrada en vigor: 1 de julio de 2026."
+            ),
+        },
+        {
+            "categoria": "Contable",
+            "tag": "tag-blue",
+            "color": "#00A3E0",
+            "jurisdiccion": "Unión Europea",
+            "impacto": "Medio",
+            "fecha": "15/04/2026",
+            "fuente": "EFRAG / DOUE",
+            "titulo": "Revisión de NIIF 18 — presentación y desglose de estados financieros",
+            "resumen": (
+                "La EFRAG emite dictamen favorable a la adopción de NIIF 18, que redefine "
+                "subtotales obligatorios (operativo, financiación, inversión) y amplía las "
+                "medidas definidas por la dirección. Primera aplicación: ejercicios 2027."
+            ),
+        },
+        {
+            "categoria": "Laboral",
+            "tag": "tag-orange",
+            "color": "#ED8B00",
+            "jurisdiccion": "España",
+            "impacto": "Medio",
+            "fecha": "11/04/2026",
+            "fuente": "BOE",
+            "titulo": "Actualización del SMI y cotizaciones sociales para 2026",
+            "resumen": (
+                "Real Decreto 298/2026 que fija el SMI en 1.230 €/mes y actualiza los "
+                "topes máximos de cotización. Revisar masa salarial y provisiones laborales."
+            ),
+        },
+        {
+            "categoria": "ESG",
+            "tag": "tag-green",
+            "color": "#86BC25",
+            "jurisdiccion": "Unión Europea",
+            "impacto": "Alto",
+            "fecha": "08/04/2026",
+            "fuente": "DOUE",
+            "titulo": "CSRD — publicación de las NEIS sector specific para el ejercicio 2026",
+            "resumen": (
+                "La Comisión Europea publica los estándares sectoriales de la CSRD, que "
+                "serán de aplicación obligatoria a partir del ejercicio 2026 para empresas "
+                "cotizadas del sector financiero y energético."
+            ),
+        },
+        {
+            "categoria": "Financiera",
+            "tag": "tag-black",
+            "color": "#000000",
+            "jurisdiccion": "Unión Europea",
+            "impacto": "Bajo",
+            "fecha": "03/04/2026",
+            "fuente": "BCE",
+            "titulo": "Guía técnica sobre el uso de LLMs en procesos KYC y AML",
+            "resumen": (
+                "El BCE publica principios supervisores para la utilización de modelos de "
+                "lenguaje en procesos antiblanqueo, con foco en explicabilidad, trazabilidad "
+                "y supervisión humana sobre las decisiones automatizadas."
+            ),
+        },
+    ]
+    return render_template("radar_normativo.html", alertas=alertas)
+
+
+@app.route("/noticias")
+def noticias():
+    noticias_lista = [
+        {
+            "categoria": "M&A", "tag": "tag-green", "banner": "#43B02A",
+            "fecha": "20/04/2026", "fuente": "Reuters",
+            "titular": "BlackRock lidera el consorcio que adquiere Klarna por 14,2B USD",
+            "resumen": "La operación convierte a la fintech sueca en la mayor OPA del sector BNPL en la última década.",
+        },
+        {
+            "categoria": "Regulación", "tag": "tag-blue", "banner": "#00A3E0",
+            "fecha": "19/04/2026", "fuente": "Bloomberg",
+            "titular": "La EBA publica la guía definitiva sobre el uso de IA en procesos KYC",
+            "resumen": "El marco europeo establece requisitos de auditabilidad, explicabilidad y supervisión humana sobre modelos generativos.",
+        },
+        {
+            "categoria": "Mercados", "tag": "tag-black", "banner": "#000000",
+            "fecha": "19/04/2026", "fuente": "Financial Times",
+            "titular": "Las fintechs europeas cierran la semana con un rally del 4,2%",
+            "resumen": "Adyen, Nu Holdings y Wise lideran las subidas tras los resultados del primer trimestre por encima del consenso.",
+        },
+        {
+            "categoria": "Tecnología", "tag": "tag-orange", "banner": "#ED8B00",
+            "fecha": "18/04/2026", "fuente": "Expansión",
+            "titular": "CaixaBank firma un acuerdo con Anthropic para generalizar Claude en su banca privada",
+            "resumen": "El despliegue cubrirá 3.200 gestores y se integrará con la plataforma propia de asesoramiento del banco.",
+        },
+        {
+            "categoria": "Corporate", "tag": "tag-green", "banner": "#86BC25",
+            "fecha": "17/04/2026", "fuente": "Cinco Días",
+            "titular": "Endesa presenta un plan ESG de 4,5B € hasta 2030 centrado en hidrógeno verde",
+            "resumen": "La compañía prevé triplicar su capacidad instalada renovable y emitir bonos verdes por 1,2B € en 2026.",
+        },
+        {
+            "categoria": "M&A", "tag": "tag-green", "banner": "#43B02A",
+            "fecha": "16/04/2026", "fuente": "Reuters",
+            "titular": "Telefónica y Orange exploran una fusión de sus redes móviles en España",
+            "resumen": "Fuentes próximas a la negociación indican que un eventual acuerdo se someterá a revisión por la CNMC.",
+        },
+    ]
+    return render_template("noticias.html", noticias=noticias_lista)
+
+
+@app.route("/admin")
+def admin():
+    return render_template("admin.html")
+
+
+@app.route("/contacto", methods=["GET", "POST"])
+def contacto():
+    enviado = False
+    if request.method == "POST":
+        # Mock: no se persiste ni envía el mensaje, solo se reconoce la acción.
+        enviado = True
+    return render_template("contacto.html", enviado=enviado)
 
 
 if __name__ == "__main__":
