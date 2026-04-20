@@ -1,6 +1,6 @@
 # App-Procesos-FinancierosWEB
 
-Plataforma web de análisis financiero con inteligencia artificial. Obtén datos financieros de empresas cotizadas desde Yahoo Finance y genera informes profesionales con análisis explicativos potenciados por Claude (Anthropic).
+Plataforma web de análisis financiero con inteligencia artificial. Genera informes profesionales sobre empresas cotizadas con análisis explicativos potenciados por Claude (Anthropic) o Google Gemini.
 
 ## Funcionalidades
 
@@ -91,7 +91,7 @@ App-Procesos-FinancierosWEB/
 ## Tecnologías
 
 - **Flask** — Framework web
-- **yfinance** — Datos financieros de Yahoo Finance
+- **yfinance** — Conector de datos de mercado
 - **Anthropic Claude** — Generación de análisis con IA (claude-sonnet-4-20250514)
 - **python-docx** — Generación de documentos Word
 - **python-dotenv** — Gestión de variables de entorno
