@@ -601,6 +601,67 @@ def formatear_numero(valor):
         return f"{valor:,.0f}"
 
 
+def preparar_datos_graficos(datos):
+    """Construye un dict JSON-serializable para renderizar gráficos Chart.js.
+
+    Ordena los periodos cronológicamente (más antiguo → más reciente) para
+    que la serie temporal se lea de izquierda a derecha en los gráficos.
+    """
+    # `periodos[0]` es el más reciente; se invierte para series temporales.
+    periodos_ord = list(reversed(datos["periodos"]))
+
+    def _etiqueta_anio(periodo_str):
+        return periodo_str[:4] if len(periodo_str) >= 4 else periodo_str
+
+    labels = [_etiqueta_anio(p["periodo"]) for p in periodos_ord]
+
+    ultimo = datos["periodos"][0]
+    # Residual = impuestos, intereses, D&A (para cuadrar estructura de costes).
+    residual = (
+        ultimo["ingresos"]
+        - ultimo["coste_ventas"]
+        - ultimo["gastos_operativos"]
+        - ultimo["beneficio_neto"]
+    )
+    if residual < 0:
+        residual = 0.0
+
+    return {
+        "labels": labels,
+        "ingresos": [p["ingresos"] for p in periodos_ord],
+        "margenes": {
+            "margen_bruto": [p["pct_margen_bruto"] for p in periodos_ord],
+            "ebitda": [p["pct_ebitda"] for p in periodos_ord],
+            "neto": [p["pct_beneficio_neto"] for p in periodos_ord],
+        },
+        "estructura_costes": {
+            "labels": [
+                "Coste de ventas",
+                "Gastos operativos",
+                "Otros gastos (impuestos, intereses, D&A)",
+                "Beneficio neto",
+            ],
+            "values": [
+                ultimo["coste_ventas"],
+                ultimo["gastos_operativos"],
+                residual,
+                ultimo["beneficio_neto"],
+            ],
+            "periodo": ultimo["periodo"],
+        },
+        "metricas_clave": {
+            "labels": ["Ingresos", "Margen bruto", "EBITDA", "Beneficio neto"],
+            "values": [
+                ultimo["ingresos"],
+                ultimo["margen_bruto"],
+                ultimo["ebitda"],
+                ultimo["beneficio_neto"],
+            ],
+            "periodo": ultimo["periodo"],
+        },
+    }
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -639,6 +700,7 @@ def analisis():
                 nota=nota_html,
                 cache_id=cache_id,
                 formatear=formatear_numero,
+                graficos=preparar_datos_graficos(datos),
             )
         except Exception as e:
             return render_template(
