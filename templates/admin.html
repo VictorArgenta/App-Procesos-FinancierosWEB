@@ -10,9 +10,9 @@
 
 <div class="page-header">
     <div>
-        <span class="eyebrow">Panel corporativo</span>
+        <span class="eyebrow">Panel corporativo · Vainilla Corp</span>
         <h1>Administración de la plataforma</h1>
-        <p class="lead">Gestión de usuarios, consumo de APIs, trazabilidad y parametrización del tenant corporativo.</p>
+        <p class="lead">Gestión de usuarios, consumo de APIs, trazabilidad y parametrización del tenant <strong>Vainilla Corp</strong> (ES-01).</p>
     </div>
     <div style="display:flex; gap:0.4rem;">
         <button class="btn btn-secondary">Exportar auditoría</button>
@@ -40,12 +40,12 @@
                     <tr><th>Identificador</th><th>Email</th><th>Rol</th><th>Departamento</th><th>Estado</th><th></th></tr>
                 </thead>
                 <tbody>
-                    <tr><td>usr-001</td><td>usr-001@empresa.corp</td><td><span class="tag tag-black">Admin</span></td><td>Finanzas</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
-                    <tr><td>usr-014</td><td>usr-014@empresa.corp</td><td><span class="tag">Analista</span></td><td>Controlling</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
-                    <tr><td>usr-028</td><td>usr-028@empresa.corp</td><td><span class="tag">Aprobador</span></td><td>Tesorería</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
-                    <tr><td>usr-045</td><td>usr-045@empresa.corp</td><td><span class="tag">Analista</span></td><td>Compliance</td><td><span class="tag">Invitado</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
-                    <tr><td>usr-063</td><td>usr-063@empresa.corp</td><td><span class="tag">Lectura</span></td><td>Auditoría</td><td><span class="tag tag-red">Bloqueado</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
-                    <tr><td>usr-089</td><td>usr-089@empresa.corp</td><td><span class="tag tag-black">Admin</span></td><td>IT Finance</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>usr-001</td><td>usr-001@vainilla.corp</td><td><span class="tag tag-black">Admin</span></td><td>Finanzas</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>usr-014</td><td>usr-014@vainilla.corp</td><td><span class="tag">Analista</span></td><td>Controlling</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>usr-028</td><td>usr-028@vainilla.corp</td><td><span class="tag">Aprobador</span></td><td>Tesorería</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>usr-045</td><td>usr-045@vainilla.corp</td><td><span class="tag">Analista</span></td><td>Compliance</td><td><span class="tag">Invitado</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>usr-063</td><td>usr-063@vainilla.corp</td><td><span class="tag">Lectura</span></td><td>Auditoría</td><td><span class="tag tag-red">Bloqueado</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
+                    <tr><td>usr-089</td><td>usr-089@vainilla.corp</td><td><span class="tag tag-black">Admin</span></td><td>IT Finance</td><td><span class="tag tag-green">Activo</span></td><td><button class="btn btn-sm btn-secondary" onclick="alert('Editando usuario (demo)')">Editar</button></td></tr>
                 </tbody>
             </table>
         </div>
@@ -66,6 +66,18 @@
 <div class="card">
     <h2>Parámetros del tenant</h2>
     <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+        <div class="form-group">
+            <label>Razón social del tenant</label>
+            <input type="text" value="Vainilla Corp, S.A." readonly style="background:#f5f5f4;">
+        </div>
+        <div class="form-group">
+            <label>Identificador tenant</label>
+            <input type="text" value="VAINILLA-ES-01" readonly style="background:#f5f5f4;">
+        </div>
+        <div class="form-group">
+            <label>Dominio corporativo</label>
+            <input type="text" value="@vainilla.corp" readonly style="background:#f5f5f4;">
+        </div>
         <div class="form-group">
             <label>Modelo IA por defecto</label>
             <select>

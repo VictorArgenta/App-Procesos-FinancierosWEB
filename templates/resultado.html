@@ -13,7 +13,11 @@
     <div>
         <span class="eyebrow">Informe financiero</span>
         <h1>{{ datos.nombre }}</h1>
-        <p class="lead">Ticker <strong>{{ datos.ticker }}</strong> · {{ datos.periodos|length }} ejercicios históricos analizados</p>
+        <p class="lead">
+            Ticker <strong>{{ datos.ticker }}</strong>
+            · {{ datos.periodos|length }} ejercicios históricos
+            {% if datos.moneda %}· Moneda de reporting: <strong>{{ datos.moneda }}</strong>{% endif %}
+        </p>
     </div>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <form method="POST" action="/descargar_word" style="display: inline;" onsubmit="return downloadFile(this)">
@@ -30,6 +34,11 @@
 
 <div class="card">
     <h2>Datos financieros — serie histórica</h2>
+    {% if datos.moneda %}
+    <p style="color: var(--gray-10); font-size: 0.82rem; margin: -0.4rem 0 0.8rem; font-style: italic;">
+        Cifras expresadas en {{ datos.moneda }}. Abreviaturas: K = miles, M = millones, B = miles de millones.
+    </p>
+    {% endif %}
     <div class="table-scroll">
         <table class="data-table metricas-table">
             <thead>
@@ -90,7 +99,12 @@
             {{ sec.body_html | safe }}
             {% for ch in sec.charts %}
                 <figure class="inline-chart">
-                    <figcaption>{{ chart_titulos[ch] }}</figcaption>
+                    <figcaption>
+    {{ chart_titulos[ch] }}
+    {% if datos.moneda and ch in ['ingresos', 'estructura', 'metricas'] %}
+    <span style="color: var(--gray-10); font-weight: 500; font-size: 0.82rem;"> — {{ datos.moneda }}</span>
+    {% endif %}
+</figcaption>
                     <div class="chart-canvas-wrapper"><canvas id="chart-{{ ch }}"></canvas></div>
                 </figure>
             {% endfor %}
@@ -101,7 +115,12 @@
         <div class="charts-grid">
             {% for ch in pendientes %}
             <figure class="inline-chart">
-                <figcaption>{{ chart_titulos[ch] }}</figcaption>
+                <figcaption>
+    {{ chart_titulos[ch] }}
+    {% if datos.moneda and ch in ['ingresos', 'estructura', 'metricas'] %}
+    <span style="color: var(--gray-10); font-weight: 500; font-size: 0.82rem;"> — {{ datos.moneda }}</span>
+    {% endif %}
+</figcaption>
                 <div class="chart-canvas-wrapper"><canvas id="chart-{{ ch }}"></canvas></div>
             </figure>
             {% endfor %}
