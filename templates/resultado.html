@@ -72,7 +72,224 @@
 </div>
 
 <div class="card">
+    <h2>Visualización Gráfica</h2>
+    <div class="charts-grid">
+        <div class="chart-box">
+            <h3>Evolución de ingresos</h3>
+            <div class="chart-canvas-wrapper"><canvas id="chartIngresos"></canvas></div>
+        </div>
+        <div class="chart-box">
+            <h3>Evolución de márgenes (%)</h3>
+            <div class="chart-canvas-wrapper"><canvas id="chartMargenes"></canvas></div>
+        </div>
+        <div class="chart-box">
+            <h3>Estructura de costes — {{ graficos.estructura_costes.periodo }}</h3>
+            <div class="chart-canvas-wrapper"><canvas id="chartEstructura"></canvas></div>
+        </div>
+        <div class="chart-box">
+            <h3>Métricas clave — {{ graficos.metricas_clave.periodo }}</h3>
+            <div class="chart-canvas-wrapper"><canvas id="chartMetricas"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
     <h2>Nota de Memoria Explicativa</h2>
     <div class="nota-memoria">{{ nota|safe }}</div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 1.5rem;
+    }
+    .chart-box {
+        background: #f8fafc;
+        border: 1px solid #e8eef4;
+        border-radius: 10px;
+        padding: 1.2rem;
+    }
+    .chart-box h3 {
+        color: #003366;
+        font-size: 1.05rem;
+        margin-bottom: 0.8rem;
+    }
+    .chart-canvas-wrapper {
+        position: relative;
+        height: 280px;
+    }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    const datos = {{ graficos|tojson }};
+
+    function formatearCifra(valor) {
+        const abs = Math.abs(valor);
+        if (abs >= 1e9) return (valor / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return (valor / 1e6).toFixed(2) + 'M';
+        if (abs >= 1e3) return (valor / 1e3).toFixed(1) + 'K';
+        return valor.toFixed(0);
+    }
+
+    const colorPrimario = '#004a99';
+    const colorSecundario = '#22965d';
+    const coloresPalette = ['#004a99', '#22965d', '#e0a800', '#c0392b', '#6f42c1'];
+
+    // 1) Barras — evolución de ingresos
+    new Chart(document.getElementById('chartIngresos'), {
+        type: 'bar',
+        data: {
+            labels: datos.labels,
+            datasets: [{
+                label: 'Ingresos',
+                data: datos.ingresos,
+                backgroundColor: 'rgba(0, 74, 153, 0.75)',
+                borderColor: colorPrimario,
+                borderWidth: 1,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => 'Ingresos: ' + formatearCifra(ctx.parsed.y)
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: (v) => formatearCifra(v) }
+                }
+            }
+        }
+    });
+
+    // 2) Líneas — evolución de márgenes
+    new Chart(document.getElementById('chartMargenes'), {
+        type: 'line',
+        data: {
+            labels: datos.labels,
+            datasets: [
+                {
+                    label: 'Margen bruto (%)',
+                    data: datos.margenes.margen_bruto,
+                    borderColor: '#004a99',
+                    backgroundColor: 'rgba(0, 74, 153, 0.1)',
+                    tension: 0.3,
+                    fill: false,
+                    pointRadius: 4
+                },
+                {
+                    label: 'EBITDA (%)',
+                    data: datos.margenes.ebitda,
+                    borderColor: '#22965d',
+                    backgroundColor: 'rgba(34, 150, 93, 0.1)',
+                    tension: 0.3,
+                    fill: false,
+                    pointRadius: 4
+                },
+                {
+                    label: 'Margen neto (%)',
+                    data: datos.margenes.neto,
+                    borderColor: '#e0a800',
+                    backgroundColor: 'rgba(224, 168, 0, 0.1)',
+                    tension: 0.3,
+                    fill: false,
+                    pointRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%'
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    ticks: { callback: (v) => v + '%' }
+                }
+            }
+        }
+    });
+
+    // 3) Donut — estructura de costes del último ejercicio
+    new Chart(document.getElementById('chartEstructura'), {
+        type: 'doughnut',
+        data: {
+            labels: datos.estructura_costes.labels,
+            datasets: [{
+                data: datos.estructura_costes.values,
+                backgroundColor: coloresPalette,
+                borderColor: '#ffffff',
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                            return ctx.label + ': ' + formatearCifra(ctx.parsed) + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // 4) Barras horizontales — métricas clave del último ejercicio
+    new Chart(document.getElementById('chartMetricas'), {
+        type: 'bar',
+        data: {
+            labels: datos.metricas_clave.labels,
+            datasets: [{
+                label: 'Valor',
+                data: datos.metricas_clave.values,
+                backgroundColor: coloresPalette,
+                borderWidth: 1,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ctx.label + ': ' + formatearCifra(ctx.parsed.x)
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: { callback: (v) => formatearCifra(v) }
+                }
+            }
+        }
+    });
+})();
+</script>
 {% endblock %}
