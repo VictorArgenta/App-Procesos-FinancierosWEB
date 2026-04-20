@@ -1,21 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}Comparativa — Procesos Financieros{% endblock %}
+{% block title %}Comparativa Financiera — DFin AI{% endblock %}
 
 {% block content %}
-<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <a href="/comparador">Comparador</a><span class="sep">/</span>
+    <span class="current">Resultado</span>
+</div>
+
+<div class="page-header">
     <div>
-        <h1 style="color: #003366; font-size: 1.8rem;">Comparativa Financiera</h1>
-        <p style="color: #5a6d80;">
+        <span class="eyebrow">Informe comparativo</span>
+        <h1>Comparativa Financiera</h1>
+        <p class="lead">
             {% for d in datos_empresas %}
-                {{ d.nombre }} ({{ d.ticker }}){% if not loop.last %} vs {% endif %}
+                <strong>{{ d.nombre }}</strong> ({{ d.ticker }}){% if not loop.last %} · {% endif %}
             {% endfor %}
         </p>
     </div>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <form method="POST" action="/descargar_comparativo" style="display: inline;" onsubmit="return downloadFile(this)">
             <input type="hidden" name="cache_id" value="{{ cache_id }}">
-            <button type="submit" class="btn btn-success">Descargar Word</button>
+            <button type="submit" class="btn btn-primary">Exportar Word</button>
         </form>
         <a href="/comparador" class="btn btn-secondary">Nueva comparación</a>
     </div>
@@ -28,14 +35,14 @@
 {% endif %}
 
 <div class="card">
-    <h2>Tabla Comparativa — Último Periodo</h2>
+    <h2>Tabla comparativa — último ejercicio</h2>
     <div style="overflow-x: auto;">
         <table class="data-table">
             <thead>
                 <tr>
                     <th>Métrica</th>
                     {% for d in datos_empresas %}
-                    <th>{{ d.nombre }}<br><span style="font-weight: 400; font-size: 0.8rem; opacity: 0.8;">{{ d.ticker }}</span></th>
+                    <th>{{ d.nombre }}<br><span style="font-weight: 400; font-size: 0.72rem; opacity: 0.8;">{{ d.ticker }}</span></th>
                     {% endfor %}
                 </tr>
             </thead>
@@ -61,25 +68,25 @@
                 <tr>
                     <td><strong>Margen bruto</strong></td>
                     {% for d in datos_empresas %}
-                    <td>{{ formatear(d.periodos[0].margen_bruto) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ d.periodos[0].pct_margen_bruto }}%)</span></td>
+                    <td>{{ formatear(d.periodos[0].margen_bruto) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ d.periodos[0].pct_margen_bruto }}%)</span></td>
                     {% endfor %}
                 </tr>
                 <tr>
                     <td><strong>Gastos operativos</strong></td>
                     {% for d in datos_empresas %}
-                    <td>{{ formatear(d.periodos[0].gastos_operativos) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ d.periodos[0].pct_gastos_operativos }}%)</span></td>
+                    <td>{{ formatear(d.periodos[0].gastos_operativos) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ d.periodos[0].pct_gastos_operativos }}%)</span></td>
                     {% endfor %}
                 </tr>
                 <tr>
                     <td><strong>EBITDA</strong></td>
                     {% for d in datos_empresas %}
-                    <td>{{ formatear(d.periodos[0].ebitda) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ d.periodos[0].pct_ebitda }}%)</span></td>
+                    <td>{{ formatear(d.periodos[0].ebitda) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ d.periodos[0].pct_ebitda }}%)</span></td>
                     {% endfor %}
                 </tr>
                 <tr>
                     <td><strong>Beneficio neto</strong></td>
                     {% for d in datos_empresas %}
-                    <td>{{ formatear(d.periodos[0].beneficio_neto) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ d.periodos[0].pct_beneficio_neto }}%)</span></td>
+                    <td>{{ formatear(d.periodos[0].beneficio_neto) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ d.periodos[0].pct_beneficio_neto }}%)</span></td>
                     {% endfor %}
                 </tr>
             </tbody>
@@ -88,7 +95,7 @@
 </div>
 
 <div class="card">
-    <h2>Análisis Comparativo</h2>
+    <h2>Análisis comparativo</h2>
     <div class="nota-memoria">{{ analisis|safe }}</div>
 </div>
 {% endblock %}

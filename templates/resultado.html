@@ -1,24 +1,35 @@
 {% extends "base.html" %}
 
-{% block title %}Resultado — {{ datos.nombre }} — Procesos Financieros{% endblock %}
+{% block title %}{{ datos.nombre }} — Nota de Memoria — DFin AI{% endblock %}
 
 {% block content %}
-<div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <a href="/analisis">Generación Nota de Memoria</a><span class="sep">/</span>
+    <span class="current">{{ datos.ticker }}</span>
+</div>
+
+<div class="page-header">
     <div>
-        <h1 style="color: #003366; font-size: 1.8rem;">{{ datos.nombre }}</h1>
-        <p style="color: #5a6d80;">Ticker: {{ datos.ticker }}</p>
+        <span class="eyebrow">Informe financiero</span>
+        <h1>{{ datos.nombre }}</h1>
+        <p class="lead">Ticker <strong>{{ datos.ticker }}</strong> · {{ datos.periodos|length }} ejercicios históricos · Fuente: Yahoo Finance</p>
     </div>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <form method="POST" action="/descargar_word" style="display: inline;" onsubmit="return downloadFile(this)">
             <input type="hidden" name="cache_id" value="{{ cache_id }}">
-            <button type="submit" class="btn btn-success">Descargar Word</button>
+            <button type="submit" class="btn btn-dark">Exportar Word</button>
+        </form>
+        <form method="POST" action="/descargar_pdf" style="display: inline;" onsubmit="return downloadFile(this)">
+            <input type="hidden" name="cache_id" value="{{ cache_id }}">
+            <button type="submit" class="btn btn-primary">Exportar PDF</button>
         </form>
         <a href="/analisis" class="btn btn-secondary">Nuevo análisis</a>
     </div>
 </div>
 
 <div class="card">
-    <h2>Datos Financieros</h2>
+    <h2>Datos financieros — serie histórica</h2>
     <div style="overflow-x: auto;">
         <table class="data-table">
             <thead>
@@ -45,25 +56,25 @@
                 <tr>
                     <td><strong>Margen bruto</strong></td>
                     {% for p in datos.periodos %}
-                    <td>{{ formatear(p.margen_bruto) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ p.pct_margen_bruto }}%)</span></td>
+                    <td>{{ formatear(p.margen_bruto) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ p.pct_margen_bruto }}%)</span></td>
                     {% endfor %}
                 </tr>
                 <tr>
                     <td><strong>Gastos operativos</strong></td>
                     {% for p in datos.periodos %}
-                    <td>{{ formatear(p.gastos_operativos) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ p.pct_gastos_operativos }}%)</span></td>
+                    <td>{{ formatear(p.gastos_operativos) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ p.pct_gastos_operativos }}%)</span></td>
                     {% endfor %}
                 </tr>
                 <tr>
                     <td><strong>EBITDA</strong></td>
                     {% for p in datos.periodos %}
-                    <td>{{ formatear(p.ebitda) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ p.pct_ebitda }}%)</span></td>
+                    <td>{{ formatear(p.ebitda) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ p.pct_ebitda }}%)</span></td>
                     {% endfor %}
                 </tr>
                 <tr>
                     <td><strong>Beneficio neto</strong></td>
                     {% for p in datos.periodos %}
-                    <td>{{ formatear(p.beneficio_neto) }} <span style="color: #5a6d80; font-size: 0.85rem;">({{ p.pct_beneficio_neto }}%)</span></td>
+                    <td>{{ formatear(p.beneficio_neto) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ p.pct_beneficio_neto }}%)</span></td>
                     {% endfor %}
                 </tr>
             </tbody>
@@ -72,7 +83,7 @@
 </div>
 
 <div class="card">
-    <h2>Visualización Gráfica</h2>
+    <h2>Visualización gráfica</h2>
     <div class="charts-grid">
         <div class="chart-box">
             <h3>Evolución de ingresos</h3>
@@ -94,7 +105,7 @@
 </div>
 
 <div class="card">
-    <h2>Nota de Memoria Explicativa</h2>
+    <h2>Nota de memoria explicativa</h2>
     <div class="nota-memoria">{{ nota|safe }}</div>
 </div>
 {% endblock %}
@@ -104,18 +115,20 @@
     .charts-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-        gap: 1.5rem;
+        gap: 1.2rem;
     }
     .chart-box {
-        background: #f8fafc;
-        border: 1px solid #e8eef4;
-        border-radius: 10px;
-        padding: 1.2rem;
+        background: var(--gray-bg);
+        border: 1px solid var(--gray-border);
+        border-radius: 3px;
+        padding: 1.1rem;
     }
     .chart-box h3 {
-        color: #003366;
-        font-size: 1.05rem;
+        color: var(--black);
+        font-size: 0.95rem;
         margin-bottom: 0.8rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid var(--deloitte-green);
     }
     .chart-canvas-wrapper {
         position: relative;
@@ -127,19 +140,27 @@
 (function() {
     const datos = {{ graficos|tojson }};
 
-    function formatearCifra(valor) {
-        const abs = Math.abs(valor);
-        if (abs >= 1e9) return (valor / 1e9).toFixed(2) + 'B';
-        if (abs >= 1e6) return (valor / 1e6).toFixed(2) + 'M';
-        if (abs >= 1e3) return (valor / 1e3).toFixed(1) + 'K';
-        return valor.toFixed(0);
+    const PALETTE = {
+        green: '#86BC25',
+        greenDark: '#43B02A',
+        black: '#000000',
+        gray: '#53565A',
+        orange: '#ED8B00',
+        red: '#DA291C',
+        blue: '#00A3E0'
+    };
+
+    function formatearCifra(v) {
+        const abs = Math.abs(v);
+        if (abs >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+        if (abs >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+        return v.toFixed(0);
     }
 
-    const colorPrimario = '#004a99';
-    const colorSecundario = '#22965d';
-    const coloresPalette = ['#004a99', '#22965d', '#e0a800', '#c0392b', '#6f42c1'];
+    Chart.defaults.font.family = "'Segoe UI','Helvetica Neue',Arial,sans-serif";
+    Chart.defaults.color = '#53565A';
 
-    // 1) Barras — evolución de ingresos
     new Chart(document.getElementById('chartIngresos'), {
         type: 'bar',
         data: {
@@ -147,109 +168,69 @@
             datasets: [{
                 label: 'Ingresos',
                 data: datos.ingresos,
-                backgroundColor: 'rgba(0, 74, 153, 0.75)',
-                borderColor: colorPrimario,
+                backgroundColor: 'rgba(134, 188, 37, 0.85)',
+                borderColor: PALETTE.greenDark,
                 borderWidth: 1,
-                borderRadius: 6
+                borderRadius: 2
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => 'Ingresos: ' + formatearCifra(ctx.parsed.y)
-                    }
-                }
+                tooltip: { callbacks: { label: (c) => 'Ingresos: ' + formatearCifra(c.parsed.y) } }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { callback: (v) => formatearCifra(v) }
-                }
+                y: { beginAtZero: true, ticks: { callback: (v) => formatearCifra(v) }, grid: { color: '#E4E4E2' } },
+                x: { grid: { display: false } }
             }
         }
     });
 
-    // 2) Líneas — evolución de márgenes
     new Chart(document.getElementById('chartMargenes'), {
         type: 'line',
         data: {
             labels: datos.labels,
             datasets: [
-                {
-                    label: 'Margen bruto (%)',
-                    data: datos.margenes.margen_bruto,
-                    borderColor: '#004a99',
-                    backgroundColor: 'rgba(0, 74, 153, 0.1)',
-                    tension: 0.3,
-                    fill: false,
-                    pointRadius: 4
-                },
-                {
-                    label: 'EBITDA (%)',
-                    data: datos.margenes.ebitda,
-                    borderColor: '#22965d',
-                    backgroundColor: 'rgba(34, 150, 93, 0.1)',
-                    tension: 0.3,
-                    fill: false,
-                    pointRadius: 4
-                },
-                {
-                    label: 'Margen neto (%)',
-                    data: datos.margenes.neto,
-                    borderColor: '#e0a800',
-                    backgroundColor: 'rgba(224, 168, 0, 0.1)',
-                    tension: 0.3,
-                    fill: false,
-                    pointRadius: 4
-                }
+                { label: 'Margen bruto (%)', data: datos.margenes.margen_bruto, borderColor: PALETTE.greenDark, backgroundColor: 'rgba(67,176,42,0.08)', tension: 0.3, pointRadius: 4, pointBackgroundColor: PALETTE.greenDark },
+                { label: 'EBITDA (%)', data: datos.margenes.ebitda, borderColor: PALETTE.black, backgroundColor: 'rgba(0,0,0,0.04)', tension: 0.3, pointRadius: 4, pointBackgroundColor: PALETTE.black },
+                { label: 'Margen neto (%)', data: datos.margenes.neto, borderColor: PALETTE.orange, backgroundColor: 'rgba(237,139,0,0.08)', tension: 0.3, pointRadius: 4, pointBackgroundColor: PALETTE.orange }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: {
                 legend: { position: 'bottom' },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => ctx.dataset.label + ': ' + ctx.parsed.y.toFixed(1) + '%'
-                    }
-                }
+                tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.parsed.y.toFixed(1) + '%' } }
             },
             scales: {
-                y: {
-                    ticks: { callback: (v) => v + '%' }
-                }
+                y: { ticks: { callback: (v) => v + '%' }, grid: { color: '#E4E4E2' } },
+                x: { grid: { display: false } }
             }
         }
     });
 
-    // 3) Donut — estructura de costes del último ejercicio
     new Chart(document.getElementById('chartEstructura'), {
         type: 'doughnut',
         data: {
             labels: datos.estructura_costes.labels,
             datasets: [{
                 data: datos.estructura_costes.values,
-                backgroundColor: coloresPalette,
-                borderColor: '#ffffff',
+                backgroundColor: [PALETTE.black, PALETTE.gray, PALETTE.orange, PALETTE.green],
+                borderColor: '#fff',
                 borderWidth: 2
             }]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: {
                 legend: { position: 'bottom' },
                 tooltip: {
                     callbacks: {
-                        label: (ctx) => {
-                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
-                            return ctx.label + ': ' + formatearCifra(ctx.parsed) + ' (' + pct + '%)';
+                        label: (c) => {
+                            const total = c.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total ? ((c.parsed / total) * 100).toFixed(1) : 0;
+                            return c.label + ': ' + formatearCifra(c.parsed) + ' (' + pct + '%)';
                         }
                     }
                 }
@@ -257,36 +238,27 @@
         }
     });
 
-    // 4) Barras horizontales — métricas clave del último ejercicio
     new Chart(document.getElementById('chartMetricas'), {
         type: 'bar',
         data: {
             labels: datos.metricas_clave.labels,
             datasets: [{
-                label: 'Valor',
                 data: datos.metricas_clave.values,
-                backgroundColor: coloresPalette,
-                borderWidth: 1,
-                borderRadius: 6
+                backgroundColor: [PALETTE.black, PALETTE.greenDark, PALETTE.green, PALETTE.orange],
+                borderWidth: 0,
+                borderRadius: 2
             }]
         },
         options: {
             indexAxis: 'y',
-            responsive: true,
-            maintainAspectRatio: false,
+            responsive: true, maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: (ctx) => ctx.label + ': ' + formatearCifra(ctx.parsed.x)
-                    }
-                }
+                tooltip: { callbacks: { label: (c) => c.label + ': ' + formatearCifra(c.parsed.x) } }
             },
             scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: { callback: (v) => formatearCifra(v) }
-                }
+                x: { beginAtZero: true, ticks: { callback: (v) => formatearCifra(v) }, grid: { color: '#E4E4E2' } },
+                y: { grid: { display: false } }
             }
         }
     });

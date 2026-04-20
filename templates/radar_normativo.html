@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Radar Normativo — DFin AI{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span>Funcionalidades</span><span class="sep">/</span>
+    <span class="current">Radar Normativo</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Módulo · Compliance</span>
+        <h1>Radar Normativo</h1>
+        <p class="lead">Vigilancia automatizada de novedades regulatorias, fiscales, contables, laborales y de sostenibilidad. Clasificación por jurisdicción, categoría y nivel de impacto para el negocio.</p>
+    </div>
+    <span class="tag tag-orange">Preview</span>
+</div>
+
+<div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Alertas activas</div><div class="kpi-value">38</div><div class="kpi-delta">últimos 30 días</div></div>
+    <div class="kpi"><div class="kpi-label">Alta prioridad</div><div class="kpi-value">7</div><div class="kpi-delta neg">Impacto inmediato</div></div>
+    <div class="kpi"><div class="kpi-label">Jurisdicciones</div><div class="kpi-value">14</div><div class="kpi-delta">UE · ES · LATAM</div></div>
+    <div class="kpi"><div class="kpi-label">Fuentes monitorizadas</div><div class="kpi-value">82</div><div class="kpi-delta">BOE, DOUE, AEAT…</div></div>
+</div>
+
+<div class="card">
+    <h2>Filtros</h2>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem;">
+        <div class="form-group" style="margin:0;">
+            <label>Categoría</label>
+            <select onchange="filtrar()">
+                <option>Todas</option>
+                <option>Fiscal</option>
+                <option>Contable</option>
+                <option>Laboral</option>
+                <option>ESG / Sostenibilidad</option>
+                <option>Financiera / Mercados</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Jurisdicción</label>
+            <select onchange="filtrar()">
+                <option>Todas</option>
+                <option>Unión Europea</option>
+                <option>España</option>
+                <option>Portugal</option>
+                <option>México</option>
+                <option>Brasil</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Impacto</label>
+            <select onchange="filtrar()">
+                <option>Todos</option>
+                <option>Alto</option>
+                <option>Medio</option>
+                <option>Bajo</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Estado</label>
+            <select onchange="filtrar()">
+                <option>Todos</option>
+                <option>Vigente</option>
+                <option>Próxima aplicación</option>
+                <option>Borrador / Consulta</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Alertas normativas</h2>
+    {% for a in alertas %}
+    <div style="border:1px solid var(--gray-border); border-left: 4px solid {{ a.color }}; padding: 1rem 1.2rem; border-radius: 3px; margin-bottom: 0.8rem;">
+        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+            <div>
+                <span class="tag {{ a.tag }}">{{ a.categoria }}</span>
+                <span class="tag">{{ a.jurisdiccion }}</span>
+                <span class="tag">Impacto: {{ a.impacto }}</span>
+            </div>
+            <span style="color: var(--gray-10); font-size: 0.82rem;">{{ a.fecha }} · {{ a.fuente }}</span>
+        </div>
+        <h3 style="margin: 0.6rem 0 0.3rem;">{{ a.titulo }}</h3>
+        <p style="color: var(--gray-11); font-size: 0.9rem; line-height: 1.55;">{{ a.resumen }}</p>
+        <div style="margin-top: 0.7rem; display:flex; gap:0.4rem;">
+            <button class="btn btn-sm btn-secondary" onclick="alert('Resumen IA: {{ a.titulo | e }}')">Resumen IA</button>
+            <button class="btn btn-sm btn-secondary" onclick="alert('Asignado a: Departamento Fiscal')">Asignar</button>
+            <button class="btn btn-sm btn-outline" onclick="alert('Suscripción activada.')">Seguir</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filtrar() {
+    // Demo: los filtros no recalculan el listado.
+}
+</script>
+{% endblock %}

@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Elaboración de Presupuesto (ML) — DFin AI{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span>Funcionalidades</span><span class="sep">/</span>
+    <span class="current">Elaboración de Presupuesto (ML)</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Módulo · Machine Learning</span>
+        <h1>Elaboración de Presupuesto <span style="color: var(--deloitte-green-dark);">con ML</span></h1>
+        <p class="lead">Forecasting de ingresos, costes y flujos de caja para los próximos 12, 24 o 36 meses. Modelos entrenados sobre el histórico corporativo con detección automática de estacionalidad y escenarios de sensibilidad.</p>
+    </div>
+    <span class="tag tag-orange">Preview · Q3 2026</span>
+</div>
+
+<div class="alert alert-info">
+    <strong>Demo interactiva.</strong> La simulación genera valores representativos para previsualizar la experiencia. La versión productiva requerirá conexión con el ERP corporativo y datamart autorizado.
+</div>
+
+<div class="card">
+    <h2>1. Parámetros del modelo</h2>
+    <form onsubmit="event.preventDefault(); simularPresupuesto();">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem;">
+            <div class="form-group">
+                <label for="unidad">Unidad de negocio</label>
+                <select id="unidad">
+                    <option>Grupo consolidado</option>
+                    <option>Retail Iberia</option>
+                    <option>Industrial LATAM</option>
+                    <option>Servicios Financieros</option>
+                    <option>Tecnología y SaaS</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="horizonte">Horizonte temporal</label>
+                <select id="horizonte">
+                    <option value="12">12 meses</option>
+                    <option value="24" selected>24 meses</option>
+                    <option value="36">36 meses</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="modelo_ml">Modelo</label>
+                <select id="modelo_ml">
+                    <option>Prophet (Meta)</option>
+                    <option>ARIMA</option>
+                    <option>XGBoost regressor</option>
+                    <option>LSTM neural</option>
+                    <option>Ensemble (recomendado)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="escenario">Escenario</label>
+                <select id="escenario">
+                    <option value="base">Base</option>
+                    <option value="opt">Optimista (+5%)</option>
+                    <option value="pes">Pesimista (-5%)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="moneda">Moneda</label>
+                <select id="moneda">
+                    <option>EUR</option>
+                    <option>USD</option>
+                    <option>GBP</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="confianza">Intervalo de confianza</label>
+                <select id="confianza">
+                    <option>90%</option>
+                    <option selected>95%</option>
+                    <option>99%</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Generar presupuesto</button>
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('resultado-ml').style.display='none';">Limpiar</button>
+    </form>
+</div>
+
+<div id="resultado-ml" class="card" style="display:none;">
+    <h2>2. Resultado del forecasting</h2>
+    <div class="kpi-grid" style="margin-top: 0.5rem;">
+        <div class="kpi"><div class="kpi-label">Ingresos proyectados</div><div class="kpi-value" id="kpi-ingresos">—</div><div class="kpi-delta" id="kpi-ingresos-delta">—</div></div>
+        <div class="kpi"><div class="kpi-label">EBITDA estimado</div><div class="kpi-value" id="kpi-ebitda">—</div><div class="kpi-delta" id="kpi-ebitda-delta">—</div></div>
+        <div class="kpi"><div class="kpi-label">OPEX medio</div><div class="kpi-value" id="kpi-opex">—</div><div class="kpi-delta" id="kpi-opex-delta">—</div></div>
+        <div class="kpi"><div class="kpi-label">R² modelo</div><div class="kpi-value" id="kpi-r2">—</div><div class="kpi-delta">Calidad ajuste</div></div>
+    </div>
+    <div style="position: relative; height: 320px; margin-top: 1rem;">
+        <canvas id="chartForecast"></canvas>
+    </div>
+    <h3 style="margin-top: 1.5rem;">Desglose mensual (primeros 12 meses)</h3>
+    <div style="overflow-x:auto;">
+        <table class="data-table" id="tabla-forecast">
+            <thead>
+                <tr><th>Mes</th><th>Ingresos</th><th>OPEX</th><th>EBITDA</th><th>Confianza</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <div class="alert alert-success" style="margin-top: 1rem;">
+        <strong>Entrenamiento completado.</strong> Modelo validado con 48 meses de histórico. MAPE 3,4% · backtesting 12M.
+    </div>
+</div>
+
+<div class="card">
+    <h2>Capacidades de la versión final</h2>
+    <ul style="color: var(--gray-11); padding-left: 1.2rem; line-height: 2;">
+        <li>Ingesta automática desde SAP, Oracle Fusion, Workday y Microsoft Dynamics</li>
+        <li>Descomposición automática de componentes: tendencia, estacionalidad, calendario, holidays</li>
+        <li>Detección de anomalías y saneamiento del histórico previo al entrenamiento</li>
+        <li>Simulador de sensibilidad ante shocks exógenos (tipo de cambio, inflación, materias primas)</li>
+        <li>Aprobación multi-rol con workflow auditable (preparador · revisor · aprobador)</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+let chartPresupuesto = null;
+function simularPresupuesto() {
+    const horizonte = parseInt(document.getElementById('horizonte').value);
+    const escenario = document.getElementById('escenario').value;
+    const factor = escenario === 'opt' ? 1.05 : escenario === 'pes' ? 0.95 : 1;
+
+    document.getElementById('resultado-ml').style.display = 'block';
+
+    const labels = [];
+    const hist = [];
+    const fcst = [];
+    const upper = [];
+    const lower = [];
+    const now = new Date(2026, 3, 1);
+    // 12 meses históricos
+    for (let i = 12; i > 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        labels.push(d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }));
+        const base = 8_500_000 + Math.sin(i / 2) * 800_000 + (12 - i) * 90_000;
+        hist.push(Math.round(base));
+        fcst.push(null); upper.push(null); lower.push(null);
+    }
+    // N meses forecast
+    let bruto = 9_800_000;
+    const filas = [];
+    for (let i = 0; i < horizonte; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        labels.push(d.toLocaleDateString('es-ES', { month: 'short', year: '2-digit' }));
+        bruto = bruto * (1 + (0.008 + Math.random() * 0.006)) * (i === 0 ? 1 : 1);
+        const y = Math.round(bruto * factor);
+        hist.push(null);
+        fcst.push(y);
+        upper.push(Math.round(y * 1.06));
+        lower.push(Math.round(y * 0.94));
+        if (i < 12) {
+            const opex = Math.round(y * 0.68);
+            filas.push({ mes: d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }), ing: y, opex: opex, ebitda: y - opex, conf: 95 - Math.floor(i / 2) });
+        }
+    }
+    const totalIng = fcst.filter(v => v !== null).reduce((a, b) => a + b, 0);
+    const totalOpex = Math.round(totalIng * 0.68);
+    const totalEbitda = totalIng - totalOpex;
+    const fmt = (v) => new Intl.NumberFormat('es-ES', { notation: 'compact', maximumFractionDigits: 2 }).format(v) + ' €';
+
+    document.getElementById('kpi-ingresos').textContent = fmt(totalIng);
+    document.getElementById('kpi-ingresos-delta').textContent = (factor === 1 ? '+8,2%' : factor > 1 ? '+13,4%' : '+3,0%') + ' vs ejercicio actual';
+    document.getElementById('kpi-ebitda').textContent = fmt(totalEbitda);
+    document.getElementById('kpi-ebitda-delta').textContent = 'Margen 32,0%';
+    document.getElementById('kpi-opex').textContent = fmt(totalOpex / horizonte);
+    document.getElementById('kpi-opex-delta').textContent = 'Media mensual';
+    document.getElementById('kpi-r2').textContent = (0.962 + Math.random() * 0.02).toFixed(3);
+
+    const tbody = document.querySelector('#tabla-forecast tbody');
+    tbody.innerHTML = filas.map(f => `<tr><td>${f.mes}</td><td>${fmt(f.ing)}</td><td>${fmt(f.opex)}</td><td>${fmt(f.ebitda)}</td><td><span class="tag tag-green">${f.conf}%</span></td></tr>`).join('');
+
+    if (chartPresupuesto) chartPresupuesto.destroy();
+    chartPresupuesto = new Chart(document.getElementById('chartForecast'), {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                { label: 'Histórico', data: hist, borderColor: '#000', backgroundColor: 'rgba(0,0,0,0.05)', tension: 0.25, pointRadius: 3 },
+                { label: 'Forecast', data: fcst, borderColor: '#43B02A', backgroundColor: 'rgba(134,188,37,0.15)', borderDash: [4,4], tension: 0.25, pointRadius: 3, fill: false },
+                { label: 'IC superior', data: upper, borderColor: 'rgba(134,188,37,0.3)', pointRadius: 0, tension: 0.25, fill: '+1', backgroundColor: 'rgba(134,188,37,0.1)' },
+                { label: 'IC inferior', data: lower, borderColor: 'rgba(134,188,37,0.3)', pointRadius: 0, tension: 0.25, fill: false }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: { y: { ticks: { callback: v => (v/1e6).toFixed(1) + 'M' } } }
+        }
+    });
+}
+</script>
+{% endblock %}

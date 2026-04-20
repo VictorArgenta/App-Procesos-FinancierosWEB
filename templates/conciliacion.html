@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block title %}Conciliación Bancaria — DFin AI{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span>Funcionalidades</span><span class="sep">/</span>
+    <span class="current">Conciliación Bancaria</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Módulo · Tesorería</span>
+        <h1>Conciliación Bancaria Automatizada</h1>
+        <p class="lead">Matching inteligente entre extractos bancarios y libro mayor. Reglas configurables, fuzzy matching por concepto/importe/fecha y workflow de validación.</p>
+    </div>
+    <span class="tag tag-orange">Preview</span>
+</div>
+
+<div class="alert alert-info">
+    <strong>Demo interactiva.</strong> Los datos mostrados son ficticios. La versión productiva se conectará al cash pool corporativo vía SWIFT/MT940 y al libro mayor SAP FI.
+</div>
+
+<div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Movimientos cargados</div><div class="kpi-value">1.284</div><div class="kpi-delta">Periodo Abr-2026</div></div>
+    <div class="kpi"><div class="kpi-label">Conciliados auto.</div><div class="kpi-value">1.147</div><div class="kpi-delta">89,3% match rate</div></div>
+    <div class="kpi"><div class="kpi-label">Pendientes revisión</div><div class="kpi-value">92</div><div class="kpi-delta neg">Requieren acción</div></div>
+    <div class="kpi"><div class="kpi-label">Excepciones</div><div class="kpi-value">45</div><div class="kpi-delta neg">3,5%</div></div>
+</div>
+
+<div class="card">
+    <h2>1. Fuentes de datos</h2>
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+        <div style="border:1px dashed var(--gray-1); padding: 1.2rem; border-radius: 3px; text-align:center;">
+            <div style="font-size: 2rem; color: var(--deloitte-green-dark);">&#128196;</div>
+            <h3 style="margin-top: 0.4rem;">Extracto bancario</h3>
+            <p style="color: var(--gray-10); font-size:0.85rem; margin: 0.3rem 0 0.8rem;">CSV · MT940 · CAMT.053</p>
+            <button class="btn btn-secondary btn-sm" onclick="alert('Subida simulada: extracto_BBVA_042026.mt940 (1.284 registros)')">Seleccionar archivo</button>
+        </div>
+        <div style="border:1px dashed var(--gray-1); padding: 1.2rem; border-radius: 3px; text-align:center;">
+            <div style="font-size: 2rem; color: var(--deloitte-green-dark);">&#128202;</div>
+            <h3 style="margin-top: 0.4rem;">Libro mayor</h3>
+            <p style="color: var(--gray-10); font-size:0.85rem; margin: 0.3rem 0 0.8rem;">SAP · Oracle · Dynamics</p>
+            <button class="btn btn-secondary btn-sm" onclick="alert('Conectado a SAP FI — Sociedad 1000 — Ejercicio 2026')">Conectar ERP</button>
+        </div>
+        <div style="border:1px dashed var(--gray-1); padding: 1.2rem; border-radius: 3px; text-align:center;">
+            <div style="font-size: 2rem; color: var(--deloitte-green-dark);">&#9881;</div>
+            <h3 style="margin-top: 0.4rem;">Reglas de matching</h3>
+            <p style="color: var(--gray-10); font-size:0.85rem; margin: 0.3rem 0 0.8rem;">12 reglas activas</p>
+            <button class="btn btn-secondary btn-sm" onclick="alert('Editor de reglas — próximamente disponible')">Configurar</button>
+        </div>
+    </div>
+    <div style="margin-top: 1rem;">
+        <button class="btn btn-primary" onclick="ejecutarMatching()">Ejecutar conciliación</button>
+    </div>
+</div>
+
+<div class="card">
+    <h2>2. Movimientos pendientes de conciliar</h2>
+    <div style="display:flex; gap:0.5rem; margin-bottom: 1rem; flex-wrap:wrap;">
+        <button class="tag tag-green" style="cursor:pointer; border:0;" onclick="filtrar('todos')">Todos (8)</button>
+        <button class="tag" style="cursor:pointer; border:0;" onclick="filtrar('pendiente')">Pendientes (5)</button>
+        <button class="tag" style="cursor:pointer; border:0;" onclick="filtrar('sugerido')">Sugeridos (2)</button>
+        <button class="tag" style="cursor:pointer; border:0;" onclick="filtrar('excepcion')">Excepciones (1)</button>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="data-table">
+            <thead>
+                <tr><th>Fecha</th><th>Concepto bancario</th><th>Importe</th><th>Propuesta de match</th><th>Confianza</th><th>Estado</th><th></th></tr>
+            </thead>
+            <tbody id="tabla-conciliacion">
+                <tr><td>02/04/2026</td><td>TRANSF. ACREEDOR · Iberia SA · Ref 8827</td><td>-12.450,00 €</td><td>Factura F-2026-0221 · Iberia SA</td><td><span class="tag tag-green">98%</span></td><td><span class="tag tag-green">Sugerido</span></td><td><button class="btn btn-sm btn-primary" onclick="aprobar(this)">Aprobar</button></td></tr>
+                <tr><td>04/04/2026</td><td>COBRO SEPA · Cliente 00412 · BizumPro</td><td>+3.200,00 €</td><td>Recibo R-042 · Cliente 412</td><td><span class="tag tag-green">94%</span></td><td><span class="tag tag-green">Sugerido</span></td><td><button class="btn btn-sm btn-primary" onclick="aprobar(this)">Aprobar</button></td></tr>
+                <tr><td>07/04/2026</td><td>PAGO TARJETAS CORP.</td><td>-8.910,42 €</td><td>—</td><td><span class="tag tag-red">&lt;50%</span></td><td><span class="tag tag-red">Excepción</span></td><td><button class="btn btn-sm btn-secondary" onclick="aprobar(this)">Investigar</button></td></tr>
+                <tr><td>09/04/2026</td><td>DOMICILIACIÓN · Endesa · Luz</td><td>-742,18 €</td><td>Contrato SUMC-2024-088</td><td><span class="tag tag-orange">72%</span></td><td><span class="tag">Pendiente</span></td><td><button class="btn btn-sm btn-primary" onclick="aprobar(this)">Aprobar</button></td></tr>
+                <tr><td>11/04/2026</td><td>COMISIÓN MANTENIMIENTO</td><td>-12,00 €</td><td>Cuenta bancaria 1001</td><td><span class="tag tag-green">99%</span></td><td><span class="tag">Pendiente</span></td><td><button class="btn btn-sm btn-primary" onclick="aprobar(this)">Aprobar</button></td></tr>
+                <tr><td>14/04/2026</td><td>NÓMINA · ABRIL 2026</td><td>-184.520,00 €</td><td>Apunte contable NOM-04-26</td><td><span class="tag tag-green">100%</span></td><td><span class="tag">Pendiente</span></td><td><button class="btn btn-sm btn-primary" onclick="aprobar(this)">Aprobar</button></td></tr>
+                <tr><td>17/04/2026</td><td>COBRO · Cliente 00893 · ProyectoX</td><td>+45.000,00 €</td><td>Factura F-2026-0185</td><td><span class="tag tag-orange">68%</span></td><td><span class="tag">Pendiente</span></td><td><button class="btn btn-sm btn-primary" onclick="aprobar(this)">Aprobar</button></td></tr>
+                <tr><td>19/04/2026</td><td>PAGO HACIENDA · Modelo 303</td><td>-22.180,00 €</td><td>Provisión IVA Q1 2026</td><td><span class="tag tag-green">96%</span></td><td><span class="tag">Pendiente</span></td><td><button class="btn btn-sm btn-primary" onclick="aprobar(this)">Aprobar</button></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filtrar(tipo) {
+    alert('Filtro aplicado: ' + tipo + '. (Demo — las filas no se recalculan.)');
+}
+function aprobar(btn) {
+    const row = btn.closest('tr');
+    row.style.background = '#e8f2d5';
+    row.querySelector('td:nth-last-child(2)').innerHTML = '<span class="tag tag-green">Conciliado</span>';
+    btn.textContent = 'Hecho';
+    btn.disabled = true;
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-secondary');
+}
+function ejecutarMatching() {
+    const btn = event.target;
+    btn.disabled = true; btn.textContent = 'Ejecutando...';
+    setTimeout(() => {
+        btn.disabled = false; btn.textContent = 'Ejecutar conciliación';
+        alert('Conciliación ejecutada. 1.147 movimientos conciliados automáticamente, 92 pendientes de revisión.');
+    }, 1200);
+}
+</script>
+{% endblock %}
