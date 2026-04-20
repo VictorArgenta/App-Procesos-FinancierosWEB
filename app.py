@@ -20,8 +20,12 @@ from reportlab.lib.units import cm, mm
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, KeepTogether, ListFlowable, ListItem,
+    PageBreak, KeepTogether, ListFlowable, ListItem, Image as RLImage,
 )
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.ticker import FuncFormatter
 
 load_dotenv()
 
@@ -270,7 +274,7 @@ def _limpiar_respuesta_ia(texto):
 
 
 def obtener_datos_financieros(ticker_symbol):
-    """Obtiene datos financieros de Yahoo Finance para un ticker dado."""
+    """Obtiene datos financieros de mercado para un ticker dado."""
     ticker = yf.Ticker(ticker_symbol)
 
     # Inicializar sesión con history antes de obtener fundamentales
@@ -429,6 +433,228 @@ def _añadir_runs_con_formato(paragraph, texto):
             paragraph.add_run(parte)
 
 
+# ---------------------------------------------------------------------------
+# Segmentación de la nota y asignación de gráficos por sección.
+# Los documentos Word/PDF (y la vista web) intercalan los gráficos después de
+# la sección ## cuyos títulos contengan determinadas palabras clave.
+# ---------------------------------------------------------------------------
+
+# Paleta corporativa Deloitte (matplotlib)
+_MPL_GREEN = "#86BC25"
+_MPL_GREEN_DARK = "#43B02A"
+_MPL_BLACK = "#000000"
+_MPL_GRAY = "#53565A"
+_MPL_ORANGE = "#ED8B00"
+
+_CHART_KEYWORDS = {
+    "ingresos": ("ingresos", "facturación", "revenue", "ventas", "volumen de negocio", "cifra de negocio"),
+    "margenes": ("margen", "márgenes", "rentabilidad", "ebitda", "beneficio"),
+    "estructura": ("coste", "costes", "estructura", "gasto"),
+    "metricas": ("métrica", "ratios", "clave", "kpi", "resumen", "magnitudes", "indicadores"),
+}
+
+_RE_H2 = re.compile(r"^\s*##\s+(.*?)\s*$")
+
+
+def _segmentar_memoria(texto):
+    """Divide la nota de memoria en secciones por encabezados `## `.
+
+    Devuelve una lista de dicts `{title, body}`. Si el texto contiene
+    contenido previo al primer `##`, ese bloque se agrupa como preámbulo
+    sin título.
+    """
+    if not texto:
+        return []
+
+    lineas = texto.replace("\r\n", "\n").split("\n")
+    secciones = []
+    preambulo = []
+    actual_title = None
+    actual_body = []
+
+    def _cerrar():
+        nonlocal actual_title, actual_body
+        if actual_title is not None:
+            secciones.append({
+                "title": actual_title,
+                "body": "\n".join(actual_body).strip(),
+            })
+        actual_title = None
+        actual_body = []
+
+    for linea in lineas:
+        m = _RE_H2.match(linea)
+        if m:
+            _cerrar()
+            actual_title = m.group(1).strip(" *")
+            actual_body = []
+        else:
+            if actual_title is None:
+                preambulo.append(linea)
+            else:
+                actual_body.append(linea)
+    _cerrar()
+
+    resultado = []
+    preambulo_txt = "\n".join(preambulo).strip()
+    if preambulo_txt:
+        resultado.append({"title": None, "body": preambulo_txt})
+    resultado.extend(secciones)
+    return resultado
+
+
+def _asignar_graficos_a_secciones(secciones, graficos_disponibles):
+    """Asocia cada gráfico a la sección cuyo título encaja mejor por keywords.
+
+    Se puntúa cada sección por número de coincidencias de palabras clave y
+    se asigna el gráfico a la de mayor score. De este modo "Métricas clave"
+    gana a "Resumen ejecutivo" para el gráfico de métricas porque acumula
+    más palabras clave específicas.
+    """
+    asignaciones = {i: [] for i in range(len(secciones))}
+
+    for key in graficos_disponibles:
+        palabras = _CHART_KEYWORDS.get(key, ())
+        mejor_idx = None
+        mejor_score = 0
+        for i, sec in enumerate(secciones):
+            titulo = (sec.get("title") or "").lower()
+            if not titulo:
+                continue
+            score = sum(1 for pal in palabras if pal in titulo)
+            if score > mejor_score:
+                mejor_score = score
+                mejor_idx = i
+        if mejor_idx is not None:
+            asignaciones[mejor_idx].append(key)
+
+    resultado = [
+        {**sec, "charts": asignaciones[i]}
+        for i, sec in enumerate(secciones)
+    ]
+    asignados_total = {ch for lst in asignaciones.values() for ch in lst}
+    pendientes = [k for k in graficos_disponibles if k not in asignados_total]
+    return resultado, pendientes
+
+
+def segmentar_y_asignar(nota):
+    """Wrapper pensado para usarse desde las vistas y los exportadores."""
+    secciones = _segmentar_memoria(nota)
+    orden = ["ingresos", "margenes", "estructura", "metricas"]
+    return _asignar_graficos_a_secciones(secciones, orden)
+
+
+# ---------------------------------------------------------------------------
+# Renderizado de gráficos a PNG para Word/PDF (matplotlib, paleta Deloitte).
+# ---------------------------------------------------------------------------
+
+def _formato_eje_cifra(v, _pos=None):
+    abs_v = abs(v)
+    if abs_v >= 1e9:
+        return f"{v/1e9:,.1f}B"
+    if abs_v >= 1e6:
+        return f"{v/1e6:,.1f}M"
+    if abs_v >= 1e3:
+        return f"{v/1e3:,.0f}K"
+    return f"{v:,.0f}"
+
+
+def _figura_a_bytes(fig):
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+
+def _chart_png_ingresos(graficos):
+    fig, ax = plt.subplots(figsize=(6.4, 3.6))
+    ax.bar(graficos["labels"], graficos["ingresos"], color=_MPL_GREEN, edgecolor=_MPL_GREEN_DARK)
+    ax.set_title("Evolución de ingresos", fontsize=11, fontweight="bold", loc="left", color=_MPL_BLACK)
+    ax.yaxis.set_major_formatter(FuncFormatter(_formato_eje_cifra))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.grid(axis="y", color="#E4E4E2", linewidth=0.6)
+    ax.set_axisbelow(True)
+    return _figura_a_bytes(fig)
+
+
+def _chart_png_margenes(graficos):
+    fig, ax = plt.subplots(figsize=(6.4, 3.6))
+    labels = graficos["labels"]
+    ax.plot(labels, graficos["margenes"]["margen_bruto"], marker="o", color=_MPL_GREEN_DARK, label="Margen bruto (%)")
+    ax.plot(labels, graficos["margenes"]["ebitda"], marker="o", color=_MPL_BLACK, label="EBITDA (%)")
+    ax.plot(labels, graficos["margenes"]["neto"], marker="o", color=_MPL_ORANGE, label="Margen neto (%)")
+    ax.set_title("Evolución de márgenes", fontsize=11, fontweight="bold", loc="left", color=_MPL_BLACK)
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _=None: f"{v:.0f}%"))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.grid(axis="y", color="#E4E4E2", linewidth=0.6)
+    ax.set_axisbelow(True)
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.22), ncol=3, frameon=False, fontsize=9)
+    return _figura_a_bytes(fig)
+
+
+def _chart_png_estructura(graficos):
+    fig, ax = plt.subplots(figsize=(6.4, 3.8))
+    etiquetas = graficos["estructura_costes"]["labels"]
+    valores = [max(v, 0) for v in graficos["estructura_costes"]["values"]]
+    colores = [_MPL_BLACK, _MPL_GRAY, _MPL_ORANGE, _MPL_GREEN]
+    if sum(valores) <= 0:
+        valores = [1] * len(etiquetas)
+    wedges, _texts, autotexts = ax.pie(
+        valores, labels=None, colors=colores, startangle=90,
+        autopct=lambda p: f"{p:.1f}%", pctdistance=0.78,
+        wedgeprops=dict(width=0.45, edgecolor="white", linewidth=2),
+    )
+    for t in autotexts:
+        t.set_color("white")
+        t.set_fontsize(9)
+    ax.set_title(
+        f"Estructura de costes — {graficos['estructura_costes']['periodo']}",
+        fontsize=11, fontweight="bold", loc="left", color=_MPL_BLACK,
+    )
+    ax.legend(wedges, etiquetas, loc="center left", bbox_to_anchor=(1.0, 0.5), frameon=False, fontsize=8.5)
+    return _figura_a_bytes(fig)
+
+
+def _chart_png_metricas(graficos):
+    fig, ax = plt.subplots(figsize=(6.4, 3.2))
+    labels = graficos["metricas_clave"]["labels"]
+    valores = graficos["metricas_clave"]["values"]
+    colores = [_MPL_BLACK, _MPL_GREEN_DARK, _MPL_GREEN, _MPL_ORANGE][: len(labels)]
+    bars = ax.barh(labels, valores, color=colores, edgecolor="white")
+    ax.invert_yaxis()
+    ax.set_title(
+        f"Métricas clave — {graficos['metricas_clave']['periodo']}",
+        fontsize=11, fontweight="bold", loc="left", color=_MPL_BLACK,
+    )
+    ax.xaxis.set_major_formatter(FuncFormatter(_formato_eje_cifra))
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.grid(axis="x", color="#E4E4E2", linewidth=0.6)
+    ax.set_axisbelow(True)
+    for bar, v in zip(bars, valores):
+        ax.text(bar.get_width(), bar.get_y() + bar.get_height()/2,
+                "  " + _formato_eje_cifra(v), va="center", fontsize=9, color=_MPL_BLACK)
+    return _figura_a_bytes(fig)
+
+
+_CHART_RENDERERS = {
+    "ingresos": _chart_png_ingresos,
+    "margenes": _chart_png_margenes,
+    "estructura": _chart_png_estructura,
+    "metricas": _chart_png_metricas,
+}
+
+_CHART_TITULOS = {
+    "ingresos": "Evolución de ingresos",
+    "margenes": "Evolución de márgenes",
+    "estructura": "Estructura de costes",
+    "metricas": "Métricas clave del último ejercicio",
+}
+
+
 def añadir_markdown_a_docx(doc, texto):
     """Convierte texto Markdown ligero a párrafos Word con encabezados y listas.
 
@@ -482,35 +708,34 @@ def añadir_markdown_a_docx(doc, texto):
         _añadir_runs_con_formato(p, stripped)
 
 
-def crear_documento_word(datos, nota):
-    """Crea un documento Word con los datos financieros y la nota de memoria."""
-    doc = Document()
-
-    style = doc.styles["Normal"]
-    font = style.font
-    font.name = "Calibri"
-    font.size = Pt(11)
-
-    titulo = doc.add_heading(f"Informe Financiero — {datos['nombre']}", level=0)
-    titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for run in titulo.runs:
-        run.font.color.rgb = RGBColor(0, 51, 102)
-
-    doc.add_paragraph(f"Ticker: {datos['ticker']}")
-    doc.add_paragraph("")
-
-    doc.add_heading("Datos Financieros", level=1)
+def _añadir_tabla_datos_word(doc, datos):
+    """Añade la tabla de datos con anchuras fijas para que no se corte."""
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
 
     headers = ["Métrica"] + [p["periodo"] for p in datos["periodos"]]
     table = doc.add_table(rows=1, cols=len(headers))
     table.style = "Light Grid Accent 1"
+    table.autofit = False
+    # Layout fijo: fuerza al word a respetar los anchos de columna.
+    tblPr = table._tbl.tblPr
+    layout = OxmlElement("w:tblLayout")
+    layout.set(qn("w:type"), "fixed")
+    tblPr.append(layout)
+
+    ancho_util = Inches(6.3)  # A4 con márgenes ~1.1" por lado
+    ancho_metrica = Inches(1.8)
+    n_periodos = max(len(datos["periodos"]), 1)
+    ancho_periodo = Inches((6.3 - 1.8) / n_periodos)
 
     for i, header in enumerate(headers):
         cell = table.rows[0].cells[i]
         cell.text = header
+        cell.width = ancho_metrica if i == 0 else ancho_periodo
         for paragraph in cell.paragraphs:
             for run in paragraph.runs:
                 run.font.bold = True
+                run.font.size = Pt(9.5)
 
     metricas = [
         ("Ingresos", "ingresos", None),
@@ -520,19 +745,114 @@ def crear_documento_word(datos, nota):
         ("EBITDA", "ebitda", "pct_ebitda"),
         ("Beneficio neto", "beneficio_neto", "pct_beneficio_neto"),
     ]
-
     for nombre_metrica, key, pct_key in metricas:
         row = table.add_row()
         row.cells[0].text = nombre_metrica
+        row.cells[0].width = ancho_metrica
         for i, p in enumerate(datos["periodos"]):
             valor = f"{p[key]:,.0f}"
             if pct_key:
                 valor += f" ({p[pct_key]}%)"
             row.cells[i + 1].text = valor
+            row.cells[i + 1].width = ancho_periodo
+        for cell in row.cells:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.size = Pt(9.5)
 
+
+def _añadir_seccion_markdown_docx(doc, texto):
+    """Añade a Word un bloque de Markdown *sin* encabezado (el body de una sección)."""
+    if not texto:
+        return
+    lineas = texto.replace("\r\n", "\n").split("\n")
+    for linea in lineas:
+        stripped = linea.strip()
+        if not stripped:
+            continue
+        if _RE_TABLA_SEP_MD.match(stripped):
+            continue
+        if stripped.startswith("|") and stripped.endswith("|") and stripped.count("|") >= 2:
+            celdas = [c.strip() for c in stripped.strip("|").split("|") if c.strip()]
+            if celdas:
+                p = doc.add_paragraph()
+                _añadir_runs_con_formato(p, " · ".join(celdas))
+            continue
+        if stripped.startswith("### "):
+            doc.add_heading(stripped[4:].strip(" *"), level=3)
+            continue
+        if stripped.startswith("# "):
+            doc.add_heading(stripped[2:].strip(" *"), level=2)
+            continue
+        m = re.match(r"^[-*]\s+(.*)", stripped)
+        if m:
+            p = doc.add_paragraph(style="List Bullet")
+            _añadir_runs_con_formato(p, m.group(1))
+            continue
+        m = re.match(r"^\d+\.\s+(.*)", stripped)
+        if m:
+            p = doc.add_paragraph(style="List Number")
+            _añadir_runs_con_formato(p, m.group(1))
+            continue
+        p = doc.add_paragraph()
+        _añadir_runs_con_formato(p, stripped)
+
+
+def _insertar_grafico_docx(doc, chart_key, graficos):
+    renderer = _CHART_RENDERERS.get(chart_key)
+    if renderer is None:
+        return
+    buf = renderer(graficos)
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run()
+    run.add_picture(buf, width=Inches(5.8))
+
+
+def crear_documento_word(datos, nota):
+    """Crea un documento Word con los datos financieros, gráficos y memoria."""
+    doc = Document()
+
+    style = doc.styles["Normal"]
+    font = style.font
+    font.name = "Calibri"
+    font.size = Pt(11)
+
+    # Márgenes algo más estrechos para tablas anchas
+    for section in doc.sections:
+        section.left_margin = Inches(0.9)
+        section.right_margin = Inches(0.9)
+        section.top_margin = Inches(0.9)
+        section.bottom_margin = Inches(0.9)
+
+    titulo = doc.add_heading(f"Informe Financiero — {datos['nombre']}", level=0)
+    titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in titulo.runs:
+        run.font.color.rgb = RGBColor(0x43, 0xB0, 0x2A)
+
+    doc.add_paragraph(f"Ticker: {datos['ticker']}")
     doc.add_paragraph("")
+
+    doc.add_heading("Datos Financieros", level=1)
+    _añadir_tabla_datos_word(doc, datos)
+    doc.add_paragraph("")
+
     doc.add_heading("Nota de Memoria Explicativa", level=1)
-    añadir_markdown_a_docx(doc, nota)
+
+    graficos = preparar_datos_graficos(datos)
+    secciones_asignadas, pendientes = segmentar_y_asignar(nota)
+
+    for sec in secciones_asignadas:
+        if sec.get("title"):
+            doc.add_heading(sec["title"], level=2)
+        _añadir_seccion_markdown_docx(doc, sec["body"])
+        for ch in sec.get("charts", []):
+            _insertar_grafico_docx(doc, ch, graficos)
+
+    if pendientes:
+        doc.add_heading("Resumen visual", level=2)
+        for ch in pendientes:
+            _insertar_grafico_docx(doc, ch, graficos)
 
     buffer = io.BytesIO()
     doc.save(buffer)
@@ -743,27 +1063,8 @@ def _dibujar_branding_pdf(canvas, doc):
     canvas.restoreState()
 
 
-def crear_documento_pdf(datos, nota):
-    """Crea un PDF de la nota de memoria con branding DFin AI / paleta Deloitte."""
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer, pagesize=A4,
-        leftMargin=18 * mm, rightMargin=18 * mm,
-        topMargin=22 * mm, bottomMargin=18 * mm,
-        title=f"Informe DFin AI — {datos['nombre']}",
-        author="DFin AI",
-    )
-    estilos = _estilos_pdf()
-    story = []
-
-    story.append(Paragraph("INFORME FINANCIERO · NOTA DE MEMORIA", estilos["Eyebrow"]))
-    story.append(Paragraph(datos["nombre"], estilos["Title"]))
-    story.append(Paragraph(
-        f"Ticker <b>{datos['ticker']}</b> &nbsp;·&nbsp; {len(datos['periodos'])} ejercicios &nbsp;·&nbsp; Fuente: Yahoo Finance",
-        estilos["Subtitle"],
-    ))
-
-    # Tabla de datos financieros
+def _construir_tabla_datos_pdf(datos, ancho_total):
+    """Construye la tabla de datos financieros para PDF ajustada al ancho dado."""
     headers = ["Métrica"] + [p["periodo"] for p in datos["periodos"]]
     filas_metricas = [
         ("Ingresos", "ingresos", None),
@@ -782,29 +1083,92 @@ def crear_documento_pdf(datos, nota):
                 valor += f" ({p[pct_key]}%)"
             fila.append(valor)
         body_rows.append(fila)
-    tabla = Table([headers] + body_rows, hAlign="LEFT", repeatRows=1)
+
+    # Anchuras fijas para evitar cortes en la tabla
+    n_periodos = max(len(datos["periodos"]), 1)
+    ancho_metrica = min(42 * mm, ancho_total * 0.28)
+    ancho_periodo = (ancho_total - ancho_metrica) / n_periodos
+    col_widths = [ancho_metrica] + [ancho_periodo] * n_periodos
+
+    tabla = Table([headers] + body_rows, colWidths=col_widths, hAlign="LEFT", repeatRows=1)
     tabla.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), DELOITTE_BLACK),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, 0), 8.5),
+        ("ALIGN", (1, 0), (-1, 0), "RIGHT"),
         ("LINEBELOW", (0, 0), (-1, 0), 1.5, DELOITTE_GREEN),
         ("BOTTOMPADDING", (0, 0), (-1, 0), 7),
         ("TOPPADDING", (0, 0), (-1, 0), 7),
         ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
         ("FONTSIZE", (0, 1), (-1, -1), 8.5),
+        ("ALIGN", (1, 1), (-1, -1), "RIGHT"),
         ("LINEBELOW", (0, 1), (-1, -1), 0.25, DELOITTE_GRAY_BORDER),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, DELOITTE_GRAY_BG]),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
         ("FONTNAME", (0, 1), (0, -1), "Helvetica-Bold"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
+    return tabla
+
+
+def _flowable_chart_pdf(chart_key, graficos, ancho_disponible):
+    renderer = _CHART_RENDERERS.get(chart_key)
+    if renderer is None:
+        return []
+    buf = renderer(graficos)
+    img = RLImage(buf)
+    # Escala manteniendo aspecto para ocupar como máximo el 90% del ancho.
+    max_w = ancho_disponible * 0.92
+    w, h = img.drawWidth, img.drawHeight
+    escala = min(max_w / w, 1)
+    img.drawWidth = w * escala
+    img.drawHeight = h * escala
+    return [Spacer(1, 6), img, Spacer(1, 10)]
+
+
+def crear_documento_pdf(datos, nota):
+    """Crea un PDF de la nota de memoria con branding DFin AI / paleta Deloitte."""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=18 * mm, rightMargin=18 * mm,
+        topMargin=22 * mm, bottomMargin=18 * mm,
+        title=f"Informe DFin AI — {datos['nombre']}",
+        author="DFin AI",
+    )
+    ancho_disponible = A4[0] - 36 * mm
+    estilos = _estilos_pdf()
+    story = []
+
+    story.append(Paragraph("INFORME FINANCIERO · NOTA DE MEMORIA", estilos["Eyebrow"]))
+    story.append(Paragraph(datos["nombre"], estilos["Title"]))
+    story.append(Paragraph(
+        f"Ticker <b>{datos['ticker']}</b> &nbsp;·&nbsp; {len(datos['periodos'])} ejercicios analizados",
+        estilos["Subtitle"],
+    ))
+
     story.append(Paragraph("Datos financieros — serie histórica", estilos["H1"]))
-    story.append(tabla)
+    story.append(_construir_tabla_datos_pdf(datos, ancho_disponible))
     story.append(Spacer(1, 14))
 
     story.append(Paragraph("Nota de memoria explicativa", estilos["H1"]))
-    story.extend(_markdown_a_flowables_pdf(nota, estilos))
+
+    graficos = preparar_datos_graficos(datos)
+    secciones_asignadas, pendientes = segmentar_y_asignar(nota)
+
+    for sec in secciones_asignadas:
+        if sec.get("title"):
+            story.append(Paragraph(_md_inline_a_html(sec["title"]), estilos["H2"]))
+        story.extend(_markdown_a_flowables_pdf(sec["body"], estilos))
+        for ch in sec.get("charts", []):
+            story.extend(_flowable_chart_pdf(ch, graficos, ancho_disponible))
+
+    if pendientes:
+        story.append(Paragraph("Resumen visual", estilos["H2"]))
+        for ch in pendientes:
+            story.extend(_flowable_chart_pdf(ch, graficos, ancho_disponible))
 
     doc.build(story, onFirstPage=_dibujar_branding_pdf, onLaterPages=_dibujar_branding_pdf)
     buffer.seek(0)
@@ -909,7 +1273,21 @@ def analisis():
                 )
 
             nota = generar_nota_memoria(datos, modelo)
-            nota_html = markdown.markdown(nota, extensions=["tables", "fenced_code", "sane_lists"])
+
+            # Segmentar y asignar gráficos por sección para intercalar
+            # la visualización entre los bloques de texto correspondientes.
+            secciones_asignadas, pendientes = segmentar_y_asignar(nota)
+            secciones_html = []
+            for sec in secciones_asignadas:
+                body_html = markdown.markdown(
+                    sec.get("body", ""),
+                    extensions=["tables", "fenced_code", "sane_lists"],
+                )
+                secciones_html.append({
+                    "title": sec.get("title"),
+                    "body_html": body_html,
+                    "charts": sec.get("charts", []),
+                })
 
             cache_id = str(uuid.uuid4())
             _download_cache[cache_id] = {"datos": datos, "nota": nota}
@@ -917,10 +1295,12 @@ def analisis():
             return render_template(
                 "resultado.html",
                 datos=datos,
-                nota=nota_html,
                 cache_id=cache_id,
                 formatear=formatear_numero,
                 graficos=preparar_datos_graficos(datos),
+                secciones=secciones_html,
+                pendientes=pendientes,
+                chart_titulos=_CHART_TITULOS,
             )
         except Exception as e:
             return render_template(

@@ -13,7 +13,7 @@
     <div>
         <span class="eyebrow">Informe financiero</span>
         <h1>{{ datos.nombre }}</h1>
-        <p class="lead">Ticker <strong>{{ datos.ticker }}</strong> · {{ datos.periodos|length }} ejercicios históricos · Fuente: Yahoo Finance</p>
+        <p class="lead">Ticker <strong>{{ datos.ticker }}</strong> · {{ datos.periodos|length }} ejercicios históricos analizados</p>
     </div>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
         <form method="POST" action="/descargar_word" style="display: inline;" onsubmit="return downloadFile(this)">
@@ -30,8 +30,8 @@
 
 <div class="card">
     <h2>Datos financieros — serie histórica</h2>
-    <div style="overflow-x: auto;">
-        <table class="data-table">
+    <div class="table-scroll">
+        <table class="data-table metricas-table">
             <thead>
                 <tr>
                     <th>Métrica</th>
@@ -56,25 +56,25 @@
                 <tr>
                     <td><strong>Margen bruto</strong></td>
                     {% for p in datos.periodos %}
-                    <td>{{ formatear(p.margen_bruto) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ p.pct_margen_bruto }}%)</span></td>
+                    <td>{{ formatear(p.margen_bruto) }} <span class="pct">({{ p.pct_margen_bruto }}%)</span></td>
                     {% endfor %}
                 </tr>
                 <tr>
                     <td><strong>Gastos operativos</strong></td>
                     {% for p in datos.periodos %}
-                    <td>{{ formatear(p.gastos_operativos) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ p.pct_gastos_operativos }}%)</span></td>
+                    <td>{{ formatear(p.gastos_operativos) }} <span class="pct">({{ p.pct_gastos_operativos }}%)</span></td>
                     {% endfor %}
                 </tr>
                 <tr>
                     <td><strong>EBITDA</strong></td>
                     {% for p in datos.periodos %}
-                    <td>{{ formatear(p.ebitda) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ p.pct_ebitda }}%)</span></td>
+                    <td>{{ formatear(p.ebitda) }} <span class="pct">({{ p.pct_ebitda }}%)</span></td>
                     {% endfor %}
                 </tr>
                 <tr>
                     <td><strong>Beneficio neto</strong></td>
                     {% for p in datos.periodos %}
-                    <td>{{ formatear(p.beneficio_neto) }} <span style="color: var(--gray-10); font-size: 0.8rem;">({{ p.pct_beneficio_neto }}%)</span></td>
+                    <td>{{ formatear(p.beneficio_neto) }} <span class="pct">({{ p.pct_beneficio_neto }}%)</span></td>
                     {% endfor %}
                 </tr>
             </tbody>
@@ -82,185 +82,156 @@
     </div>
 </div>
 
-<div class="card">
-    <h2>Visualización gráfica</h2>
-    <div class="charts-grid">
-        <div class="chart-box">
-            <h3>Evolución de ingresos</h3>
-            <div class="chart-canvas-wrapper"><canvas id="chartIngresos"></canvas></div>
-        </div>
-        <div class="chart-box">
-            <h3>Evolución de márgenes (%)</h3>
-            <div class="chart-canvas-wrapper"><canvas id="chartMargenes"></canvas></div>
-        </div>
-        <div class="chart-box">
-            <h3>Estructura de costes — {{ graficos.estructura_costes.periodo }}</h3>
-            <div class="chart-canvas-wrapper"><canvas id="chartEstructura"></canvas></div>
-        </div>
-        <div class="chart-box">
-            <h3>Métricas clave — {{ graficos.metricas_clave.periodo }}</h3>
-            <div class="chart-canvas-wrapper"><canvas id="chartMetricas"></canvas></div>
-        </div>
-    </div>
-</div>
-
-<div class="card">
+<div class="card memoria-card">
     <h2>Nota de memoria explicativa</h2>
-    <div class="nota-memoria">{{ nota|safe }}</div>
+    <div class="nota-memoria">
+        {% for sec in secciones %}
+            {% if sec.title %}<h2>{{ sec.title }}</h2>{% endif %}
+            {{ sec.body_html | safe }}
+            {% for ch in sec.charts %}
+                <figure class="inline-chart">
+                    <figcaption>{{ chart_titulos[ch] }}</figcaption>
+                    <div class="chart-canvas-wrapper"><canvas id="chart-{{ ch }}"></canvas></div>
+                </figure>
+            {% endfor %}
+        {% endfor %}
+
+        {% if pendientes %}
+        <h2>Resumen visual</h2>
+        <div class="charts-grid">
+            {% for ch in pendientes %}
+            <figure class="inline-chart">
+                <figcaption>{{ chart_titulos[ch] }}</figcaption>
+                <div class="chart-canvas-wrapper"><canvas id="chart-{{ ch }}"></canvas></div>
+            </figure>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <style>
-    .charts-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-        gap: 1.2rem;
+    .table-scroll {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid var(--gray-border);
+        border-radius: 3px;
     }
-    .chart-box {
+    .metricas-table { min-width: 680px; margin: 0; }
+    .metricas-table td, .metricas-table th { white-space: nowrap; }
+    .metricas-table td .pct { color: var(--gray-10); font-size: 0.78rem; }
+    .memoria-card .nota-memoria h2 {
+        font-size: 1.15rem;
+        margin-top: 1.6rem;
+    }
+    .memoria-card .nota-memoria h2:first-child { margin-top: 0; }
+    figure.inline-chart {
         background: var(--gray-bg);
         border: 1px solid var(--gray-border);
         border-radius: 3px;
-        padding: 1.1rem;
+        padding: 1rem 1.1rem 0.9rem;
+        margin: 1.2rem 0 1.4rem;
     }
-    .chart-box h3 {
+    figure.inline-chart figcaption {
         color: var(--black);
-        font-size: 0.95rem;
-        margin-bottom: 0.8rem;
-        padding-bottom: 0.5rem;
+        font-weight: 700;
+        font-size: 0.92rem;
+        margin-bottom: 0.6rem;
+        padding-bottom: 0.4rem;
         border-bottom: 2px solid var(--deloitte-green);
+        display: inline-block;
     }
     .chart-canvas-wrapper {
         position: relative;
         height: 280px;
+        width: 100%;
+    }
+    .charts-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1rem;
     }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 (function() {
     const datos = {{ graficos|tojson }};
-
     const PALETTE = {
-        green: '#86BC25',
-        greenDark: '#43B02A',
-        black: '#000000',
-        gray: '#53565A',
-        orange: '#ED8B00',
-        red: '#DA291C',
-        blue: '#00A3E0'
+        green: '#86BC25', greenDark: '#43B02A', black: '#000000',
+        gray: '#53565A', orange: '#ED8B00', red: '#DA291C', blue: '#00A3E0'
     };
-
-    function formatearCifra(v) {
-        const abs = Math.abs(v);
-        if (abs >= 1e9) return (v / 1e9).toFixed(2) + 'B';
-        if (abs >= 1e6) return (v / 1e6).toFixed(2) + 'M';
-        if (abs >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+    function fmt(v) {
+        const a = Math.abs(v);
+        if (a >= 1e9) return (v/1e9).toFixed(2)+'B';
+        if (a >= 1e6) return (v/1e6).toFixed(2)+'M';
+        if (a >= 1e3) return (v/1e3).toFixed(1)+'K';
         return v.toFixed(0);
     }
-
     Chart.defaults.font.family = "'Segoe UI','Helvetica Neue',Arial,sans-serif";
     Chart.defaults.color = '#53565A';
 
-    new Chart(document.getElementById('chartIngresos'), {
-        type: 'bar',
-        data: {
-            labels: datos.labels,
-            datasets: [{
-                label: 'Ingresos',
-                data: datos.ingresos,
-                backgroundColor: 'rgba(134, 188, 37, 0.85)',
-                borderColor: PALETTE.greenDark,
-                borderWidth: 1,
-                borderRadius: 2
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: { callbacks: { label: (c) => 'Ingresos: ' + formatearCifra(c.parsed.y) } }
-            },
-            scales: {
-                y: { beginAtZero: true, ticks: { callback: (v) => formatearCifra(v) }, grid: { color: '#E4E4E2' } },
-                x: { grid: { display: false } }
+    const builders = {
+        ingresos: (el) => new Chart(el, {
+            type: 'bar',
+            data: { labels: datos.labels, datasets: [{ label: 'Ingresos', data: datos.ingresos, backgroundColor: 'rgba(134,188,37,0.85)', borderColor: PALETTE.greenDark, borderWidth: 1, borderRadius: 2 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => 'Ingresos: ' + fmt(c.parsed.y) } } },
+                scales: { y: { beginAtZero: true, ticks: { callback: (v) => fmt(v) }, grid: { color: '#E4E4E2' } }, x: { grid: { display: false } } }
             }
-        }
-    });
-
-    new Chart(document.getElementById('chartMargenes'), {
-        type: 'line',
-        data: {
-            labels: datos.labels,
-            datasets: [
+        }),
+        margenes: (el) => new Chart(el, {
+            type: 'line',
+            data: { labels: datos.labels, datasets: [
                 { label: 'Margen bruto (%)', data: datos.margenes.margen_bruto, borderColor: PALETTE.greenDark, backgroundColor: 'rgba(67,176,42,0.08)', tension: 0.3, pointRadius: 4, pointBackgroundColor: PALETTE.greenDark },
                 { label: 'EBITDA (%)', data: datos.margenes.ebitda, borderColor: PALETTE.black, backgroundColor: 'rgba(0,0,0,0.04)', tension: 0.3, pointRadius: 4, pointBackgroundColor: PALETTE.black },
                 { label: 'Margen neto (%)', data: datos.margenes.neto, borderColor: PALETTE.orange, backgroundColor: 'rgba(237,139,0,0.08)', tension: 0.3, pointRadius: 4, pointBackgroundColor: PALETTE.orange }
-            ]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom' },
-                tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.parsed.y.toFixed(1) + '%' } }
-            },
-            scales: {
-                y: { ticks: { callback: (v) => v + '%' }, grid: { color: '#E4E4E2' } },
-                x: { grid: { display: false } }
+            ]},
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (c) => c.dataset.label + ': ' + c.parsed.y.toFixed(1) + '%' } } },
+                scales: { y: { ticks: { callback: (v) => v + '%' }, grid: { color: '#E4E4E2' } }, x: { grid: { display: false } } }
             }
-        }
-    });
-
-    new Chart(document.getElementById('chartEstructura'), {
-        type: 'doughnut',
-        data: {
-            labels: datos.estructura_costes.labels,
-            datasets: [{
+        }),
+        estructura: (el) => new Chart(el, {
+            type: 'doughnut',
+            data: { labels: datos.estructura_costes.labels, datasets: [{
                 data: datos.estructura_costes.values,
                 backgroundColor: [PALETTE.black, PALETTE.gray, PALETTE.orange, PALETTE.green],
-                borderColor: '#fff',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom' },
-                tooltip: {
-                    callbacks: {
-                        label: (c) => {
-                            const total = c.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total ? ((c.parsed / total) * 100).toFixed(1) : 0;
-                            return c.label + ': ' + formatearCifra(c.parsed) + ' (' + pct + '%)';
-                        }
-                    }
+                borderColor: '#fff', borderWidth: 2
+            }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: { callbacks: { label: (c) => {
+                        const total = c.dataset.data.reduce((a,b)=>a+b,0);
+                        const pct = total ? ((c.parsed/total)*100).toFixed(1) : 0;
+                        return c.label + ': ' + fmt(c.parsed) + ' (' + pct + '%)';
+                    }}}
                 }
             }
-        }
-    });
-
-    new Chart(document.getElementById('chartMetricas'), {
-        type: 'bar',
-        data: {
-            labels: datos.metricas_clave.labels,
-            datasets: [{
+        }),
+        metricas: (el) => new Chart(el, {
+            type: 'bar',
+            data: { labels: datos.metricas_clave.labels, datasets: [{
                 data: datos.metricas_clave.values,
                 backgroundColor: [PALETTE.black, PALETTE.greenDark, PALETTE.green, PALETTE.orange],
-                borderWidth: 0,
-                borderRadius: 2
-            }]
-        },
-        options: {
-            indexAxis: 'y',
-            responsive: true, maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: { callbacks: { label: (c) => c.label + ': ' + formatearCifra(c.parsed.x) } }
-            },
-            scales: {
-                x: { beginAtZero: true, ticks: { callback: (v) => formatearCifra(v) }, grid: { color: '#E4E4E2' } },
-                y: { grid: { display: false } }
+                borderWidth: 0, borderRadius: 2
+            }] },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => c.label + ': ' + fmt(c.parsed.x) } } },
+                scales: { x: { beginAtZero: true, ticks: { callback: (v) => fmt(v) }, grid: { color: '#E4E4E2' } }, y: { grid: { display: false } } }
             }
-        }
+        })
+    };
+
+    Object.keys(builders).forEach(k => {
+        const el = document.getElementById('chart-' + k);
+        if (el) builders[k](el);
     });
 })();
 </script>
