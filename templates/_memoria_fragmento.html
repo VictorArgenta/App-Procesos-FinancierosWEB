@@ -1,0 +1,32 @@
+{% for sec in secciones %}
+    {% if sec.title %}<h2>{{ sec.title }}</h2>{% endif %}
+    {{ sec.body_html | safe }}
+    {% for ch in sec.charts %}
+        <figure class="inline-chart">
+            <figcaption>
+                {{ chart_titulos[ch] }}
+                {% if datos.moneda and ch in ['ingresos', 'estructura', 'metricas'] %}
+                <span class="moneda-chip"> — {{ datos.moneda }}</span>
+                {% endif %}
+            </figcaption>
+            <div class="chart-canvas-wrapper"><canvas id="chart-{{ ch }}"></canvas></div>
+        </figure>
+    {% endfor %}
+{% endfor %}
+
+{% if pendientes %}
+<h2>Resumen visual</h2>
+<div class="charts-grid">
+    {% for ch in pendientes %}
+    <figure class="inline-chart">
+        <figcaption>
+            {{ chart_titulos[ch] }}
+            {% if datos.moneda and ch in ['ingresos', 'estructura', 'metricas'] %}
+            <span class="moneda-chip"> — {{ datos.moneda }}</span>
+            {% endif %}
+        </figcaption>
+        <div class="chart-canvas-wrapper"><canvas id="chart-{{ ch }}"></canvas></div>
+    </figure>
+    {% endfor %}
+</div>
+{% endif %}

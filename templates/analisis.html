@@ -50,6 +50,15 @@
                 <span class="hint">Los modelos gratuitos requieren GOOGLE_API_KEY.</span>
             </div>
         </div>
+
+        <div class="form-group" style="margin-top: 0.4rem;">
+            <label for="instrucciones">Instrucciones adicionales para la IA <span style="color: var(--gray-7); font-weight: 400; text-transform:none; letter-spacing:0;">(opcional)</span></label>
+            <textarea id="instrucciones" name="instrucciones" rows="4" maxlength="2000"
+                      placeholder="Ej: enfoca el análisis en la evolución del margen EBITDA, valora la exposición al tipo de cambio, usa tono conservador y añade una sección de riesgos regulatorios."
+                      style="max-width: 100%; width: 100%;">{{ instrucciones_previas or '' }}</textarea>
+            <span class="hint">Redáctalas en lenguaje natural. La IA las tendrá en cuenta al elaborar la memoria y podrás seguir iterando desde el chat una vez generada.</span>
+        </div>
+
         <div style="margin-top: 0.5rem;">
             <button type="submit" class="btn btn-primary">Generar Nota de Memoria</button>
             <a href="/" class="btn btn-secondary" style="margin-left: 0.4rem;">Cancelar</a>
