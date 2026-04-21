@@ -64,12 +64,33 @@ def _normalizar_modelo(modelo):
     return MODELO_POR_DEFECTO
 
 
-def llamar_claude_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
+def _extraer_respuesta_claude(message):
+    """Extrae el texto concatenado y las citas (si web_search) de Claude."""
+    partes = []
+    citas = []
+    for block in getattr(message, "content", []) or []:
+        btype = getattr(block, "type", None)
+        if btype == "text":
+            t = getattr(block, "text", "") or ""
+            if t:
+                partes.append(t)
+            for cit in getattr(block, "citations", None) or []:
+                url = getattr(cit, "url", None)
+                title = getattr(cit, "title", None) or url
+                if url:
+                    entrada = {"url": url, "title": title}
+                    if entrada not in citas:
+                        citas.append(entrada)
+    return "".join(partes).strip(), citas
+
+
+def llamar_claude_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4,
+                                  permitir_busqueda=False):
     """Llama a la API de Anthropic con reintentos y backoff exponencial.
 
-    Reintenta automáticamente en errores transitorios (529 overloaded, 429
-    rate limit, 500, 503). En el último intento relanza la excepción con
-    un mensaje amigable en español.
+    Si `permitir_busqueda` es True, activa la herramienta `web_search` nativa
+    (server-side managed) para que el modelo pueda consultar internet. Devuelve
+    una tupla `(texto, citas)` donde `citas` es una lista de dicts con url/title.
     """
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, max_retries=0)
     errores_reintentables = (
@@ -79,6 +100,14 @@ def llamar_claude_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
     )
     status_reintentables = {429, 500, 502, 503, 504, 529}
 
+    extra_kwargs = {}
+    if permitir_busqueda:
+        extra_kwargs["tools"] = [{
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 5,
+        }]
+
     ultimo_error = None
     for intento in range(max_reintentos):
         try:
@@ -86,15 +115,16 @@ def llamar_claude_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
                 model=modelo,
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
+                **extra_kwargs,
             )
-            return message.content[0].text
+            return _extraer_respuesta_claude(message)
         except errores_reintentables as e:
             ultimo_error = e
             status = getattr(e, "status_code", None)
             if status is not None and status not in status_reintentables:
                 raise
             if intento < max_reintentos - 1:
-                espera = 2 ** intento  # 1s, 2s, 4s, 8s
+                espera = 2 ** intento
                 time.sleep(espera)
                 continue
             break
@@ -154,12 +184,34 @@ def _extraer_texto_gemini(respuesta):
     )
 
 
-def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
+def _extraer_citas_gemini(respuesta):
+    """Extrae las fuentes usadas en grounding de Google Search (Gemini)."""
+    citas = []
+    candidatos = getattr(respuesta, "candidates", None) or []
+    if not candidatos:
+        return citas
+    gm = getattr(candidatos[0], "grounding_metadata", None)
+    if not gm:
+        return citas
+    for chunk in getattr(gm, "grounding_chunks", None) or []:
+        web = getattr(chunk, "web", None)
+        if not web:
+            continue
+        url = getattr(web, "uri", None)
+        title = getattr(web, "title", None) or url
+        if url:
+            entrada = {"url": url, "title": title}
+            if entrada not in citas:
+                citas.append(entrada)
+    return citas
+
+
+def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4,
+                                  permitir_busqueda=False):
     """Llama a la API de Google Gemini con reintentos y backoff exponencial.
 
-    Reintenta en errores transitorios (429 rate limit, 500, 503, timeouts).
-    Los modelos Gemini 2.5 usan tokens adicionales para "thinking", por lo
-    que se aplica un presupuesto de salida generoso.
+    Si `permitir_busqueda` es True, activa grounding con Google Search para
+    que Gemini consulte internet. Devuelve `(texto, citas)`.
     """
     if not GOOGLE_API_KEY:
         raise RuntimeError(
@@ -175,26 +227,44 @@ def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
         google_exceptions.Aborted,
     )
 
-    # Los modelos Gemini 2.5 consumen tokens en razonamiento interno antes
-    # de emitir texto. Se amplía el presupuesto a 4x o un mínimo de 8192.
     max_output_tokens = max(max_tokens * 4, 8192)
+
+    # Gemini 2.5 usa `google_search`; 1.5 usaba `google_search_retrieval`.
+    # Configuramos ambos como fallback silencioso.
+    tools_config = None
+    if permitir_busqueda:
+        tools_config = [{"google_search": {}}]
+
+    def _ejecutar(tools):
+        kwargs = dict(
+            generation_config={
+                "max_output_tokens": max_output_tokens,
+                "temperature": 0.7,
+            },
+        )
+        if tools is not None:
+            kwargs["tools"] = tools
+        cliente = genai.GenerativeModel(modelo)
+        return cliente.generate_content(prompt, **kwargs)
 
     ultimo_error = None
     for intento in range(max_reintentos):
         try:
-            cliente = genai.GenerativeModel(modelo)
-            respuesta = cliente.generate_content(
-                prompt,
-                generation_config={
-                    "max_output_tokens": max_output_tokens,
-                    "temperature": 0.7,
-                },
-            )
-            return _extraer_texto_gemini(respuesta)
+            try:
+                respuesta = _ejecutar(tools_config)
+            except Exception as primary_err:
+                # Fallback: probar el otro identificador del tool antes de reintentar
+                if permitir_busqueda and "google_search_retrieval" not in str(primary_err):
+                    respuesta = _ejecutar([{"google_search_retrieval": {}}])
+                else:
+                    raise
+            texto = _extraer_texto_gemini(respuesta)
+            citas = _extraer_citas_gemini(respuesta) if permitir_busqueda else []
+            return texto, citas
         except errores_reintentables as e:
             ultimo_error = e
             if intento < max_reintentos - 1:
-                espera = 2 ** intento  # 1s, 2s, 4s, 8s
+                espera = 2 ** intento
                 time.sleep(espera)
                 continue
             break
@@ -214,12 +284,34 @@ def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4):
     )
 
 
-def llamar_ia_con_reintentos(prompt, max_tokens, modelo):
-    """Despacha la llamada al proveedor de IA según el modelo elegido."""
+def llamar_ia_con_reintentos(prompt, max_tokens, modelo, permitir_busqueda=False):
+    """Despacha la llamada al proveedor de IA y devuelve (texto, citas).
+
+    `citas` es una lista de `{'url', 'title'}`. Si `permitir_busqueda` es False
+    (por defecto) la lista siempre vendrá vacía.
+    """
     modelo = _normalizar_modelo(modelo)
     if modelo in MODELOS_ANTHROPIC:
-        return llamar_claude_con_reintentos(prompt, max_tokens, modelo)
-    return llamar_gemini_con_reintentos(prompt, max_tokens, modelo)
+        return llamar_claude_con_reintentos(
+            prompt, max_tokens, modelo, permitir_busqueda=permitir_busqueda,
+        )
+    return llamar_gemini_con_reintentos(
+        prompt, max_tokens, modelo, permitir_busqueda=permitir_busqueda,
+    )
+
+
+def _append_fuentes_consultadas(texto_md, citas):
+    """Añade una sección ## Fuentes consultadas al final de la memoria."""
+    if not citas:
+        return texto_md
+    lineas = ["", "## Fuentes consultadas"]
+    for c in citas[:12]:
+        titulo = (c.get("title") or c.get("url") or "").strip()
+        url = (c.get("url") or "").strip()
+        if not url:
+            continue
+        lineas.append(f"- **{titulo}** — {url}")
+    return texto_md.rstrip() + "\n" + "\n".join(lineas) + "\n"
 
 
 def _limpiar_respuesta_ia(texto):
@@ -367,8 +459,27 @@ def _texto_datos_para_prompt(datos):
     return texto
 
 
-# Bloque compartido con las reglas de formato. Se reutiliza en la generación
-# inicial y en el chat de refinamiento para mantener consistencia visual.
+# Bloque compartido con el ALCANCE del documento. Fija la perspectiva
+# (memoria explicativa de la PyG para accionistas) y veta contenido de tesis
+# de inversión.
+_ALCANCE_MEMORIA = """ALCANCE Y PÚBLICO DEL DOCUMENTO (fundamental, no te desvíes):
+- Eres un analista financiero que redacta la NOTA EXPLICATIVA de la cuenta
+  de Pérdidas y Ganancias (PyG) que forma parte de las cuentas anuales que
+  la compañía publica para sus accionistas.
+- El lector es un accionista que quiere entender cómo ha ido la compañía
+  en los ejercicios presentados y qué cabe esperar cualitativamente en los
+  próximos ejercicios (drivers de negocio, tendencias, riesgos operativos).
+- ESTO NO ES UNA TESIS DE INVERSIÓN. Está PROHIBIDO incluir:
+  · Recomendaciones de compra, venta o mantenimiento.
+  · Objetivos de precio o rangos de valoración.
+  · Múltiplos de mercado (P/E, EV/EBITDA…), DCF, comparables cotizados.
+  · Análisis técnico, rating, price target ni opinión bursátil.
+- SÍ debes incluir: evolución interanual de ingresos, márgenes y resultado;
+  drivers cualitativos que explican la variación; perspectivas cualitativas
+  sobre el comportamiento del negocio; riesgos y fortalezas operativas."""
+
+
+# Reglas de formato compartidas entre generación inicial y chat.
 _REGLAS_FORMATO_MEMORIA = """Reglas de formato OBLIGATORIAS (bajo ningún concepto las infrinjas):
 - PROHIBIDO usar tablas Markdown: no escribas NUNCA los caracteres `|`, `---` o `:---:`.
 - En lugar de tablas, usa listas con guion `-` y negritas para las etiquetas, por ejemplo:
@@ -380,11 +491,14 @@ _REGLAS_FORMATO_MEMORIA = """Reglas de formato OBLIGATORIAS (bajo ningún concep
 - Asegúrate de cerrar todas las secciones: termina con una sección final de "## Conclusión"."""
 
 
-def generar_nota_memoria(datos, modelo, instrucciones_usuario=None):
-    """Genera nota de memoria explicativa usando el modelo de IA elegido.
+def generar_nota_memoria(datos, modelo, instrucciones_usuario=None,
+                          permitir_busqueda=False):
+    """Genera la nota explicativa de la PyG para accionistas.
 
-    Si se proporcionan `instrucciones_usuario`, se inyectan como pauta
-    adicional para que la IA adapte el tono, las secciones o el foco.
+    - `instrucciones_usuario`: texto libre que el usuario añade para orientar
+      el tono, las secciones o el foco de la memoria.
+    - `permitir_busqueda`: si es True, la IA puede consultar noticias recientes
+      del sector en internet y citarlas en una sección final.
     """
     tabla_texto = _texto_datos_para_prompt(datos)
 
@@ -392,23 +506,35 @@ def generar_nota_memoria(datos, modelo, instrucciones_usuario=None):
     if instrucciones_usuario and instrucciones_usuario.strip():
         bloque_instrucciones = (
             "\n\nIndicaciones específicas del usuario (tienen PRIORIDAD sobre las "
-            "decisiones por defecto, siempre que no contradigan las reglas de formato):\n"
+            "decisiones por defecto, siempre que no contradigan el alcance ni las "
+            "reglas de formato):\n"
             f"{instrucciones_usuario.strip()}\n"
         )
 
-    prompt = f"""Eres un analista financiero experto. Genera una nota de memoria explicativa
-en español sobre los resultados financieros de la siguiente empresa.
-La nota debe ser profesional, incluir análisis de tendencias entre periodos,
-destacar fortalezas y debilidades, y ofrecer una conclusión.
+    bloque_busqueda = ""
+    if permitir_busqueda:
+        bloque_busqueda = (
+            "\nCONTEXTO EXTERNO: tienes disponible una herramienta de búsqueda web. "
+            "Úsala con criterio para localizar noticias relevantes de los últimos 12 "
+            "meses sobre la compañía o su sector que ayuden a explicar la evolución "
+            "del negocio. Incorpóralas en el cuerpo de la memoria como **hechos** "
+            "(no como opinión), y asegúrate de que el análisis financiero siga "
+            "siendo el centro del documento.\n"
+        )
+
+    prompt = f"""{_ALCANCE_MEMORIA}
 
 {_REGLAS_FORMATO_MEMORIA}
-{bloque_instrucciones}
-Datos financieros:
+{bloque_instrucciones}{bloque_busqueda}
+Datos financieros sobre los que elaborar la memoria:
 {tabla_texto}"""
 
-    return _limpiar_respuesta_ia(
-        llamar_ia_con_reintentos(prompt, max_tokens=4000, modelo=modelo)
+    texto, citas = llamar_ia_con_reintentos(
+        prompt, max_tokens=4000, modelo=modelo,
+        permitir_busqueda=permitir_busqueda,
     )
+    memoria = _limpiar_respuesta_ia(texto)
+    return _append_fuentes_consultadas(memoria, citas)
 
 
 _RE_BLOQUE_RESPUESTA = re.compile(r"\[RESPUESTA\]\s*\n(.+?)(?=\n\[MEMORIA\]|\Z)", re.DOTALL)
@@ -440,13 +566,11 @@ def _parsear_respuesta_chat(texto_crudo):
 
 
 def refinar_memoria_con_chat(datos, memoria_actual, historial, mensaje_usuario,
-                              instrucciones_iniciales, modelo):
+                              instrucciones_iniciales, modelo,
+                              permitir_busqueda=False):
     """Ejecuta un turno de chat para refinar la memoria.
 
-    Construye un prompt con los datos, la memoria actual, las instrucciones
-    iniciales y el historial de chat, y pide al modelo que devuelva tanto
-    una respuesta conversacional como la memoria completa actualizada.
-    Devuelve `(respuesta_chat, memoria_nueva_o_None)`.
+    Devuelve `(respuesta_chat, memoria_nueva_o_None, citas)`.
     """
     tabla_texto = _texto_datos_para_prompt(datos)
 
@@ -462,13 +586,22 @@ def refinar_memoria_con_chat(datos, memoria_actual, historial, mensaje_usuario,
             f"{instrucciones_iniciales.strip()}\n"
         )
 
-    prompt = f"""Eres un analista financiero experto colaborando con el usuario para
-refinar una nota de memoria ya generada. El usuario te va a pedir ajustes,
-ampliaciones o cambios de enfoque; tú debes aplicar esos cambios y devolver
-la memoria completa actualizada conservando el estilo.
+    bloque_busqueda = ""
+    if permitir_busqueda:
+        bloque_busqueda = (
+            "\nEn este turno el usuario te permite consultar noticias recientes en "
+            "internet. Úsalo si aporta a la memoria (p. ej. noticias del sector de "
+            "los últimos 12 meses relevantes para explicar la evolución).\n"
+        )
+
+    prompt = f"""{_ALCANCE_MEMORIA}
+
+Colaboras con el usuario para refinar la NOTA EXPLICATIVA de la PyG ya
+generada. El usuario te pide ajustes, ampliaciones o cambios de enfoque;
+aplica esos cambios CONSERVANDO el alcance descrito arriba.
 
 {_REGLAS_FORMATO_MEMORIA}
-
+{bloque_busqueda}
 Datos financieros de referencia:
 {tabla_texto}
 {instrucciones_bloque}
@@ -488,13 +621,21 @@ RESPONDE ESTRICTAMENTE con este formato exacto (sin texto adicional fuera de las
 
 [MEMORIA]
 (la MEMORIA COMPLETA ACTUALIZADA en markdown, respetando las reglas de formato.
-Si el usuario no pide cambios en la memoria, repite la memoria actual tal cual.)"""
+Si el usuario no pide cambios en la memoria, repite la memoria actual tal cual.
+Si usaste búsqueda web, incluye al final una sección `## Fuentes consultadas`.)"""
 
-    texto = llamar_ia_con_reintentos(prompt, max_tokens=4500, modelo=modelo)
+    texto, citas = llamar_ia_con_reintentos(
+        prompt, max_tokens=4500, modelo=modelo,
+        permitir_busqueda=permitir_busqueda,
+    )
     respuesta, memoria_nueva = _parsear_respuesta_chat(texto)
     if not respuesta:
         respuesta = "Memoria actualizada."
-    return respuesta, memoria_nueva
+    if memoria_nueva and citas:
+        # La IA no siempre respeta "## Fuentes consultadas"; lo anexamos si falta.
+        if "## Fuentes consultadas" not in memoria_nueva:
+            memoria_nueva = _append_fuentes_consultadas(memoria_nueva, citas)
+    return respuesta, memoria_nueva, citas
 
 
 def generar_analisis_comparativo(datos_empresas, modelo):
@@ -530,9 +671,8 @@ Reglas de formato OBLIGATORIAS (bajo ningún concepto las infrinjas):
 Datos financieros comparativos:
 {texto}"""
 
-    return _limpiar_respuesta_ia(
-        llamar_ia_con_reintentos(prompt, max_tokens=5000, modelo=modelo)
-    )
+    texto, _citas = llamar_ia_con_reintentos(prompt, max_tokens=5000, modelo=modelo)
+    return _limpiar_respuesta_ia(texto)
 
 
 _RE_INLINE = re.compile(r"(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)")
@@ -1531,12 +1671,14 @@ def analisis():
         ticker_symbol = request.form.get("ticker", "").strip().upper()
         modelo = _normalizar_modelo(request.form.get("modelo", MODELO_POR_DEFECTO))
         instrucciones = request.form.get("instrucciones", "").strip()
+        buscar_noticias = request.form.get("buscar_noticias") in ("1", "on", "true")
         if not ticker_symbol:
             return render_template(
                 "analisis.html",
                 error="Introduce un ticker válido.",
                 modelo_seleccionado=modelo,
                 instrucciones_previas=instrucciones,
+                buscar_noticias_previo=buscar_noticias,
             )
 
         try:
@@ -1547,9 +1689,14 @@ def analisis():
                     error=f"No se encontraron datos financieros para '{ticker_symbol}'.",
                     modelo_seleccionado=modelo,
                     instrucciones_previas=instrucciones,
+                    buscar_noticias_previo=buscar_noticias,
                 )
 
-            nota = generar_nota_memoria(datos, modelo, instrucciones_usuario=instrucciones)
+            nota = generar_nota_memoria(
+                datos, modelo,
+                instrucciones_usuario=instrucciones,
+                permitir_busqueda=buscar_noticias,
+            )
             secciones_html, pendientes = _render_secciones_para_resultado(nota)
 
             cache_id = str(uuid.uuid4())
@@ -1572,6 +1719,7 @@ def analisis():
                 chart_titulos=_CHART_TITULOS,
                 modelo_actual=modelo,
                 instrucciones_iniciales=instrucciones,
+                busqueda_activa_inicial=buscar_noticias,
             )
         except Exception as e:
             return render_template(
@@ -1579,12 +1727,14 @@ def analisis():
                 error=f"Error: {str(e)}",
                 modelo_seleccionado=modelo,
                 instrucciones_previas=instrucciones,
+                buscar_noticias_previo=buscar_noticias,
             )
 
     return render_template(
         "analisis.html",
         modelo_seleccionado=MODELO_POR_DEFECTO,
         instrucciones_previas="",
+        buscar_noticias_previo=False,
     )
 
 
@@ -1606,6 +1756,7 @@ def chat_memoria():
         return jsonify({"error": "El mensaje es demasiado largo (máx. 4000 caracteres)."}), 400
 
     modelo = _normalizar_modelo(data.get("modelo") or cached.get("modelo") or MODELO_POR_DEFECTO)
+    buscar_noticias = bool(data.get("buscar_noticias"))
     datos = cached["datos"]
     memoria_actual = cached["nota"]
     historial = cached.setdefault("chat_historial", [])
@@ -1615,9 +1766,10 @@ def chat_memoria():
     historial_acotado = historial[-10:]
 
     try:
-        respuesta_chat, memoria_nueva = refinar_memoria_con_chat(
+        respuesta_chat, memoria_nueva, _citas = refinar_memoria_con_chat(
             datos, memoria_actual, historial_acotado, mensaje,
             instrucciones_iniciales, modelo,
+            permitir_busqueda=buscar_noticias,
         )
     except Exception as e:
         return jsonify({"error": f"Error al consultar la IA: {str(e)}"}), 500
