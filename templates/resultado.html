@@ -93,40 +93,33 @@
 
 <div class="card memoria-card">
     <h2>Nota de memoria explicativa</h2>
-    <div class="nota-memoria">
-        {% for sec in secciones %}
-            {% if sec.title %}<h2>{{ sec.title }}</h2>{% endif %}
-            {{ sec.body_html | safe }}
-            {% for ch in sec.charts %}
-                <figure class="inline-chart">
-                    <figcaption>
-    {{ chart_titulos[ch] }}
-    {% if datos.moneda and ch in ['ingresos', 'estructura', 'metricas'] %}
-    <span style="color: var(--gray-10); font-weight: 500; font-size: 0.82rem;"> — {{ datos.moneda }}</span>
-    {% endif %}
-</figcaption>
-                    <div class="chart-canvas-wrapper"><canvas id="chart-{{ ch }}"></canvas></div>
-                </figure>
-            {% endfor %}
-        {% endfor %}
-
-        {% if pendientes %}
-        <h2>Resumen visual</h2>
-        <div class="charts-grid">
-            {% for ch in pendientes %}
-            <figure class="inline-chart">
-                <figcaption>
-    {{ chart_titulos[ch] }}
-    {% if datos.moneda and ch in ['ingresos', 'estructura', 'metricas'] %}
-    <span style="color: var(--gray-10); font-weight: 500; font-size: 0.82rem;"> — {{ datos.moneda }}</span>
-    {% endif %}
-</figcaption>
-                <div class="chart-canvas-wrapper"><canvas id="chart-{{ ch }}"></canvas></div>
-            </figure>
-            {% endfor %}
-        </div>
-        {% endif %}
+    {% if instrucciones_iniciales %}
+    <div class="alert alert-info" style="margin-bottom: 1rem;">
+        <strong>Instrucciones aplicadas en la generación inicial:</strong>
+        <div style="margin-top: 4px; white-space: pre-wrap; font-weight: 400;">{{ instrucciones_iniciales }}</div>
     </div>
+    {% endif %}
+    <div class="nota-memoria" id="memoriaBody">
+        {% include "_memoria_fragmento.html" %}
+    </div>
+</div>
+
+<div class="card chat-card">
+    <h2>Refinar con IA</h2>
+    <p style="color: var(--gray-10); font-size: 0.88rem; margin-bottom: 0.8rem;">
+        Pide ajustes en lenguaje natural. La IA reescribirá la memoria conservando los datos y los gráficos se recalcularán al instante.
+    </p>
+    <div class="chat-history" id="chatHistory" aria-live="polite">
+        <div class="chat-empty">Aún no has interactuado con el asistente. Prueba con <em>"amplía la sección de EBITDA"</em>, <em>"añade una sección de riesgos"</em> o <em>"hazlo más conservador"</em>.</div>
+    </div>
+    <form id="chatForm" class="chat-form" autocomplete="off">
+        <textarea id="chatInput" name="chat_msg" rows="3" maxlength="3000"
+                  placeholder="Escribe tu petición al asistente..."></textarea>
+        <div class="chat-actions">
+            <span class="chat-model-hint">Modelo: <strong>{{ modelo_actual }}</strong></span>
+            <button type="submit" class="btn btn-primary" id="chatSubmit">Enviar</button>
+        </div>
+    </form>
 </div>
 {% endblock %}
 
@@ -172,11 +165,100 @@
         grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
         gap: 1rem;
     }
+    .moneda-chip {
+        color: var(--gray-10);
+        font-weight: 500;
+        font-size: 0.82rem;
+    }
+
+    /* Chat refinamiento */
+    .chat-card { border-top: 3px solid var(--deloitte-green); }
+    .chat-history {
+        border: 1px solid var(--gray-border);
+        border-radius: 3px;
+        background: var(--gray-bg);
+        padding: 0.9rem 1rem;
+        min-height: 120px;
+        max-height: 360px;
+        overflow-y: auto;
+        margin-bottom: 0.8rem;
+    }
+    .chat-empty {
+        color: var(--gray-10);
+        font-size: 0.88rem;
+        font-style: italic;
+        line-height: 1.55;
+    }
+    .chat-bubble {
+        padding: 0.6rem 0.9rem;
+        border-radius: 6px;
+        margin-bottom: 0.55rem;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        max-width: 88%;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .chat-bubble.user {
+        background: var(--black);
+        color: var(--white);
+        margin-left: auto;
+        border-bottom-right-radius: 2px;
+    }
+    .chat-bubble.assistant {
+        background: var(--white);
+        color: var(--black);
+        border: 1px solid var(--gray-border);
+        border-left: 3px solid var(--deloitte-green);
+        border-bottom-left-radius: 2px;
+    }
+    .chat-bubble.error {
+        background: #fdecec;
+        color: #7a1818;
+        border-left: 3px solid var(--danger);
+    }
+    .chat-bubble.typing::after {
+        content: "●●●";
+        letter-spacing: 4px;
+        color: var(--gray-7);
+        animation: chat-dots 1.2s steps(4, end) infinite;
+    }
+    @keyframes chat-dots {
+        0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; }
+    }
+    .chat-form textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--gray-1);
+        border-radius: 3px;
+        font-family: inherit;
+        font-size: 0.95rem;
+        resize: vertical;
+    }
+    .chat-form textarea:focus {
+        outline: none;
+        border-color: var(--deloitte-green);
+        box-shadow: 0 0 0 3px rgba(134, 188, 37, 0.18);
+    }
+    .chat-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 0.6rem;
+    }
+    .chat-model-hint {
+        color: var(--gray-10);
+        font-size: 0.78rem;
+    }
+    .memoria-refreshing #memoriaBody { opacity: 0.5; transition: opacity 0.2s; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script>
 (function() {
     const datos = {{ graficos|tojson }};
+    const cacheId = {{ cache_id|tojson }};
+    const modeloActual = {{ modelo_actual|tojson }};
+
     const PALETTE = {
         green: '#86BC25', greenDark: '#43B02A', black: '#000000',
         gray: '#53565A', orange: '#ED8B00', red: '#DA291C', blue: '#00A3E0'
@@ -248,9 +330,81 @@
         })
     };
 
-    Object.keys(builders).forEach(k => {
-        const el = document.getElementById('chart-' + k);
-        if (el) builders[k](el);
+    const instances = {};
+    function initAllCharts() {
+        Object.keys(builders).forEach(k => {
+            const el = document.getElementById('chart-' + k);
+            if (instances[k]) { instances[k].destroy(); instances[k] = null; }
+            if (el) instances[k] = builders[k](el);
+        });
+    }
+
+    // Primera carga
+    initAllCharts();
+
+    // --- Chat de refinamiento ---
+    const historyEl = document.getElementById('chatHistory');
+    const form = document.getElementById('chatForm');
+    const input = document.getElementById('chatInput');
+    const submit = document.getElementById('chatSubmit');
+    const memoriaBody = document.getElementById('memoriaBody');
+    const memoriaCard = memoriaBody ? memoriaBody.closest('.card') : null;
+
+    function clearEmpty() {
+        const empty = historyEl.querySelector('.chat-empty');
+        if (empty) empty.remove();
+    }
+    function addBubble(role, text, extraClass) {
+        clearEmpty();
+        const div = document.createElement('div');
+        div.className = 'chat-bubble ' + role + (extraClass ? ' ' + extraClass : '');
+        div.textContent = text;
+        historyEl.appendChild(div);
+        historyEl.scrollTop = historyEl.scrollHeight;
+        return div;
+    }
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const msg = (input.value || '').trim();
+        if (!msg) return;
+
+        addBubble('user', msg);
+        input.value = '';
+        submit.disabled = true;
+        submit.textContent = 'Enviando...';
+        const loading = addBubble('assistant', '', 'typing');
+        if (memoriaCard) memoriaCard.classList.add('memoria-refreshing');
+
+        try {
+            const res = await fetch('/chat_memoria', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cache_id: cacheId, mensaje: msg, modelo: modeloActual })
+            });
+            let data;
+            try { data = await res.json(); }
+            catch (_) { throw new Error('Respuesta no válida del servidor'); }
+
+            loading.remove();
+            if (!res.ok || data.error) {
+                addBubble('assistant', data.error || ('Error ' + res.status), 'error');
+            } else {
+                addBubble('assistant', data.chat_reply || 'Memoria actualizada.');
+                if (data.memoria_html && memoriaBody) {
+                    memoriaBody.innerHTML = data.memoria_html;
+                    initAllCharts();
+                }
+            }
+        } catch (err) {
+            loading.remove();
+            addBubble('assistant', 'Error de red: ' + err.message, 'error');
+        } finally {
+            submit.disabled = false;
+            submit.textContent = 'Enviar';
+            if (memoriaCard) memoriaCard.classList.remove('memoria-refreshing');
+            input.focus();
+        }
     });
 })();
 </script>

@@ -349,25 +349,27 @@ def obtener_datos_financieros(ticker_symbol):
     return datos
 
 
-def generar_nota_memoria(datos, modelo):
-    """Genera nota de memoria explicativa usando el modelo de IA elegido."""
-    tabla_texto = f"Empresa: {datos['nombre']} ({datos['ticker']})\n\n"
+def _texto_datos_para_prompt(datos):
+    """Genera el bloque de datos financieros para inyectar en prompts."""
+    moneda = datos.get("moneda") or ""
+    etiqueta_moneda = f" (moneda de reporting: {moneda})" if moneda else ""
+    texto = f"Empresa: {datos['nombre']} ({datos['ticker']}){etiqueta_moneda}\n\n"
     for p in datos["periodos"]:
-        tabla_texto += f"""Periodo: {p['periodo']}
-  Ingresos: {p['ingresos']:,.0f}
-  Coste de ventas: {p['coste_ventas']:,.0f}
-  Margen bruto: {p['margen_bruto']:,.0f} ({p['pct_margen_bruto']}%)
-  Gastos operativos: {p['gastos_operativos']:,.0f} ({p['pct_gastos_operativos']}%)
-  EBITDA: {p['ebitda']:,.0f} ({p['pct_ebitda']}%)
-  Beneficio neto: {p['beneficio_neto']:,.0f} ({p['pct_beneficio_neto']}%)
-"""
+        texto += (
+            f"Periodo: {p['periodo']}\n"
+            f"  Ingresos: {p['ingresos']:,.0f}\n"
+            f"  Coste de ventas: {p['coste_ventas']:,.0f}\n"
+            f"  Margen bruto: {p['margen_bruto']:,.0f} ({p['pct_margen_bruto']}%)\n"
+            f"  Gastos operativos: {p['gastos_operativos']:,.0f} ({p['pct_gastos_operativos']}%)\n"
+            f"  EBITDA: {p['ebitda']:,.0f} ({p['pct_ebitda']}%)\n"
+            f"  Beneficio neto: {p['beneficio_neto']:,.0f} ({p['pct_beneficio_neto']}%)\n"
+        )
+    return texto
 
-    prompt = f"""Eres un analista financiero experto. Genera una nota de memoria explicativa
-en español sobre los resultados financieros de la siguiente empresa.
-La nota debe ser profesional, incluir análisis de tendencias entre periodos,
-destacar fortalezas y debilidades, y ofrecer una conclusión.
 
-Reglas de formato OBLIGATORIAS (bajo ningún concepto las infrinjas):
+# Bloque compartido con las reglas de formato. Se reutiliza en la generación
+# inicial y en el chat de refinamiento para mantener consistencia visual.
+_REGLAS_FORMATO_MEMORIA = """Reglas de formato OBLIGATORIAS (bajo ningún concepto las infrinjas):
 - PROHIBIDO usar tablas Markdown: no escribas NUNCA los caracteres `|`, `---` o `:---:`.
 - En lugar de tablas, usa listas con guion `-` y negritas para las etiquetas, por ejemplo:
   `- **FY2024:** ingresos de 60.922 M USD (+125,8% interanual).`
@@ -375,14 +377,124 @@ Reglas de formato OBLIGATORIAS (bajo ningún concepto las infrinjas):
 - Estructura el contenido con encabezados Markdown `## Sección` y `### Subsección`.
 - Usa párrafos en prosa profesional; resalta términos clave con `**negrita**` (uno o dos por párrafo).
 - Cifras siempre con separadores de miles y unidades (millones / %).
-- Asegúrate de cerrar todas las secciones: termina con una sección final de "## Conclusión".
+- Asegúrate de cerrar todas las secciones: termina con una sección final de "## Conclusión"."""
 
+
+def generar_nota_memoria(datos, modelo, instrucciones_usuario=None):
+    """Genera nota de memoria explicativa usando el modelo de IA elegido.
+
+    Si se proporcionan `instrucciones_usuario`, se inyectan como pauta
+    adicional para que la IA adapte el tono, las secciones o el foco.
+    """
+    tabla_texto = _texto_datos_para_prompt(datos)
+
+    bloque_instrucciones = ""
+    if instrucciones_usuario and instrucciones_usuario.strip():
+        bloque_instrucciones = (
+            "\n\nIndicaciones específicas del usuario (tienen PRIORIDAD sobre las "
+            "decisiones por defecto, siempre que no contradigan las reglas de formato):\n"
+            f"{instrucciones_usuario.strip()}\n"
+        )
+
+    prompt = f"""Eres un analista financiero experto. Genera una nota de memoria explicativa
+en español sobre los resultados financieros de la siguiente empresa.
+La nota debe ser profesional, incluir análisis de tendencias entre periodos,
+destacar fortalezas y debilidades, y ofrecer una conclusión.
+
+{_REGLAS_FORMATO_MEMORIA}
+{bloque_instrucciones}
 Datos financieros:
 {tabla_texto}"""
 
     return _limpiar_respuesta_ia(
         llamar_ia_con_reintentos(prompt, max_tokens=4000, modelo=modelo)
     )
+
+
+_RE_BLOQUE_RESPUESTA = re.compile(r"\[RESPUESTA\]\s*\n(.+?)(?=\n\[MEMORIA\]|\Z)", re.DOTALL)
+_RE_BLOQUE_MEMORIA = re.compile(r"\[MEMORIA\]\s*\n(.+)", re.DOTALL)
+
+
+def _parsear_respuesta_chat(texto_crudo):
+    """Separa la respuesta conversacional y la memoria actualizada."""
+    if not texto_crudo:
+        return "", None
+    m_mem = _RE_BLOQUE_MEMORIA.search(texto_crudo)
+    memoria_nueva = None
+    if m_mem:
+        memoria_nueva = _limpiar_respuesta_ia(m_mem.group(1).strip())
+        texto_restante = texto_crudo[: m_mem.start()]
+    else:
+        texto_restante = texto_crudo
+
+    m_resp = _RE_BLOQUE_RESPUESTA.search(texto_restante)
+    if m_resp:
+        respuesta = m_resp.group(1).strip()
+    else:
+        # Sin etiquetas: si no hay memoria nueva lo tratamos todo como chat
+        respuesta = texto_restante.strip()
+    # Truncamos la respuesta conversacional a algo razonable
+    if len(respuesta) > 1200:
+        respuesta = respuesta[:1200].rsplit(".", 1)[0] + "…"
+    return respuesta, memoria_nueva
+
+
+def refinar_memoria_con_chat(datos, memoria_actual, historial, mensaje_usuario,
+                              instrucciones_iniciales, modelo):
+    """Ejecuta un turno de chat para refinar la memoria.
+
+    Construye un prompt con los datos, la memoria actual, las instrucciones
+    iniciales y el historial de chat, y pide al modelo que devuelva tanto
+    una respuesta conversacional como la memoria completa actualizada.
+    Devuelve `(respuesta_chat, memoria_nueva_o_None)`.
+    """
+    tabla_texto = _texto_datos_para_prompt(datos)
+
+    historial_txt = ""
+    for turno in historial:
+        rol = "Usuario" if turno.get("role") == "user" else "Asistente"
+        historial_txt += f"\n{rol}: {turno.get('content', '').strip()}"
+
+    instrucciones_bloque = ""
+    if instrucciones_iniciales and instrucciones_iniciales.strip():
+        instrucciones_bloque = (
+            "\nInstrucciones iniciales del usuario (al generar la memoria por primera vez):\n"
+            f"{instrucciones_iniciales.strip()}\n"
+        )
+
+    prompt = f"""Eres un analista financiero experto colaborando con el usuario para
+refinar una nota de memoria ya generada. El usuario te va a pedir ajustes,
+ampliaciones o cambios de enfoque; tú debes aplicar esos cambios y devolver
+la memoria completa actualizada conservando el estilo.
+
+{_REGLAS_FORMATO_MEMORIA}
+
+Datos financieros de referencia:
+{tabla_texto}
+{instrucciones_bloque}
+MEMORIA ACTUAL:
+---
+{memoria_actual.strip()}
+---
+{historial_txt}
+
+Nueva petición del usuario:
+{mensaje_usuario.strip()}
+
+RESPONDE ESTRICTAMENTE con este formato exacto (sin texto adicional fuera de las etiquetas):
+
+[RESPUESTA]
+(1 o 2 frases en español explicando qué cambios has aplicado a la memoria.)
+
+[MEMORIA]
+(la MEMORIA COMPLETA ACTUALIZADA en markdown, respetando las reglas de formato.
+Si el usuario no pide cambios en la memoria, repite la memoria actual tal cual.)"""
+
+    texto = llamar_ia_con_reintentos(prompt, max_tokens=4500, modelo=modelo)
+    respuesta, memoria_nueva = _parsear_respuesta_chat(texto)
+    if not respuesta:
+        respuesta = "Memoria actualizada."
+    return respuesta, memoria_nueva
 
 
 def generar_analisis_comparativo(datos_empresas, modelo):
@@ -1396,16 +1508,35 @@ def index():
     return render_template("index.html")
 
 
+def _render_secciones_para_resultado(nota):
+    """Convierte una memoria Markdown en la estructura que espera la plantilla."""
+    secciones_asignadas, pendientes = segmentar_y_asignar(nota)
+    secciones_html = []
+    for sec in secciones_asignadas:
+        body_html = markdown.markdown(
+            sec.get("body", ""),
+            extensions=["tables", "fenced_code", "sane_lists"],
+        )
+        secciones_html.append({
+            "title": sec.get("title"),
+            "body_html": body_html,
+            "charts": sec.get("charts", []),
+        })
+    return secciones_html, pendientes
+
+
 @app.route("/analisis", methods=["GET", "POST"])
 def analisis():
     if request.method == "POST":
         ticker_symbol = request.form.get("ticker", "").strip().upper()
         modelo = _normalizar_modelo(request.form.get("modelo", MODELO_POR_DEFECTO))
+        instrucciones = request.form.get("instrucciones", "").strip()
         if not ticker_symbol:
             return render_template(
                 "analisis.html",
                 error="Introduce un ticker válido.",
                 modelo_seleccionado=modelo,
+                instrucciones_previas=instrucciones,
             )
 
         try:
@@ -1415,27 +1546,20 @@ def analisis():
                     "analisis.html",
                     error=f"No se encontraron datos financieros para '{ticker_symbol}'.",
                     modelo_seleccionado=modelo,
+                    instrucciones_previas=instrucciones,
                 )
 
-            nota = generar_nota_memoria(datos, modelo)
-
-            # Segmentar y asignar gráficos por sección para intercalar
-            # la visualización entre los bloques de texto correspondientes.
-            secciones_asignadas, pendientes = segmentar_y_asignar(nota)
-            secciones_html = []
-            for sec in secciones_asignadas:
-                body_html = markdown.markdown(
-                    sec.get("body", ""),
-                    extensions=["tables", "fenced_code", "sane_lists"],
-                )
-                secciones_html.append({
-                    "title": sec.get("title"),
-                    "body_html": body_html,
-                    "charts": sec.get("charts", []),
-                })
+            nota = generar_nota_memoria(datos, modelo, instrucciones_usuario=instrucciones)
+            secciones_html, pendientes = _render_secciones_para_resultado(nota)
 
             cache_id = str(uuid.uuid4())
-            _download_cache[cache_id] = {"datos": datos, "nota": nota}
+            _download_cache[cache_id] = {
+                "datos": datos,
+                "nota": nota,
+                "modelo": modelo,
+                "instrucciones": instrucciones,
+                "chat_historial": [],
+            }
 
             return render_template(
                 "resultado.html",
@@ -1446,15 +1570,80 @@ def analisis():
                 secciones=secciones_html,
                 pendientes=pendientes,
                 chart_titulos=_CHART_TITULOS,
+                modelo_actual=modelo,
+                instrucciones_iniciales=instrucciones,
             )
         except Exception as e:
             return render_template(
                 "analisis.html",
                 error=f"Error: {str(e)}",
                 modelo_seleccionado=modelo,
+                instrucciones_previas=instrucciones,
             )
 
-    return render_template("analisis.html", modelo_seleccionado=MODELO_POR_DEFECTO)
+    return render_template(
+        "analisis.html",
+        modelo_seleccionado=MODELO_POR_DEFECTO,
+        instrucciones_previas="",
+    )
+
+
+@app.route("/chat_memoria", methods=["POST"])
+def chat_memoria():
+    """Recibe un turno de chat y devuelve la memoria actualizada."""
+    from flask import jsonify, render_template
+
+    data = request.get_json(silent=True) or {}
+    cache_id = (data.get("cache_id") or "").strip()
+    mensaje = (data.get("mensaje") or "").strip()
+
+    cached = _download_cache.get(cache_id)
+    if not cached or "datos" not in cached:
+        return jsonify({"error": "La sesión ha caducado. Genera la memoria de nuevo."}), 400
+    if not mensaje:
+        return jsonify({"error": "El mensaje no puede estar vacío."}), 400
+    if len(mensaje) > 4000:
+        return jsonify({"error": "El mensaje es demasiado largo (máx. 4000 caracteres)."}), 400
+
+    modelo = _normalizar_modelo(data.get("modelo") or cached.get("modelo") or MODELO_POR_DEFECTO)
+    datos = cached["datos"]
+    memoria_actual = cached["nota"]
+    historial = cached.setdefault("chat_historial", [])
+    instrucciones_iniciales = cached.get("instrucciones", "")
+
+    # Limitar historial a los últimos 10 turnos para contener tokens
+    historial_acotado = historial[-10:]
+
+    try:
+        respuesta_chat, memoria_nueva = refinar_memoria_con_chat(
+            datos, memoria_actual, historial_acotado, mensaje,
+            instrucciones_iniciales, modelo,
+        )
+    except Exception as e:
+        return jsonify({"error": f"Error al consultar la IA: {str(e)}"}), 500
+
+    # Actualiza el estado en cache
+    historial.append({"role": "user", "content": mensaje})
+    historial.append({"role": "assistant", "content": respuesta_chat})
+    if memoria_nueva:
+        cached["nota"] = memoria_nueva
+
+    memoria_para_render = cached["nota"]
+    secciones_html, pendientes = _render_secciones_para_resultado(memoria_para_render)
+
+    memoria_fragmento = render_template(
+        "_memoria_fragmento.html",
+        datos=datos,
+        secciones=secciones_html,
+        pendientes=pendientes,
+        chart_titulos=_CHART_TITULOS,
+    )
+
+    return jsonify({
+        "chat_reply": respuesta_chat,
+        "memoria_html": memoria_fragmento,
+        "memoria_updated": memoria_nueva is not None,
+    })
 
 
 @app.route("/comparador", methods=["GET", "POST"])
