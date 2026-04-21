@@ -32,6 +32,9 @@
     </div>
 </div>
 
+<div class="resultado-layout">
+<div class="col-main">
+
 <div class="card">
     <h2>Datos financieros — serie histórica</h2>
     {% if datos.moneda %}
@@ -104,23 +107,36 @@
     </div>
 </div>
 
-<div class="card chat-card">
-    <h2>Refinar con IA</h2>
-    <p style="color: var(--gray-10); font-size: 0.88rem; margin-bottom: 0.8rem;">
-        Pide ajustes en lenguaje natural. La IA reescribirá la memoria conservando los datos y los gráficos se recalcularán al instante.
-    </p>
-    <div class="chat-history" id="chatHistory" aria-live="polite">
-        <div class="chat-empty">Aún no has interactuado con el asistente. Prueba con <em>"amplía la sección de EBITDA"</em>, <em>"añade una sección de riesgos"</em> o <em>"hazlo más conservador"</em>.</div>
-    </div>
-    <form id="chatForm" class="chat-form" autocomplete="off">
-        <textarea id="chatInput" name="chat_msg" rows="3" maxlength="3000"
-                  placeholder="Escribe tu petición al asistente..."></textarea>
-        <div class="chat-actions">
-            <span class="chat-model-hint">Modelo: <strong>{{ modelo_actual }}</strong></span>
-            <button type="submit" class="btn btn-primary" id="chatSubmit">Enviar</button>
+</div><!-- /.col-main -->
+
+<aside class="col-chat">
+    <div class="card chat-card">
+        <h2 style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <span>Refinar con IA</span>
+            <span class="chat-status" id="chatStatus" aria-hidden="true"></span>
+        </h2>
+        <p style="color: var(--gray-10); font-size: 0.82rem; margin-bottom: 0.6rem;">
+            Pide ajustes en lenguaje natural. La memoria y los gráficos se refrescarán al instante.
+        </p>
+        <div class="chat-history" id="chatHistory" aria-live="polite">
+            <div class="chat-empty">Empieza la conversación: <em>"amplía la sección de EBITDA"</em>, <em>"añade riesgos regulatorios"</em>, <em>"hazlo más conservador"</em>.</div>
         </div>
-    </form>
-</div>
+        <form id="chatForm" class="chat-form" autocomplete="off">
+            <textarea id="chatInput" name="chat_msg" rows="3" maxlength="3000"
+                      placeholder="Escribe tu petición al asistente..."></textarea>
+            <label class="chat-toggle">
+                <input type="checkbox" id="chatBuscar" {% if busqueda_activa_inicial %}checked{% endif %}>
+                <span>Consultar <strong>noticias del sector</strong> en este turno</span>
+            </label>
+            <div class="chat-actions">
+                <span class="chat-model-hint">{{ modelo_actual }}</span>
+                <button type="submit" class="btn btn-primary btn-sm" id="chatSubmit">Enviar</button>
+            </div>
+        </form>
+    </div>
+</aside>
+
+</div><!-- /.resultado-layout -->
 {% endblock %}
 
 {% block scripts %}
@@ -171,8 +187,54 @@
         font-size: 0.82rem;
     }
 
+    /* Layout 2 columnas (sticky chat a la derecha) */
+    .resultado-layout { display: block; }
+    .col-main { min-width: 0; }
+    .col-chat .chat-card { margin-bottom: 0; }
+    @media (min-width: 1100px) {
+        .resultado-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 360px;
+            gap: 1.2rem;
+            align-items: start;
+        }
+        .col-chat {
+            position: sticky;
+            top: 92px;  /* por debajo de topbar + navbar */
+            align-self: start;
+        }
+        .col-chat .chat-card {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 120px);
+            padding: 1.2rem;
+        }
+        .col-chat .chat-card > h2 { margin-bottom: 0.5rem; }
+        .col-chat .chat-history {
+            flex: 1 1 auto;
+            min-height: 120px;
+            max-height: none;
+        }
+    }
+
     /* Chat refinamiento */
     .chat-card { border-top: 3px solid var(--deloitte-green); }
+    .chat-status {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        color: var(--gray-10);
+        background: var(--gray-bg);
+        border: 1px solid var(--gray-border);
+        padding: 2px 8px;
+        border-radius: 10px;
+        text-transform: uppercase;
+    }
+    .chat-status.busy {
+        color: var(--deloitte-green-dark);
+        border-color: var(--deloitte-green);
+        background: var(--deloitte-green-soft);
+    }
     .chat-history {
         border: 1px solid var(--gray-border);
         border-radius: 3px;
@@ -181,7 +243,25 @@
         min-height: 120px;
         max-height: 360px;
         overflow-y: auto;
-        margin-bottom: 0.8rem;
+        margin-bottom: 0.7rem;
+    }
+    .chat-toggle {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        margin-top: 0.5rem;
+        padding: 7px 10px;
+        background: var(--gray-bg);
+        border: 1px solid var(--gray-border);
+        border-radius: 3px;
+        font-size: 0.78rem;
+        color: var(--gray-11);
+        cursor: pointer;
+        line-height: 1.35;
+    }
+    .chat-toggle input[type="checkbox"] {
+        accent-color: var(--deloitte-green);
+        margin-top: 2px;
     }
     .chat-empty {
         color: var(--gray-10);
@@ -347,6 +427,8 @@
     const form = document.getElementById('chatForm');
     const input = document.getElementById('chatInput');
     const submit = document.getElementById('chatSubmit');
+    const buscarInput = document.getElementById('chatBuscar');
+    const statusEl = document.getElementById('chatStatus');
     const memoriaBody = document.getElementById('memoriaBody');
     const memoriaCard = memoriaBody ? memoriaBody.closest('.card') : null;
 
@@ -363,16 +445,23 @@
         historyEl.scrollTop = historyEl.scrollHeight;
         return div;
     }
+    function setStatus(label, busy) {
+        if (!statusEl) return;
+        statusEl.textContent = label || '';
+        statusEl.classList.toggle('busy', !!busy);
+    }
 
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         const msg = (input.value || '').trim();
         if (!msg) return;
+        const buscar = !!(buscarInput && buscarInput.checked);
 
         addBubble('user', msg);
         input.value = '';
         submit.disabled = true;
         submit.textContent = 'Enviando...';
+        setStatus(buscar ? 'Buscando…' : 'Pensando…', true);
         const loading = addBubble('assistant', '', 'typing');
         if (memoriaCard) memoriaCard.classList.add('memoria-refreshing');
 
@@ -380,7 +469,12 @@
             const res = await fetch('/chat_memoria', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cache_id: cacheId, mensaje: msg, modelo: modeloActual })
+                body: JSON.stringify({
+                    cache_id: cacheId,
+                    mensaje: msg,
+                    modelo: modeloActual,
+                    buscar_noticias: buscar,
+                })
             });
             let data;
             try { data = await res.json(); }
@@ -402,6 +496,7 @@
         } finally {
             submit.disabled = false;
             submit.textContent = 'Enviar';
+            setStatus('', false);
             if (memoriaCard) memoriaCard.classList.remove('memoria-refreshing');
             input.focus();
         }
