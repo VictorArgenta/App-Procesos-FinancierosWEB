@@ -118,7 +118,7 @@
             </p>
         </div>
         <button type="button" id="btnIncoherencias" class="btn btn-primary">
-            Detectar incoherencias con sistema de generación de nota
+            Detectar incoherencia con nota generada en Workiva
         </button>
     </div>
 
@@ -385,6 +385,10 @@
         background: var(--gray-bg);
         border: 1px solid var(--gray-border);
         border-radius: 3px;
+    }
+    .incoherencias-progress[hidden],
+    .incoherencias-result[hidden] {
+        display: none !important;
     }
     .incoherencias-progress-msg {
         font-size: 0.9rem;
