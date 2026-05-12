@@ -1,5 +1,6 @@
 import os
 import io
+import json
 import re
 import time
 import uuid
@@ -485,6 +486,11 @@ _REGLAS_FORMATO_MEMORIA = """Reglas de formato OBLIGATORIAS (bajo ningún concep
 - En lugar de tablas, usa listas con guion `-` y negritas para las etiquetas, por ejemplo:
   `- **FY2024:** ingresos de 60.922 M USD (+125,8% interanual).`
 - NO uses bloques de código ni acentos graves triples.
+- PROHIBIDO incluir gráficos, charts, dashboards, diagramas, esquemas visuales,
+  ASCII art o cualquier representación visual de datos. Tampoco uses frases del
+  tipo "ver gráfico", "como muestra el dashboard", "véase la figura", "según el
+  panel". La nota es ÚNICAMENTE texto en prosa profesional: todo análisis
+  cuantitativo debe expresarse con cifras dentro del párrafo o en listas con guion.
 - Estructura el contenido con encabezados Markdown `## Sección` y `### Subsección`.
 - Usa párrafos en prosa profesional; resalta términos clave con `**negrita**` (uno o dos por párrafo).
 - Cifras siempre con separadores de miles y unidades (millones / %).
@@ -636,6 +642,113 @@ Si usaste búsqueda web, incluye al final una sección `## Fuentes consultadas`.
         if "## Fuentes consultadas" not in memoria_nueva:
             memoria_nueva = _append_fuentes_consultadas(memoria_nueva, citas)
     return respuesta, memoria_nueva, citas
+
+
+# Nombre del sistema externo simulado para la detección de incoherencias.
+SISTEMA_NOTA_OFICIAL = "Workiva"
+
+
+def _extraer_json_incoherencias(texto_crudo):
+    """Localiza el primer array JSON en la respuesta y lo parsea.
+
+    El LLM a veces envuelve el JSON en prosa o en un bloque ```json```;
+    aceptamos cualquiera de esas variantes.
+    """
+    if not texto_crudo:
+        return []
+    texto = texto_crudo.strip()
+    # Bloque ```json ... ```
+    m = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", texto, re.DOTALL)
+    if m:
+        candidato = m.group(1)
+    else:
+        # Primer array que aparezca en el texto
+        m2 = re.search(r"\[\s*\{.*\}\s*\]", texto, re.DOTALL)
+        candidato = m2.group(0) if m2 else texto
+    try:
+        data = json.loads(candidato)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    incoherencias = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        incoherencias.append({
+            "tipo": str(item.get("tipo", "")).strip() or "Discrepancia",
+            "severidad": str(item.get("severidad", "")).strip().lower() or "media",
+            "extracto_ia": str(item.get("extracto_ia", "")).strip(),
+            "extracto_oficial": str(item.get("extracto_oficial", "")).strip(),
+            "explicacion": str(item.get("explicacion", "")).strip(),
+        })
+    return incoherencias
+
+
+def detectar_incoherencias_memoria(datos, memoria, modelo):
+    """Simula la detección de incoherencias entre la nota IA y una nota
+    supuestamente almacenada en un sistema corporativo externo (Workiva).
+
+    La nota "oficial" no existe: pedimos al LLM que invente entre 4 y 6
+    discrepancias verosímiles, ancladas en los datos y el texto reales.
+    """
+    tabla_texto = _texto_datos_para_prompt(datos)
+    memoria_trunc = (memoria or "").strip()
+    if len(memoria_trunc) > 6000:
+        memoria_trunc = memoria_trunc[:6000] + "\n[...]"
+
+    prompt = f"""Eres un revisor financiero senior. Estás comparando dos versiones de la
+NOTA EXPLICATIVA de la cuenta de Pérdidas y Ganancias de una compañía:
+
+1. La VERSIÓN IA (generada automáticamente, te la paso íntegra abajo).
+2. La VERSIÓN OFICIAL almacenada en el sistema corporativo {SISTEMA_NOTA_OFICIAL},
+   redactada por el equipo financiero interno. NO tienes acceso real a ella,
+   así que la SIMULAS de forma plausible: imagina pequeñas divergencias
+   creíbles que el equipo humano podría haber escrito de otra manera.
+
+Tu tarea: identificar entre 4 y 6 incoherencias VEROSÍMILES entre ambas
+versiones. Cada incoherencia debe estar ANCLADA en los datos financieros y
+en el texto real de la versión IA que te paso (cita extractos cortos de la
+versión IA, exactos). La versión oficial es simulada: invéntala con sentido
+financiero (cifras parecidas pero ligeramente distintas, otro número de
+decimales, otro driver atribuido, otro año destacado, otro signo de tendencia,
+otro reparto del margen, etc.).
+
+Tipos de incoherencia que debes cubrir (al menos 3 tipos distintos entre las
+4-6 que reportes):
+- "Cifra": las dos versiones reportan un importe diferente para la misma
+  métrica (p. ej. ingresos FY2024).
+- "Decimales": misma magnitud con distinta precisión (1 vs 2 decimales, o
+  redondeo distinto).
+- "Driver": ambas atribuyen la variación a causas distintas (p. ej. la IA
+  habla de tipo de cambio y la oficial de volumen).
+- "Periodo": una destaca otro ejercicio como pico o valle.
+- "Signo/tendencia": una habla de mejora interanual y la otra de empeoramiento
+  marginal.
+- "Unidad/escala": miles vs millones, o moneda local vs reporting.
+
+DEVUELVE EXCLUSIVAMENTE un array JSON válido (sin texto fuera del array, sin
+bloques de código markdown). Cada elemento del array tiene exactamente estas
+claves:
+  - "tipo": una de las categorías de arriba (string corto).
+  - "severidad": "alta" | "media" | "baja".
+  - "extracto_ia": fragmento literal (máx 220 caracteres) de la versión IA.
+  - "extracto_oficial": fragmento inventado (máx 220 caracteres) tal como
+    aparecería en la versión {SISTEMA_NOTA_OFICIAL}.
+  - "explicacion": 1-2 frases explicando por qué difieren y qué implicación
+    tiene para el lector.
+
+Datos financieros (referencia común a ambas versiones):
+{tabla_texto}
+
+VERSIÓN IA (íntegra):
+{memoria_trunc}
+"""
+
+    texto, _citas = llamar_ia_con_reintentos(
+        prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=False,
+    )
+    return _extraer_json_incoherencias(texto)
 
 
 def generar_analisis_comparativo(datos_empresas, modelo):
@@ -1795,6 +1908,48 @@ def chat_memoria():
         "chat_reply": respuesta_chat,
         "memoria_html": memoria_fragmento,
         "memoria_updated": memoria_nueva is not None,
+    })
+
+
+@app.route("/detectar_incoherencias", methods=["POST"])
+def detectar_incoherencias():
+    """Simula la conexión con Workiva y devuelve incoherencias inventadas
+    entre la nota IA y la supuesta nota oficial del equipo financiero.
+    """
+    from flask import jsonify
+
+    data = request.get_json(silent=True) or {}
+    cache_id = (data.get("cache_id") or "").strip()
+    cached = _download_cache.get(cache_id)
+    if not cached or "datos" not in cached or "nota" not in cached:
+        return jsonify({
+            "error": "La sesión ha caducado. Genera la memoria de nuevo.",
+        }), 400
+
+    modelo = _normalizar_modelo(
+        data.get("modelo") or cached.get("modelo") or MODELO_POR_DEFECTO
+    )
+
+    try:
+        incoherencias = detectar_incoherencias_memoria(
+            cached["datos"], cached["nota"], modelo,
+        )
+    except Exception as e:
+        return jsonify({"error": f"Error consultando {SISTEMA_NOTA_OFICIAL}: {str(e)}"}), 500
+
+    if not incoherencias:
+        return jsonify({
+            "sistema": SISTEMA_NOTA_OFICIAL,
+            "incoherencias": [],
+            "mensaje": (
+                f"No se han detectado incoherencias relevantes entre la nota IA y "
+                f"la versión oficial recuperada de {SISTEMA_NOTA_OFICIAL}."
+            ),
+        })
+
+    return jsonify({
+        "sistema": SISTEMA_NOTA_OFICIAL,
+        "incoherencias": incoherencias,
     })
 
 
