@@ -678,6 +678,7 @@ def _extraer_json_incoherencias(texto_crudo):
         incoherencias.append({
             "tipo": str(item.get("tipo", "")).strip() or "Discrepancia",
             "severidad": str(item.get("severidad", "")).strip().lower() or "media",
+            "informe": str(item.get("informe", "")).strip() or "Informe corporativo",
             "extracto_ia": str(item.get("extracto_ia", "")).strip(),
             "extracto_oficial": str(item.get("extracto_oficial", "")).strip(),
             "explicacion": str(item.get("explicacion", "")).strip(),
@@ -685,34 +686,61 @@ def _extraer_json_incoherencias(texto_crudo):
     return incoherencias
 
 
-def detectar_incoherencias_memoria(datos, memoria, modelo):
-    """Simula la detección de incoherencias entre la nota IA y una nota
-    supuestamente almacenada en un sistema corporativo externo (Workiva).
+# Catálogo de informes narrativos simulados disponibles en el repositorio
+# corporativo. El LLM debe atribuir cada incoherencia a uno de estos
+# documentos para que la simulación sea coherente.
+_INFORMES_WORKIVA = [
+    "Informe de gestión",
+    "Informe al consejo de administración",
+    "Informe de evolución del negocio",
+    "Informe trimestral de resultados",
+    "Memoria abreviada de cuentas anuales",
+    "Presentación a inversores",
+    "Informe de auditoría interna",
+    "Comentario de la dirección sobre los resultados (MD&A)",
+]
 
-    La nota "oficial" no existe: pedimos al LLM que invente entre 4 y 6
-    discrepancias verosímiles, ancladas en los datos y el texto reales.
+
+def detectar_incoherencias_memoria(datos, memoria, modelo):
+    """Simula la detección de incoherencias entre la nota IA y un conjunto
+    de informes narrativos corporativos almacenados en Workiva.
+
+    Los informes no existen: pedimos al LLM que invente entre 4 y 6
+    discrepancias verosímiles, ancladas en los datos y el texto reales,
+    y atribuya cada una a un informe distinto del catálogo simulado.
     """
     tabla_texto = _texto_datos_para_prompt(datos)
     memoria_trunc = (memoria or "").strip()
     if len(memoria_trunc) > 6000:
         memoria_trunc = memoria_trunc[:6000] + "\n[...]"
 
-    prompt = f"""Eres un revisor financiero senior. Estás comparando dos versiones de la
-NOTA EXPLICATIVA de la cuenta de Pérdidas y Ganancias de una compañía:
+    catalogo_informes = "\n".join(f"  - {n}" for n in _INFORMES_WORKIVA)
 
-1. La VERSIÓN IA (generada automáticamente, te la paso íntegra abajo).
-2. La VERSIÓN OFICIAL almacenada en el sistema corporativo {SISTEMA_NOTA_OFICIAL},
-   redactada por el equipo financiero interno. NO tienes acceso real a ella,
-   así que la SIMULAS de forma plausible: imagina pequeñas divergencias
-   creíbles que el equipo humano podría haber escrito de otra manera.
+    prompt = f"""Eres un revisor financiero senior. Estás comparando la NOTA EXPLICATIVA
+de la cuenta de Pérdidas y Ganancias generada automáticamente por IA contra
+un CONJUNTO DE INFORMES NARRATIVOS CORPORATIVOS almacenados en el repositorio
+{SISTEMA_NOTA_OFICIAL}. Cada informe del repositorio aborda, total o
+parcialmente, la misma información financiera que la nota IA, pero ha sido
+redactado por equipos distintos (dirección financiera, auditoría, relaciones
+con inversores, etc.), por lo que es habitual encontrar pequeñas
+divergencias entre ellos.
 
-Tu tarea: identificar entre 4 y 6 incoherencias VEROSÍMILES entre ambas
-versiones. Cada incoherencia debe estar ANCLADA en los datos financieros y
-en el texto real de la versión IA que te paso (cita extractos cortos de la
-versión IA, exactos). La versión oficial es simulada: invéntala con sentido
-financiero (cifras parecidas pero ligeramente distintas, otro número de
-decimales, otro driver atribuido, otro año destacado, otro signo de tendencia,
-otro reparto del margen, etc.).
+CATÁLOGO DE INFORMES DEL REPOSITORIO (SIMULADO — escoge entre estos nombres
+literales para el campo "informe", usa AL MENOS 3 informes distintos a lo
+largo de las incoherencias que reportes):
+{catalogo_informes}
+
+Tu tarea: identificar entre 4 y 6 incoherencias VEROSÍMILES entre la nota
+IA y los distintos informes del repositorio. Cada incoherencia debe estar
+ANCLADA en los datos financieros y en el texto real de la versión IA (cita
+extractos cortos exactos de la versión IA). La redacción del informe
+corporativo es SIMULADA: invéntala con sentido financiero — cifras parecidas
+pero ligeramente distintas, otro número de decimales, otro driver atribuido,
+otro año destacado, otro signo de tendencia, otro reparto del margen, etc.
+Asegúrate de que el extracto del informe es ESTILÍSTICAMENTE COHERENTE con
+el tipo de informe del que procede (p. ej. el "Informe al consejo" usa tono
+ejecutivo y agregado; la "Presentación a inversores" es más promocional;
+el "Informe de auditoría interna" es más técnico y prudente).
 
 Tipos de incoherencia que debes cubrir (al menos 3 tipos distintos entre las
 4-6 que reportes):
@@ -721,7 +749,7 @@ Tipos de incoherencia que debes cubrir (al menos 3 tipos distintos entre las
 - "Decimales": misma magnitud con distinta precisión (1 vs 2 decimales, o
   redondeo distinto).
 - "Driver": ambas atribuyen la variación a causas distintas (p. ej. la IA
-  habla de tipo de cambio y la oficial de volumen).
+  habla de tipo de cambio y el informe corporativo de volumen).
 - "Periodo": una destaca otro ejercicio como pico o valle.
 - "Signo/tendencia": una habla de mejora interanual y la otra de empeoramiento
   marginal.
@@ -732,13 +760,14 @@ bloques de código markdown). Cada elemento del array tiene exactamente estas
 claves:
   - "tipo": una de las categorías de arriba (string corto).
   - "severidad": "alta" | "media" | "baja".
+  - "informe": nombre LITERAL del informe del catálogo de arriba.
   - "extracto_ia": fragmento literal (máx 220 caracteres) de la versión IA.
   - "extracto_oficial": fragmento inventado (máx 220 caracteres) tal como
-    aparecería en la versión {SISTEMA_NOTA_OFICIAL}.
+    aparecería en el informe corporativo indicado.
   - "explicacion": 1-2 frases explicando por qué difieren y qué implicación
     tiene para el lector.
 
-Datos financieros (referencia común a ambas versiones):
+Datos financieros (referencia común a todos los documentos):
 {tabla_texto}
 
 VERSIÓN IA (íntegra):

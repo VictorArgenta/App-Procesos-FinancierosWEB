@@ -110,15 +110,17 @@
 <div class="card incoherencias-card" id="incoherenciasCard">
     <div class="incoherencias-header">
         <div>
-            <h2>Control de consistencia</h2>
+            <h2>Control de consistencia documental</h2>
             <p class="incoherencias-lead">
-                Compara la nota generada por IA con la versión oficial almacenada
-                en <strong>Workiva</strong> y detecta discrepancias de redacción,
-                cifras o drivers atribuidos.
+                Compara la nota generada por IA con el conjunto de informes
+                narrativos corporativos almacenados en <strong>Workiva</strong>
+                (informe de gestión, informe al consejo, evolución del negocio,
+                presentación a inversores, etc.) y detecta discrepancias de
+                cifras, decimales, drivers o periodos.
             </p>
         </div>
         <button type="button" id="btnIncoherencias" class="btn btn-primary">
-            Detectar incoherencia con nota generada en Workiva
+            Detectar incoherencias con informes en Workiva
         </button>
     </div>
 
@@ -452,6 +454,17 @@
         letter-spacing: 0.5px;
         color: var(--black);
     }
+    .incoh-informe {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--gray-11);
+        background: var(--gray-bg);
+        border: 1px solid var(--gray-border);
+        padding: 2px 9px;
+        border-radius: 10px;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
     .incoh-sev {
         font-size: 0.7rem;
         font-weight: 700;
@@ -680,10 +693,12 @@
     const listEl = document.getElementById('incoherenciasList');
 
     const PROGRESS_STEPS = [
-        { msg: 'Conectando con Workiva…', delay: 900 },
-        { msg: 'Autenticando con el repositorio corporativo…', delay: 850 },
-        { msg: 'Recuperando nota oficial del equipo financiero…', delay: 1100 },
-        { msg: 'Comparando redacciones y cifras…', delay: 1200 },
+        { msg: 'Conectando con Workiva…', delay: 850 },
+        { msg: 'Autenticando con el repositorio corporativo…', delay: 800 },
+        { msg: 'Indexando informes narrativos disponibles…', delay: 1000 },
+        { msg: 'Recuperando informe de gestión y MD&A…', delay: 900 },
+        { msg: 'Recuperando informe al consejo y presentación a inversores…', delay: 950 },
+        { msg: 'Cotejando cifras y narrativas contra la nota IA…', delay: 1100 },
         { msg: 'Identificando discrepancias relevantes…', delay: 900 },
     ];
 
@@ -712,23 +727,33 @@
         if (!items.length) {
             summaryEl.classList.add('empty');
             summaryEl.textContent = payload.mensaje
-                || ('No se han detectado incoherencias relevantes frente a ' + sistema + '.');
+                || ('No se han detectado incoherencias relevantes en los informes de ' + sistema + '.');
             resultEl.hidden = false;
             return;
         }
 
+        const informesUnicos = Array.from(new Set(items.map(function(i) {
+            return (i.informe || '').trim();
+        }).filter(Boolean)));
+
         summaryEl.innerHTML = 'Se han detectado <strong>' + items.length
             + '</strong> incoherencia' + (items.length === 1 ? '' : 's')
-            + ' entre la nota generada por IA y la versión recuperada de '
-            + '<strong>' + escapeHtml(sistema) + '</strong>.';
+            + ' entre la nota generada por IA y <strong>' + informesUnicos.length
+            + '</strong> informe' + (informesUnicos.length === 1 ? '' : 's')
+            + ' del repositorio <strong>' + escapeHtml(sistema) + '</strong>'
+            + (informesUnicos.length
+                ? ': ' + informesUnicos.map(escapeHtml).join(' · ')
+                : '') + '.';
 
         items.forEach(function(it) {
             const sev = normalizarSeveridad(it.severidad);
+            const informe = (it.informe || 'Informe corporativo').trim();
             const li = document.createElement('li');
             li.className = 'incoh-item sev-' + sev;
             li.innerHTML =
                 '<div class="incoh-head">' +
                     '<span class="incoh-tipo">' + escapeHtml(it.tipo || 'Discrepancia') + '</span>' +
+                    '<span class="incoh-informe">' + escapeHtml(informe) + '</span>' +
                     '<span class="incoh-sev sev-' + sev + '">' + sev + '</span>' +
                 '</div>' +
                 '<div class="incoh-quotes">' +
@@ -737,7 +762,8 @@
                         escapeHtml(it.extracto_ia || '—') +
                     '</div>' +
                     '<div class="incoh-quote oficial">' +
-                        '<span class="incoh-source">' + escapeHtml(sistema) + ' (versión oficial)</span>' +
+                        '<span class="incoh-source">' + escapeHtml(informe) +
+                        ' · ' + escapeHtml(sistema) + '</span>' +
                         escapeHtml(it.extracto_oficial || '—') +
                     '</div>' +
                 '</div>' +
