@@ -3133,16 +3133,50 @@ REGLAS DE OPERACIÓN (críticas, NO te desvíes):
 2. CLASIFICA al remitente como "minorista" (particular sin tecnicismos) o
    "mayorista" (profesional institucional con tono técnico).
 
-3. Decide si puedes responder la consulta con (a) los datos PÚBLICOS de
-   Yahoo Finance que se adjuntan o (b) información pública localizable
-   mediante búsqueda web sobre {empresa}.
+3. Decide si puedes responder la consulta. ANTES de declararte incapaz,
+   tienes que examinar a fondo los datos PÚBLICOS de Yahoo Finance que se
+   adjuntan al final del prompt (los 3 estados completos: cuenta de
+   resultados, balance y cashflow). Muchas consultas no piden un dato
+   literal sino un RATIO o una DERIVADA que tienes que CALCULAR tú mismo
+   sumando, restando o dividiendo líneas individuales del estado. Algunos
+   ejemplos típicos (no exhaustivos):
+     · Deuda Neta = "Deuda total" − "Efectivo y equivalentes" (o usar
+       directamente "Deuda neta" si está disponible).
+     · Deuda Neta / EBITDA = Deuda Neta / EBITDA del mismo ejercicio.
+     · Flujo de Caja Libre (FCF) = "Flujo de caja operativo" + CAPEX
+       (CAPEX viene con signo negativo, por eso se suma). Si "Flujo de
+       caja libre" aparece como línea, úsala directamente.
+     · Conversión EBITDA → FCF = FCF / EBITDA (en %).
+     · CAPEX % de ingresos = |CAPEX| / Ingresos totales (en %).
+     · ROE = Beneficio neto / Patrimonio neto.
+     · ROA = Beneficio neto / Activos totales.
+     · Crecimiento interanual = (valor actual − anterior) / anterior.
+     · Margen bruto / operativo / neto = la línea correspondiente / Ingresos.
+     · Pay-out = Dividendos pagados / Beneficio neto.
+   SOLO si después de revisar a fondo los estados no puedes derivar la
+   métrica pedida (porque genuinamente no está ni es derivable), entonces
+   declararte incapaz.
 
-4. SI PUEDES responder con datos suficientes y verificables:
+   IMPORTANTE — DATOS FUTUROS / PROSPECTIVOS: si la consulta se refiere a
+   guidance, previsiones, próximos resultados, próximas adquisiciones,
+   estimaciones de analistas, cambios futuros en dividendo, próximo
+   earnings call, calendario corporativo, o cualquier información sobre
+   PERIODOS AÚN NO REPORTADOS, NO la busques en Yahoo Finance (esos datos
+   históricos no la contienen). USA OBLIGATORIAMENTE la búsqueda web para
+   localizar comunicados oficiales, notas de prensa o consensos de
+   analistas recientes sobre {empresa}. Si pese a la búsqueda no
+   encuentras información pública verificable, entonces declárate incapaz.
+
+4. SI PUEDES responder con datos suficientes y verificables (literales o
+   calculados a partir de los estados):
    - Redacta un BORRADOR PROFESIONAL adecuado al perfil clasificado.
    - Minorista: lenguaje claro y didáctico, evita tecnicismos.
    - Mayorista: tono técnico, conciso, cifras exactas con unidades.
    - Cifras concretas y exactas de los datos provistos, formato europeo
      (separador de miles ".", decimal ",").
+   - Si la cifra es derivada, indica brevemente la fórmula entre paréntesis
+     la primera vez que la usas, p. ej. "1,8x (Deuda Neta / EBITDA, con
+     Deuda Neta = 56.950 M USD)".
    - El cuerpo es **íntegramente texto redactado en prosa**. PROHIBIDO usar
      tablas markdown, tablas ASCII, símbolos `|`, `---`, columnas alineadas
      con espacios, esquemas, bullets en formato de columnas, ni cualquier
@@ -3153,16 +3187,15 @@ REGLAS DE OPERACIÓN (críticas, NO te desvíes):
    - No incluyas listas de URLs, citas, "Fuentes consultadas" ni nada
      similar al final.
 
-5. SI NO PUEDES responder con calidad porque los datos solicitados son
-   internos, no públicos, no están disponibles o no llegas a una respuesta
-   sólida con lo disponible:
+5. SI REALMENTE NO PUEDES responder con calidad (datos genuinamente
+   internos / no públicos / no derivables tras revisar los estados):
    - Marca `puede_resolver` = false.
-   - NO inventes cifras ni des respuestas vagas.
-   - El cuerpo del correo debe (a) reconocer cortésmente la solicitud,
-     (b) explicar honestamente que esa información no es pública o no se
-     desglosa a ese nivel, (c) ofrecer alternativa (call con IR, próximo
-     earnings call), (d) marcar entre corchetes [PENDIENTE: …] los datos
-     concretos que el equipo humano de IR debe completar antes de enviar.
+   - DEJA EL CUERPO COMPLETAMENTE VACÍO: `cuerpo_respuesta: ""`. No
+     redactes un correo de excusa, no añadas saludo ni firma, no escribas
+     [PENDIENTE: …]. El usuario humano redactará la respuesta desde cero.
+   - Mantén el asunto como `"Re: <asunto original>"` por conveniencia.
+   - En `nota_interna` explica brevemente por qué no se ha podido (1-2
+     frases técnicas para el usuario interno, NO van al correo final).
 
 6. CALIDAD: relee tu borrador antes de cerrar el JSON. Si detectas que has
    metido razonamiento, marcadores de cálculo, símbolos `**`, encabezados
@@ -3241,39 +3274,49 @@ _PATRONES_TABLA = [
 
 
 def _validar_borrador_ir(parsed, correo):
-    """Detecta fugas de razonamiento o tablas en el cuerpo y degrada a no-resoluble.
+    """Sanea el borrador y deja el cuerpo vacío cuando no es publicable.
 
-    Si encuentra contenido que no debería estar en un correo (razonamiento,
-    tablas markdown/ASCII), sobrescribe el cuerpo con un mensaje claro y
-    pone `puede_resolver=false`. Así el usuario nunca verá basura técnica
-    en la previsualización; tendrá un borrador limpio que debe completar
-    manualmente.
+    Reglas:
+    - Si el cuerpo contiene fugas de razonamiento (`I'll search`,
+      `CÁLCULOS INTERNOS`, etc.) o tablas markdown/ASCII, se descarta:
+      `puede_resolver=false` y `cuerpo_respuesta=""`.
+    - Si la IA marcó `puede_resolver=false` por su cuenta, el cuerpo
+      también se fuerza a vacío (no queremos correos de "no puedo
+      responderle"; el usuario humano redacta desde cero).
+    En ambos casos se mantiene el asunto `Re: <original>` y se anota la
+    razón en `nota_interna` para que el frontend pueda mostrar el badge
+    correcto.
     """
     cuerpo = parsed.get("cuerpo_respuesta") or ""
     razones = []
     for patron in _PATRONES_RAZONAMIENTO:
         if re.search(patron, cuerpo, flags=re.IGNORECASE):
-            razones.append("razonamiento expuesto")
+            razones.append("razonamiento expuesto en la respuesta")
             break
     for patron in _PATRONES_TABLA:
         if re.search(patron, cuerpo):
-            razones.append("tabla detectada")
+            razones.append("tabla/columna detectada en la respuesta")
             break
-    if razones:
+
+    if razones or not parsed.get("puede_resolver"):
         parsed["puede_resolver"] = False
-        parsed["cuerpo_respuesta"] = (
-            f"Estimado/a {correo['remitente_nombre']},\n\n"
-            "Gracias por escribirnos. En este momento no disponemos de toda "
-            "la información necesaria para responder a su consulta con la "
-            "calidad adecuada, por lo que dejamos su mensaje pendiente para "
-            "que el equipo de Relación con Inversores lo atienda manualmente "
-            "en cuanto sea posible.\n\n"
-            "[PENDIENTE: redactar la respuesta sobre los puntos planteados en "
-            "el correo, evitando tablas y manteniendo el texto en prosa].\n\n"
-            "Un saludo,\n"
-            f"Equipo de Relación con Inversores — {_BRANDING.get('empresa') or 'la compañía'}"
-        )
-        parsed["nota_interna"] = "Borrador descartado tras validación: " + ", ".join(razones) + "."
+        parsed["cuerpo_respuesta"] = ""
+        if not parsed.get("asunto_respuesta"):
+            parsed["asunto_respuesta"] = f"Re: {correo.get('asunto', '')}"
+        if razones:
+            parsed["nota_interna"] = (
+                "Borrador descartado tras validación: " + ", ".join(razones)
+                + ". Redáctalo manualmente."
+            )
+        else:
+            # Mantenemos la nota_interna que la IA ya hubiera puesto, o una
+            # genérica si no había.
+            if not parsed.get("nota_interna"):
+                parsed["nota_interna"] = (
+                    "La IA no encontró información suficiente en los datos "
+                    "disponibles para redactar una respuesta con calidad. "
+                    "Redacta manualmente."
+                )
     return parsed
 
 
