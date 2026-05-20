@@ -498,7 +498,45 @@ def obtener_datos_financieros(ticker_symbol):
             }
         )
 
+    datos["estados"] = _serializar_estados_yahoo(ticker)
     return datos
+
+
+def _serializar_estados_yahoo(ticker):
+    """Devuelve los 3 estados financieros completos tal cual los entrega yfinance.
+
+    Estructura: {nombre_estado: {"periodos": [str], "filas": [{"concepto", "valores": [float|None]}]}}.
+    """
+    import math
+    fuentes = {
+        "income_statement": getattr(ticker, "income_stmt", None),
+        "balance_sheet": getattr(ticker, "balance_sheet", None),
+        "cashflow": getattr(ticker, "cashflow", None),
+    }
+    salida = {}
+    for clave, df in fuentes.items():
+        if df is None or df.empty:
+            salida[clave] = {"periodos": [], "filas": []}
+            continue
+        cols = list(df.columns[:4])
+        periodos = [str(c.date()) if hasattr(c, "date") else str(c) for c in cols]
+        filas = []
+        for concepto in df.index:
+            valores = []
+            for col in cols:
+                v = df.loc[concepto, col]
+                if v is None:
+                    valores.append(None)
+                    continue
+                try:
+                    vf = float(v)
+                    valores.append(None if math.isnan(vf) else vf)
+                except (TypeError, ValueError):
+                    valores.append(None)
+            if any(v is not None for v in valores):
+                filas.append({"concepto": str(concepto), "valores": valores})
+        salida[clave] = {"periodos": periodos, "filas": filas}
+    return salida
 
 
 def _texto_datos_para_prompt(datos):
@@ -526,6 +564,31 @@ def _texto_datos_para_prompt(datos):
             f"  Beneficio neto: {p['beneficio_neto']:,.0f} ({p['pct_beneficio_neto']}%)\n"
             f"  BPA básico: {p.get('bpa_basico', 0)} | BPA diluido: {p.get('bpa_diluido', 0)}\n"
         )
+
+    estados = datos.get("estados") or {}
+    nombres = {
+        "income_statement": "Estado de Ingresos (income statement)",
+        "balance_sheet": "Balance General (balance sheet)",
+        "cashflow": "Flujo de Caja (cashflow)",
+    }
+    for clave, titulo in nombres.items():
+        bloque = estados.get(clave) or {}
+        filas = bloque.get("filas") or []
+        periodos = bloque.get("periodos") or []
+        if not filas or not periodos:
+            continue
+        texto += f"\n--- {titulo} (datos brutos de Yahoo Finance) ---\n"
+        texto += "Concepto | " + " | ".join(periodos) + "\n"
+        for fila in filas:
+            valores_txt = []
+            for v in fila["valores"]:
+                if v is None:
+                    valores_txt.append("n/d")
+                elif abs(v) >= 1:
+                    valores_txt.append(f"{v:,.0f}")
+                else:
+                    valores_txt.append(f"{v:.4f}")
+            texto += f"{fila['concepto']} | " + " | ".join(valores_txt) + "\n"
     return texto
 
 
@@ -566,16 +629,73 @@ _REGLAS_FORMATO_MEMORIA = """Reglas de formato OBLIGATORIAS (bajo ningún concep
 - Asegúrate de cerrar todas las secciones: termina con una sección final de "## Conclusión"."""
 
 
+_TIPOS_INFORME = {
+    "nota_memoria": (
+        "NOTA DE MEMORIA contable: documento formal que acompaña a las cuentas "
+        "anuales para los accionistas, lenguaje técnico-contable pero accesible, "
+        "evita opiniones de inversión."
+    ),
+    "consejo": (
+        "INFORME AL CONSEJO de Administración: tono ejecutivo, foco en decisiones "
+        "y palancas de gestión, destaca riesgos y oportunidades; estructura tipo "
+        "executive summary + análisis + recomendaciones implícitas (no inversión)."
+    ),
+    "interno": (
+        "INFORME INTERNO de management: orientado al equipo financiero, tono "
+        "operativo y directo, sin perífrasis; puede entrar en detalle de variaciones "
+        "y métricas operativas."
+    ),
+    "accionista": (
+        "EXPLICACIÓN AL ACCIONISTA minorista: lenguaje claro y didáctico, evita "
+        "jerga contable salvo definiéndola, foco en ‘qué significa esto para mí’ "
+        "sin convertirse en recomendación de inversión."
+    ),
+}
+
+_EXTENSIONES = {
+    "breve": ("aproximadamente 400-500 palabras", 1800),
+    "estandar": ("aproximadamente 800-1000 palabras", 4000),
+    "extensa": ("aproximadamente 1500-2000 palabras", 6500),
+}
+
+
+def _bloque_configuracion_informe(tipo_informe, enfoque, extension):
+    partes = []
+    if tipo_informe and tipo_informe in _TIPOS_INFORME:
+        partes.append(f"TIPO DE INFORME REQUERIDO: {_TIPOS_INFORME[tipo_informe]}")
+    if enfoque and enfoque.strip():
+        partes.append(
+            "ENFOQUE PRIORITARIO (debe vertebrar el informe; el resto de "
+            "información se menciona sólo si aporta contexto a este foco):\n"
+            f"{enfoque.strip()}"
+        )
+    if extension and extension in _EXTENSIONES:
+        descripcion, _ = _EXTENSIONES[extension]
+        partes.append(f"EXTENSIÓN OBJETIVO: {descripcion}.")
+    if not partes:
+        return ""
+    return "\n\n" + "\n\n".join(partes) + "\n"
+
+
 def generar_nota_memoria(datos, modelo, instrucciones_usuario=None,
-                          permitir_busqueda=False):
-    """Genera la nota explicativa de la PyG para accionistas.
+                          permitir_busqueda=False,
+                          tipo_informe=None, enfoque=None, extension=None):
+    """Genera el informe narrativo a partir de los estados financieros.
 
     - `instrucciones_usuario`: texto libre que el usuario añade para orientar
-      el tono, las secciones o el foco de la memoria.
+      el tono, las secciones o el foco del informe.
     - `permitir_busqueda`: si es True, la IA puede consultar noticias recientes
       del sector en internet y citarlas en una sección final.
+    - `tipo_informe`: clave de `_TIPOS_INFORME` que ajusta el registro y la
+      audiencia objetivo del documento.
+    - `enfoque`: texto libre que describe en qué parte de los estados se debe
+      concentrar el análisis (puede mezclar selecciones predefinidas y texto
+      libre del usuario).
+    - `extension`: clave de `_EXTENSIONES` (breve / estandar / extensa).
     """
     tabla_texto = _texto_datos_para_prompt(datos)
+
+    bloque_config = _bloque_configuracion_informe(tipo_informe, enfoque, extension)
 
     bloque_instrucciones = ""
     if instrucciones_usuario and instrucciones_usuario.strip():
@@ -592,20 +712,21 @@ def generar_nota_memoria(datos, modelo, instrucciones_usuario=None,
             "\nCONTEXTO EXTERNO: tienes disponible una herramienta de búsqueda web. "
             "Úsala con criterio para localizar noticias relevantes de los últimos 12 "
             "meses sobre la compañía o su sector que ayuden a explicar la evolución "
-            "del negocio. Incorpóralas en el cuerpo de la memoria como **hechos** "
+            "del negocio. Incorpóralas en el cuerpo del informe como **hechos** "
             "(no como opinión), y asegúrate de que el análisis financiero siga "
             "siendo el centro del documento.\n"
         )
 
+    max_tokens = _EXTENSIONES.get(extension or "", (None, 4000))[1]
+
     prompt = f"""{_ALCANCE_MEMORIA}
 
-{_REGLAS_FORMATO_MEMORIA}
-{bloque_instrucciones}{bloque_busqueda}
-Datos financieros sobre los que elaborar la memoria:
+{_REGLAS_FORMATO_MEMORIA}{bloque_config}{bloque_instrucciones}{bloque_busqueda}
+Datos financieros sobre los que elaborar el informe:
 {tabla_texto}"""
 
     texto, citas = llamar_ia_con_reintentos(
-        prompt, max_tokens=4000, modelo=modelo,
+        prompt, max_tokens=max_tokens, modelo=modelo,
         permitir_busqueda=permitir_busqueda,
     )
     memoria = _limpiar_respuesta_ia(texto)
@@ -1878,18 +1999,15 @@ def _render_secciones_para_resultado(nota):
 
 @app.route("/analisis", methods=["GET", "POST"])
 def analisis():
+    """Paso 1: usuario introduce ticker, devolvemos los 3 estados de Yahoo."""
     if request.method == "POST":
         ticker_symbol = request.form.get("ticker", "").strip().upper()
         modelo = _normalizar_modelo(request.form.get("modelo", MODELO_POR_DEFECTO))
-        instrucciones = request.form.get("instrucciones", "").strip()
-        buscar_noticias = request.form.get("buscar_noticias") in ("1", "on", "true")
         if not ticker_symbol:
             return render_template(
                 "analisis.html",
                 error="Introduce un ticker válido.",
                 modelo_seleccionado=modelo,
-                instrucciones_previas=instrucciones,
-                buscar_noticias_previo=buscar_noticias,
             )
 
         try:
@@ -1899,53 +2017,110 @@ def analisis():
                     "analisis.html",
                     error=f"No se encontraron datos financieros para '{ticker_symbol}'.",
                     modelo_seleccionado=modelo,
-                    instrucciones_previas=instrucciones,
-                    buscar_noticias_previo=buscar_noticias,
                 )
-
-            nota = generar_nota_memoria(
-                datos, modelo,
-                instrucciones_usuario=instrucciones,
-                permitir_busqueda=buscar_noticias,
-            )
-            secciones_html, pendientes = _render_secciones_para_resultado(nota)
 
             cache_id = str(uuid.uuid4())
             _download_cache[cache_id] = {
                 "datos": datos,
-                "nota": nota,
+                "nota": None,
                 "modelo": modelo,
-                "instrucciones": instrucciones,
+                "instrucciones": "",
                 "chat_historial": [],
             }
 
             return render_template(
-                "resultado.html",
+                "datos_yahoo.html",
                 datos=datos,
                 cache_id=cache_id,
-                formatear=formatear_numero,
-                graficos=preparar_datos_graficos(datos),
-                secciones=secciones_html,
-                pendientes=pendientes,
-                chart_titulos=_CHART_TITULOS,
                 modelo_actual=modelo,
-                instrucciones_iniciales=instrucciones,
-                busqueda_activa_inicial=buscar_noticias,
+                formatear=formatear_numero,
             )
         except Exception as e:
             return render_template(
                 "analisis.html",
                 error=f"Error: {str(e)}",
                 modelo_seleccionado=modelo,
-                instrucciones_previas=instrucciones,
-                buscar_noticias_previo=buscar_noticias,
             )
 
     return render_template(
         "analisis.html",
         modelo_seleccionado=MODELO_POR_DEFECTO,
-        instrucciones_previas="",
-        buscar_noticias_previo=False,
+    )
+
+
+@app.route("/generar_informe", methods=["POST"])
+def generar_informe():
+    """Paso 2: recibe el configurador y genera el informe narrativo."""
+    cache_id = request.form.get("cache_id", "").strip()
+    cache_entry = _download_cache.get(cache_id) if cache_id else None
+    if not cache_entry:
+        return render_template(
+            "analisis.html",
+            error="La sesión ha expirado. Vuelve a introducir el ticker.",
+            modelo_seleccionado=MODELO_POR_DEFECTO,
+        )
+
+    datos = cache_entry["datos"]
+    modelo = _normalizar_modelo(
+        request.form.get("modelo", cache_entry.get("modelo", MODELO_POR_DEFECTO))
+    )
+    tipo_informe = request.form.get("tipo_informe", "nota_memoria").strip()
+    enfoques_pred = request.form.getlist("enfoque_predefinido")
+    enfoque_libre = request.form.get("enfoque_libre", "").strip()
+    extension = request.form.get("extension", "estandar").strip()
+    buscar_noticias = request.form.get("buscar_noticias") in ("1", "on", "true")
+    instrucciones = request.form.get("instrucciones", "").strip()
+
+    enfoque_partes = []
+    if enfoques_pred:
+        enfoque_partes.append("Áreas seleccionadas: " + ", ".join(enfoques_pred) + ".")
+    if enfoque_libre:
+        enfoque_partes.append(enfoque_libre)
+    enfoque = "\n".join(enfoque_partes)
+
+    try:
+        nota = generar_nota_memoria(
+            datos, modelo,
+            instrucciones_usuario=instrucciones,
+            permitir_busqueda=buscar_noticias,
+            tipo_informe=tipo_informe,
+            enfoque=enfoque,
+            extension=extension,
+        )
+    except Exception as e:
+        return render_template(
+            "datos_yahoo.html",
+            datos=datos,
+            cache_id=cache_id,
+            modelo_actual=modelo,
+            formatear=formatear_numero,
+            error=f"Error generando el informe: {e}",
+        )
+
+    secciones_html, pendientes = _render_secciones_para_resultado(nota)
+
+    cache_entry.update({
+        "nota": nota,
+        "modelo": modelo,
+        "instrucciones": instrucciones,
+        "chat_historial": [],
+        "tipo_informe": tipo_informe,
+        "enfoque": enfoque,
+        "extension": extension,
+    })
+
+    return render_template(
+        "resultado.html",
+        datos=datos,
+        cache_id=cache_id,
+        formatear=formatear_numero,
+        graficos=preparar_datos_graficos(datos),
+        secciones=secciones_html,
+        pendientes=pendientes,
+        chart_titulos=_CHART_TITULOS,
+        modelo_actual=modelo,
+        instrucciones_iniciales=instrucciones,
+        busqueda_activa_inicial=buscar_noticias,
     )
 
 

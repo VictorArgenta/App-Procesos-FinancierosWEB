@@ -1,24 +1,24 @@
 {% extends "base.html" %}
 
-{% block title %}Generación Nota de Memoria — DFin AI{% endblock %}
+{% block title %}Generar Informe Narrativo — DFin AI{% endblock %}
 
 {% block content %}
 <div class="breadcrumbs">
     <a href="/">Inicio</a><span class="sep">/</span>
     <span>Análisis</span><span class="sep">/</span>
-    <span class="current">Generación Nota de Memoria</span>
+    <span class="current">Generar Informe Narrativo</span>
 </div>
 
 <div class="page-header">
     <div>
         <span class="eyebrow">Módulo · Análisis Individual</span>
-        <h1>Generación Nota de Memoria</h1>
-        <p class="lead">Introduzca el ticker de la compañía cotizada para generar un informe financiero completo, con gráficos interactivos y una nota de memoria explicativa producida por IA. Exportable en Word y PDF.</p>
+        <h1>Generar Informe Narrativo</h1>
+        <p class="lead">Introduce el ticker de la compañía cotizada. Verás primero los estados financieros tal como los publica Yahoo Finance (Estado de Ingresos, Balance General y Flujo de Caja) y, sobre esos datos, podrás configurar y generar el informe narrativo que necesites.</p>
     </div>
 </div>
 
 <div class="card">
-    <h2>Parámetros del informe</h2>
+    <h2>Paso 1 · Selección del ticker</h2>
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
@@ -47,30 +47,12 @@
                     </optgroup>
                 </select>
                 {% endwith %}
-                <span class="hint">Los modelos gratuitos requieren GOOGLE_API_KEY.</span>
+                <span class="hint">Podrás cambiar este modelo más adelante. Los modelos gratuitos requieren GOOGLE_API_KEY.</span>
             </div>
         </div>
 
-        <div class="form-group" style="margin-top: 0.4rem;">
-            <label for="instrucciones">Instrucciones adicionales para la IA <span style="color: var(--gray-7); font-weight: 400; text-transform:none; letter-spacing:0;">(opcional)</span></label>
-            <textarea id="instrucciones" name="instrucciones" rows="4" maxlength="2000"
-                      placeholder="Ej: enfoca el análisis en la evolución del margen EBITDA, pon el foco en la exposición al tipo de cambio, usa tono conservador y añade una sección de riesgos regulatorios."
-                      style="max-width: 100%; width: 100%;">{{ instrucciones_previas or '' }}</textarea>
-            <span class="hint">Redáctalas en lenguaje natural. La IA las tendrá en cuenta al elaborar la memoria y podrás seguir iterando desde el chat una vez generada.</span>
-        </div>
-
-        <div class="form-group toggle-group" style="margin-top: 0.2rem;">
-            <label style="display:flex; align-items:center; gap:10px; cursor:pointer; text-transform:none; letter-spacing:0; font-weight:600; color: var(--black); background: var(--gray-bg); border: 1px solid var(--gray-border); padding: 10px 14px; border-radius: 3px;">
-                <input type="checkbox" name="buscar_noticias" value="1" {% if buscar_noticias_previo %}checked{% endif %} style="width:16px; height:16px; accent-color: var(--deloitte-green);">
-                <span>
-                    Incluir <strong>noticias recientes del sector</strong> en la memoria
-                    <small style="display:block; color: var(--gray-10); font-weight:400; font-size:0.78rem; margin-top:2px;">La IA consultará internet y añadirá una sección con las fuentes consultadas. Incrementa ligeramente el tiempo y el coste de la petición.</small>
-                </span>
-            </label>
-        </div>
-
         <div style="margin-top: 0.5rem;">
-            <button type="submit" class="btn btn-primary">Generar Nota de Memoria</button>
+            <button type="submit" class="btn btn-primary">Cargar estados financieros</button>
             <a href="/" class="btn btn-secondary" style="margin-left: 0.4rem;">Cancelar</a>
         </div>
     </form>

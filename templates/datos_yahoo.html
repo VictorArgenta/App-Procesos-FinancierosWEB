@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}{{ datos.nombre }} ({{ datos.ticker }}) — Estados financieros{% endblock %}
+
+{% block content %}
+<style>
+    .table-scroll { overflow-x: auto; max-width: 100%; }
+    .yh-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--gray-border); margin-bottom: 0; flex-wrap: wrap; }
+    .yh-tab-btn {
+        background: transparent;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 0.7rem 1.1rem;
+        font-size: 0.92rem;
+        font-weight: 600;
+        color: var(--gray-10);
+        cursor: pointer;
+        margin-bottom: -1px;
+    }
+    .yh-tab-btn:hover { color: var(--black); }
+    .yh-tab-btn.is-active {
+        color: var(--deloitte-green-dark, #43B02A);
+        border-bottom-color: var(--deloitte-green-dark, #43B02A);
+    }
+    .yh-tab-panel { display: none; padding-top: 1rem; }
+    .yh-tab-panel.is-active { display: block; }
+    .yh-statement-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    .yh-statement-table th, .yh-statement-table td {
+        padding: 6px 10px;
+        text-align: right;
+        border-bottom: 1px solid var(--gray-border);
+        white-space: nowrap;
+    }
+    .yh-statement-table th:first-child, .yh-statement-table td:first-child {
+        text-align: left;
+        font-weight: 500;
+        color: var(--black);
+        white-space: normal;
+    }
+    .yh-statement-table thead th {
+        background: var(--gray-bg);
+        font-weight: 700;
+        color: var(--black);
+    }
+    .yh-statement-table tbody tr:hover { background: var(--gray-bg); }
+    .yh-empty { color: var(--gray-9); font-style: italic; padding: 1rem 0; }
+
+    .chip-group { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
+    .chip-input { position: absolute; opacity: 0; pointer-events: none; }
+    .chip-label {
+        display: inline-block;
+        padding: 6px 12px;
+        border: 1px solid var(--gray-border);
+        border-radius: 999px;
+        background: var(--white);
+        font-size: 0.84rem;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.12s ease;
+    }
+    .chip-label:hover { border-color: var(--deloitte-green-dark, #43B02A); }
+    .chip-input:checked + .chip-label {
+        background: var(--deloitte-green-dark, #43B02A);
+        color: #fff;
+        border-color: var(--deloitte-green-dark, #43B02A);
+    }
+    .chip-input:focus-visible + .chip-label {
+        outline: 2px solid var(--deloitte-green-dark, #43B02A);
+        outline-offset: 2px;
+    }
+</style>
+
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <a href="/analisis">Análisis</a><span class="sep">/</span>
+    <span class="current">{{ datos.ticker }} — Estados financieros</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Paso 2 · Revisión de datos</span>
+        <h1>{{ datos.nombre }} <span style="color: var(--gray-10); font-weight: 400;">({{ datos.ticker }})</span></h1>
+        <p class="lead">Estos son los estados financieros publicados por Yahoo Finance. Revísalos y, cuando estés listo, configura abajo el informe narrativo que quieras generar.</p>
+        {% if datos.moneda %}
+        <p style="color: var(--gray-10); font-size: 0.85rem; margin-top: 0.4rem;"><strong>Moneda de reporting:</strong> {{ datos.moneda }}. Las cifras se muestran tal cual las publica la fuente (sin abreviar).</p>
+        {% endif %}
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div class="card">
+    <h2>Estados financieros — Yahoo Finance</h2>
+
+    <div class="yh-tabs" role="tablist">
+        <button type="button" class="yh-tab-btn is-active" data-tab="income">Estado de Ingresos</button>
+        <button type="button" class="yh-tab-btn" data-tab="balance">Balance General</button>
+        <button type="button" class="yh-tab-btn" data-tab="cashflow">Flujo de Caja</button>
+    </div>
+
+    {% set estados_map = [
+        ('income', 'income_statement', 'Estado de Ingresos'),
+        ('balance', 'balance_sheet', 'Balance General'),
+        ('cashflow', 'cashflow', 'Flujo de Caja')
+    ] %}
+    {% for tab_id, key, titulo in estados_map %}
+    {% set bloque = datos.estados.get(key) if datos.estados else None %}
+    <div class="yh-tab-panel {% if loop.first %}is-active{% endif %}" data-panel="{{ tab_id }}">
+        {% if bloque and bloque.filas %}
+        <div class="table-scroll">
+            <table class="yh-statement-table">
+                <thead>
+                    <tr>
+                        <th>{{ titulo }}</th>
+                        {% for p in bloque.periodos %}
+                        <th>{{ p }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for fila in bloque.filas %}
+                    <tr>
+                        <td>{{ fila.concepto }}</td>
+                        {% for v in fila.valores %}
+                        <td>{% if v is none %}<span style="color: var(--gray-7);">—</span>{% else %}{{ '{:,.0f}'.format(v) }}{% endif %}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p style="color: var(--gray-10); font-size: 0.78rem; margin-top: 0.5rem; font-style: italic;">
+            Datos brutos. Los guiones (—) indican que Yahoo Finance no publica ese concepto para ese ejercicio.
+        </p>
+        {% else %}
+        <div class="yh-empty">Yahoo Finance no devuelve este estado para {{ datos.ticker }}.</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<div class="card" id="configurador-informe">
+    <h2>Paso 3 · Generar Informe Narrativo</h2>
+    <p style="color: var(--gray-10); margin-bottom: 1rem;">Configura el documento que quieres que la IA elabore a partir de los estados financieros de arriba.</p>
+
+    <form method="POST" action="/generar_informe" onsubmit="showLoading()">
+        <input type="hidden" name="cache_id" value="{{ cache_id }}">
+        <input type="hidden" name="modelo" value="{{ modelo_actual }}">
+
+        <div class="form-group">
+            <label>Tipo de informe</label>
+            <div class="chip-group" role="radiogroup">
+                {% set tipos = [
+                    ('nota_memoria', 'Nota de Memoria', true),
+                    ('consejo', 'Informe al Consejo', false),
+                    ('interno', 'Informe Interno', false),
+                    ('accionista', 'Explicación a accionista', false)
+                ] %}
+                {% for valor, etiqueta, marcado in tipos %}
+                <input type="radio" id="tipo-{{ valor }}" name="tipo_informe" value="{{ valor }}" class="chip-input" {% if marcado %}checked{% endif %}>
+                <label for="tipo-{{ valor }}" class="chip-label">{{ etiqueta }}</label>
+                {% endfor %}
+            </div>
+            <span class="hint" style="margin-top: 0.5rem; display: block;">Si necesitas un formato diferente, descríbelo en el campo "instrucciones adicionales".</span>
+        </div>
+
+        <div class="form-group">
+            <label>Enfoque del análisis <span style="color: var(--gray-7); font-weight: 400; text-transform:none; letter-spacing:0;">(elige una o varias áreas)</span></label>
+            <div class="chip-group">
+                {% set enfoques = [
+                    'Evolución de ingresos',
+                    'Margen y rentabilidad',
+                    'Estructura de costes',
+                    'Endeudamiento y solvencia',
+                    'Generación de caja',
+                    'Capital circulante',
+                    'Fiscalidad y resultado financiero',
+                    'Inversiones (CAPEX)',
+                    'Retorno al accionista (BPA, dividendos)'
+                ] %}
+                {% for e in enfoques %}
+                <input type="checkbox" id="enf-{{ loop.index }}" name="enfoque_predefinido" value="{{ e }}" class="chip-input">
+                <label for="enf-{{ loop.index }}" class="chip-label">{{ e }}</label>
+                {% endfor %}
+            </div>
+            <textarea name="enfoque_libre" rows="2" maxlength="1000" placeholder="O describe libremente en qué quieres que la IA se enfoque." style="margin-top: 0.6rem; width: 100%;"></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+            <div class="form-group">
+                <label>Extensión del informe</label>
+                <div class="chip-group" role="radiogroup">
+                    {% set extensiones = [
+                        ('breve', 'Breve (~400–500 palabras)', false),
+                        ('estandar', 'Estándar (~800–1000)', true),
+                        ('extensa', 'Extensa (~1500–2000)', false)
+                    ] %}
+                    {% for valor, etiqueta, marcado in extensiones %}
+                    <input type="radio" id="ext-{{ valor }}" name="extension" value="{{ valor }}" class="chip-input" {% if marcado %}checked{% endif %}>
+                    <label for="ext-{{ valor }}" class="chip-label">{{ etiqueta }}</label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Contexto externo</label>
+                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; text-transform:none; letter-spacing:0; font-weight:600; color: var(--black); background: var(--gray-bg); border: 1px solid var(--gray-border); padding: 10px 14px; border-radius: 3px;">
+                    <input type="checkbox" name="buscar_noticias" value="1" style="width:16px; height:16px; accent-color: var(--deloitte-green);">
+                    <span>
+                        Buscar noticias y hechos relevantes en internet
+                        <small style="display:block; color: var(--gray-10); font-weight:400; font-size:0.78rem; margin-top:2px;">La IA consultará la web y añadirá una sección con las fuentes citadas.</small>
+                    </span>
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="instrucciones">Instrucciones adicionales <span style="color: var(--gray-7); font-weight: 400; text-transform:none; letter-spacing:0;">(opcional)</span></label>
+            <textarea id="instrucciones" name="instrucciones" rows="3" maxlength="2000"
+                      placeholder="Ej: tono conservador, añade una sección de riesgos regulatorios, evita comparaciones con competidores."
+                      style="width: 100%;"></textarea>
+            <span class="hint">Cualquier matiz que no encaje en los campos anteriores.</span>
+        </div>
+
+        <div style="margin-top: 0.5rem;">
+            <button type="submit" class="btn btn-primary">Generar Informe Narrativo</button>
+            <a href="/analisis" class="btn btn-secondary" style="margin-left: 0.4rem;">Cambiar ticker</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.querySelectorAll('.yh-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const target = btn.dataset.tab;
+            document.querySelectorAll('.yh-tab-btn').forEach(b => b.classList.toggle('is-active', b === btn));
+            document.querySelectorAll('.yh-tab-panel').forEach(p => p.classList.toggle('is-active', p.dataset.panel === target));
+        });
+    });
+</script>
+{% endblock %}
