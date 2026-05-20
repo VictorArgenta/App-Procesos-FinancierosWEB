@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Relación con Inversores — {{ EMPRESA_NOMBRE }}{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span class="current">Relación con Inversores</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Módulo · Atención al inversor</span>
+        <h1>Relación con Inversores</h1>
+        <p class="lead">Bandeja en vivo de consultas dirigidas al equipo de IR de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}.</p>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div class="card" style="border-left: 4px solid #C62828;">
+    <h2>Conexión a Gmail no configurada</h2>
+    <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">
+        Esta vista lee directamente la cuenta de Gmail asociada y muestra los correos cuyo asunto empieza por
+        <code style="background: var(--gray-bg); padding: 2px 6px; border-radius: 3px;">{{ prefijo }}</code>
+        recibidos en las últimas <strong>2 horas</strong>.
+    </p>
+    <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">
+        Para activarla añade estas líneas al archivo <code>.env</code> de la app y reinicia con
+        <code>python app.py {{ TICKER_FIJO or '&lt;TICKER&gt;' }}</code>:
+    </p>
+    <pre style="background: var(--gray-bg); padding: 0.9rem 1.1rem; border-radius: 3px; font-size: 0.85rem; overflow-x: auto;">GMAIL_USER=tucorreo@gmail.com
+GMAIL_APP_PASSWORD=xxxxxxxxxxxxxxxx
+IR_PREFIJO_ASUNTO=Inversores   # opcional, por defecto "Inversores"</pre>
+    <p style="color: var(--gray-10); font-size: 0.82rem; margin-top: 0.8rem;">
+        La contraseña de aplicación se genera en
+        <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a>
+        (requiere verificación en 2 pasos activa).
+    </p>
+</div>
+{% endblock %}

@@ -58,25 +58,20 @@ def _inyectar_branding():
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Credenciales de Gmail (opcionales). Si están presentes, el módulo de
-# Relación con Inversores ofrece la opción "Leer bandeja de entrada" que se
-# conecta vía IMAP a la cuenta y devuelve los correos cuyo asunto empieza
-# por `IR_PREFIJO_ASUNTO` recibidos en las últimas dos horas. Si faltan,
-# solo está disponible el modo "correos históricos" (los 4 simulados).
+# Credenciales de Gmail. El módulo Relación con Inversores lee los correos
+# cuyo asunto empieza por `f"{TICKER_FIJO}-{IR_PREFIJO_ASUNTO}-"` (por defecto
+# "META-Inversores-" si se arrancó con `python app.py META`) recibidos en las
+# últimas dos horas. Si faltan credenciales, el módulo muestra una vista de
+# error pidiendo configurarlas.
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
-# `IR_PREFIJO_ASUNTO` es la *base* del filtro. El prefijo efectivo aplicado
-# a la bandeja es `f"{IR_PREFIJO_ASUNTO}-{TICKER_FIJO}-"` (p. ej. para
-# `python app.py META` queda "INVERSORES-META-"). Así cada instancia solo
-# ve los correos que le corresponden, aunque varios tickers compartan
-# bandeja de gmail.
-IR_PREFIJO_ASUNTO = os.getenv("IR_PREFIJO_ASUNTO", "INVERSORES")
+IR_PREFIJO_ASUNTO = os.getenv("IR_PREFIJO_ASUNTO", "Inversores")
 
 
 def _prefijo_asunto_actual():
-    base = (IR_PREFIJO_ASUNTO or "INVERSORES").strip()
+    base = (IR_PREFIJO_ASUNTO or "Inversores").strip()
     if TICKER_FIJO:
-        return f"{base}-{TICKER_FIJO}-"
+        return f"{TICKER_FIJO}-{base}-"
     return f"{base}-"
 
 if GOOGLE_API_KEY:
@@ -274,8 +269,11 @@ def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4,
 
     max_output_tokens = max(max_tokens * 4, 8192)
 
-    # Gemini 2.5 usa `google_search`; 1.5 usaba `google_search_retrieval`.
-    # Configuramos ambos como fallback silencioso.
+    # Gemini 2.5+ usa `google_search`. La variante antigua
+    # `google_search_retrieval` (Gemini 1.5) ya no está soportada y devuelve
+    # 400, por eso no la usamos como fallback. Si la búsqueda con
+    # `google_search` falla, reintentamos SIN herramientas para que el
+    # contenido siga generándose con el conocimiento del modelo + el prompt.
     tools_config = None
     if permitir_busqueda:
         tools_config = [{"google_search": {}}]
@@ -298,9 +296,17 @@ def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4,
             try:
                 respuesta = _ejecutar(tools_config)
             except Exception as primary_err:
-                # Fallback: probar el otro identificador del tool antes de reintentar
-                if permitir_busqueda and "google_search_retrieval" not in str(primary_err):
-                    respuesta = _ejecutar([{"google_search_retrieval": {}}])
+                # Si el problema viene de la herramienta de búsqueda, hacemos
+                # un retry sin herramientas (sigue siendo útil para el
+                # usuario, sólo perdemos la posibilidad de citar noticias).
+                msg = str(primary_err).lower()
+                es_error_de_tool = (
+                    "google_search" in msg
+                    or "tool" in msg
+                    or "grounding" in msg
+                )
+                if permitir_busqueda and es_error_de_tool:
+                    respuesta = _ejecutar(None)
                 else:
                     raise
             texto = _extraer_texto_gemini(respuesta)
@@ -2488,9 +2494,49 @@ def preparar_datos_graficos(datos):
     }
 
 
+_IR_PENDIENTES_CACHE = {"ts": 0.0, "count": None}
+
+
+def _contar_pendientes_ir(ttl_segundos=30):
+    """Devuelve cuántos correos están pendientes ahora mismo.
+
+    Usa una caché muy corta (TTL 30 s por defecto) para no martillear IMAP
+    desde la home en cada navegación. Si Gmail no está configurado, devuelve
+    None; si la consulta falla, devuelve también None (no rompe la home).
+    """
+    import time
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        return None
+    ahora = time.time()
+    if ahora - _IR_PENDIENTES_CACHE["ts"] < ttl_segundos and _IR_PENDIENTES_CACHE["count"] is not None:
+        return _IR_PENDIENTES_CACHE["count"]
+    try:
+        import imaplib
+        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+        desde = _dt.now(_tz.utc) - _td(hours=2)
+        desde_dia = desde.strftime("%d-%b-%Y")
+        prefijo = _prefijo_asunto_actual()
+        with imaplib.IMAP4_SSL("imap.gmail.com", 993) as M:
+            M.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            M.select("INBOX")
+            status, data = M.search(None, f'(SUBJECT "{prefijo}" SINCE "{desde_dia}")')
+            if status != "OK" or not data or not data[0]:
+                _IR_PENDIENTES_CACHE.update({"ts": ahora, "count": 0})
+                return 0
+            ids = data[0].split()
+        _IR_PENDIENTES_CACHE.update({"ts": ahora, "count": len(ids)})
+        return len(ids)
+    except Exception:
+        return None
+
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template(
+        "index.html",
+        ir_pendientes=_contar_pendientes_ir(),
+        ir_prefijo=_prefijo_asunto_actual(),
+    )
 
 
 def _render_secciones_para_resultado(nota):
@@ -2860,101 +2906,6 @@ def comparador():
     return render_template("comparador.html", modelo_seleccionado=MODELO_POR_DEFECTO)
 
 
-# =============================================================================
-# Módulo: Relación con Inversores
-# Cuatro correos simulados de inversores (minoristas y mayoristas). El usuario
-# pide a la IA un borrador de respuesta; la IA decide si puede resolver con
-# datos públicos de Yahoo Finance + búsqueda web, o si tiene que dejar el
-# correo medio hecho para que el equipo humano de IR lo complete.
-# =============================================================================
-_CORREOS_IR = [
-    {
-        "id": "minorista_bpa",
-        "remitente_nombre": "Laura Méndez",
-        "remitente_email": "laura.mendez88@gmail.com",
-        "remitente_perfil": "Inversora minorista particular",
-        "asunto": "Duda sobre la evolución del beneficio por acción",
-        "categoria": "Minorista · Datos públicos",
-        "cuerpo": """Buenos días,
-
-Soy una pequeña inversora particular y estoy pensando en abrir una posición en {empresa}. Antes de dar el paso me gustaría entender cómo ha evolucionado el beneficio por acción de la compañía en los últimos 3-4 años y si la tendencia es estable o ha habido saltos relevantes que conviene tener en cuenta.
-
-¿Podríais darme un resumen rápido? No soy profesional del sector y necesito entenderlo sin tecnicismos.
-
-Muchas gracias por vuestro tiempo.
-
-Un saludo,
-Laura Méndez""",
-    },
-    {
-        "id": "fondo_ratios",
-        "remitente_nombre": "Carlos Ferrer, CFA",
-        "remitente_email": "c.ferrer@altea-capital.es",
-        "remitente_perfil": "Senior Portfolio Manager — Altea Capital Partners",
-        "asunto": "Apalancamiento y conversión de caja — solicitud de aclaración",
-        "categoria": "Mayorista · Cálculo sobre datos públicos",
-        "cuerpo": """Estimado equipo de Relación con Inversores,
-
-Les escribo desde Altea Capital Partners. En el marco de la revisión anual de nuestra exposición a {ticker} necesitaríamos confirmar tres puntos relativos al último ejercicio cerrado:
-
-  1. Ratio Deuda Neta / EBITDA.
-  2. Porcentaje de conversión de EBITDA a Flujo de Caja Libre.
-  3. Evolución del CAPEX como porcentaje de ingresos en los últimos tres ejercicios.
-
-Si pudieran adjuntar también el comparable del ejercicio anterior se lo agradeceríamos, así como cualquier matiz que consideren relevante (efectos extraordinarios, partidas no recurrentes, etc.) que pueda distorsionar la lectura de los ratios.
-
-Quedo a su disposición para cualquier aclaración.
-
-Atentamente,
-
-Carlos Ferrer, CFA
-Senior Portfolio Manager — Altea Capital Partners""",
-    },
-    {
-        "id": "minorista_noticias",
-        "remitente_nombre": "Andrés Vega",
-        "remitente_email": "vegaandres74@hotmail.com",
-        "remitente_perfil": "Accionista minorista veterano",
-        "asunto": "¿Hay alguna novedad reciente que me deba preocupar?",
-        "categoria": "Minorista · Requiere búsqueda web",
-        "cuerpo": """Hola,
-
-Llevo varios años con acciones de {empresa} y últimamente he leído algunos titulares hablando de novedades del sector y de la propia compañía. Como no soy inversor profesional, no tengo tiempo de seguir todo lo que se publica y me genera bastante incertidumbre.
-
-¿Podríais resumirme en pocas líneas si en los últimos meses ha habido alguna noticia relevante —resultados, regulación, adquisiciones, cambios en la dirección, etc.— que pueda afectar a la cotización a medio plazo? Me ayudaría mucho tener una visión clara directamente de la fuente oficial para no quedarme solo con lo que dice la prensa.
-
-Gracias por vuestra atención.
-
-Saludos,
-Andrés Vega""",
-    },
-    {
-        "id": "institucional_kpis",
-        "remitente_nombre": "Marina Solé",
-        "remitente_email": "marina.sole@horizon-asset.com",
-        "remitente_perfil": "Equity Analyst — Horizon Asset Management",
-        "asunto": "Petición de KPIs operativos internos del Q4",
-        "categoria": "Mayorista · Datos no públicos",
-        "cuerpo": """Buenos días, equipo de Relación con Inversores,
-
-Soy analista de renta variable en Horizon Asset Management y actualmente estamos modelando {empresa} de cara a la próxima revisión de nuestro fondo sectorial. Necesitaríamos disponer de los siguientes datos del cuarto trimestre cerrado, que no aparecen desglosados en el informe trimestral público:
-
-  1. Margen EBITDA desglosado por línea de negocio.
-  2. Porcentaje de ingresos recurrentes vs no recurrentes por segmento geográfico.
-  3. Tasa de churn de clientes corporativos durante el trimestre.
-  4. Coste medio de adquisición de cliente (CAC) y, si disponen del dato, LTV/CAC del último ejercicio.
-
-Si alguno de estos datos puede facilitarse bajo NDA o como guidance no público, agradeceríamos poder agendar una llamada de 30 minutos con el equipo de IR a su mejor conveniencia durante las próximas dos semanas.
-
-Quedamos a la espera de su respuesta.
-
-Saludos cordiales,
-
-Marina Solé
-Equity Analyst — Horizon Asset Management""",
-    },
-]
-
 
 def _decodificar_cabecera(h):
     """Decodifica cabeceras MIME tipo `=?utf-8?B?...?=` a string Unicode."""
@@ -3112,16 +3063,6 @@ def _enviar_correo_smtp(destinatario_email, destinatario_nombre, asunto,
         server.send_message(msg)
 
 
-def _correos_ir_renderizados():
-    """Sustituye los placeholders {empresa} y {ticker} con el branding actual."""
-    empresa = _BRANDING.get("empresa") or TICKER_FIJO or "la compañía"
-    ticker = TICKER_FIJO or ""
-    out = []
-    for c in _CORREOS_IR:
-        cuerpo = c["cuerpo"].replace("{empresa}", empresa).replace("{ticker}", ticker)
-        out.append({**c, "cuerpo": cuerpo})
-    return out
-
 
 def _resolver_correo_ir(correo, datos, modelo=None):
     """Pide al modelo un borrador de respuesta para un correo de IR.
@@ -3229,51 +3170,27 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
 
 @app.route("/relacion-inversores")
 def relacion_inversores():
-    """Landing: elige fuente de correos (históricos simulados o Gmail real)."""
-    return render_template(
-        "relacion_inversores_landing.html",
-        gmail_configurado=bool(GMAIL_USER and GMAIL_APP_PASSWORD),
-        gmail_user=GMAIL_USER,
-        prefijo=_prefijo_asunto_actual(),
-    )
-
-
-@app.route("/relacion-inversores/historicos")
-def relacion_inversores_historicos():
-    correos = _correos_ir_renderizados()
-    return render_template(
-        "relacion_inversores.html",
-        correos=correos,
-        modelo_actual=MODELO_POR_DEFECTO,
-        fuente="historicos",
-        prefijo=_prefijo_asunto_actual(),
-    )
-
-
-@app.route("/relacion-inversores/gmail")
-def relacion_inversores_gmail():
+    """Bandeja en vivo: lee la INBOX de Gmail y muestra los correos del ticker."""
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
         return render_template(
-            "relacion_inversores_landing.html",
-            gmail_configurado=False,
+            "relacion_inversores_no_config.html",
             prefijo=_prefijo_asunto_actual(),
-            error="Para usar la bandeja en vivo necesitas configurar GMAIL_USER "
-                  "y GMAIL_APP_PASSWORD en el archivo .env y reiniciar la app.",
         )
     try:
         correos = _leer_bandeja_gmail(_prefijo_asunto_actual(), horas_max=2)
     except Exception as e:
         return render_template(
-            "relacion_inversores_landing.html",
-            gmail_configurado=True,
-            gmail_user=GMAIL_USER,
+            "relacion_inversores_no_config.html",
             prefijo=_prefijo_asunto_actual(),
+            gmail_user=GMAIL_USER,
             error=f"No se pudo leer la bandeja de Gmail: {e}",
         )
 
-    # Cache para que /resolver y /enviar puedan recuperar el correo original.
     _GMAIL_CACHE.clear()
     _GMAIL_CACHE.update({c["id"]: c for c in correos})
+    # Refrescamos también el contador en caché para que la home lo vea al vuelo.
+    import time
+    _IR_PENDIENTES_CACHE.update({"ts": time.time(), "count": len(correos)})
 
     return render_template(
         "relacion_inversores.html",
@@ -3285,24 +3202,16 @@ def relacion_inversores_gmail():
     )
 
 
-def _buscar_correo_ir(correo_id, fuente):
-    """Localiza un correo por su id en la fuente correspondiente."""
-    if fuente == "gmail":
-        return _GMAIL_CACHE.get(correo_id)
-    return next((c for c in _correos_ir_renderizados() if c["id"] == correo_id), None)
-
-
 @app.route("/relacion-inversores/resolver", methods=["POST"])
 def relacion_inversores_resolver():
     from flask import jsonify
     data = request.get_json(silent=True) or {}
     correo_id = (data.get("correo_id") or "").strip()
-    fuente = (data.get("fuente") or "historicos").strip()
     modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
 
-    correo = _buscar_correo_ir(correo_id, fuente)
+    correo = _GMAIL_CACHE.get(correo_id)
     if not correo:
-        return jsonify({"ok": False, "error": "Correo no encontrado en la fuente actual."}), 404
+        return jsonify({"ok": False, "error": "Correo no encontrado. Refresca la bandeja."}), 404
 
     datos = _cargar_datos_ticker_fijo() if TICKER_FIJO else None
     try:
@@ -3319,46 +3228,153 @@ def relacion_inversores_resolver():
     })
 
 
+def _refinar_correo_ir(correo, datos, borrador_actual, historial, mensaje_usuario, modelo=None):
+    """Refina un borrador de respuesta a un correo de IR mediante chat.
+
+    El usuario puede pedir cambios (tono, longitud, cifras, datos extra…) o
+    hacer preguntas sin tocar el borrador. La IA devuelve una respuesta
+    conversacional + el borrador (modificado o no).
+    """
+    modelo = _normalizar_modelo(modelo or MODELO_POR_DEFECTO)
+    empresa = _BRANDING.get("empresa") or TICKER_FIJO or "la compañía"
+    ticker = TICKER_FIJO or ""
+    tabla = _texto_datos_para_prompt(datos) if datos else "(no hay datos financieros disponibles)"
+
+    historial_txt = ""
+    for turno in (historial or [])[-12:]:
+        rol = "Usuario" if (turno.get("role") == "user") else "Asistente"
+        historial_txt += f"\n{rol}: {(turno.get('content') or '').strip()}"
+
+    prompt = f"""Eres el equipo de Relación con Inversores de {empresa} ({ticker}).
+Estás revisando con el usuario el borrador de respuesta a un correo de un
+inversor. El usuario te pedirá cambios o te preguntará cosas; aplica las
+modificaciones necesarias al borrador.
+
+[CORREO ORIGINAL DEL INVERSOR]
+De: {correo['remitente_nombre']} <{correo['remitente_email']}>
+Asunto: {correo['asunto']}
+Cuerpo:
+{correo['cuerpo']}
+[FIN CORREO ORIGINAL]
+
+[BORRADOR ACTUAL EN EDICIÓN]
+Asunto: {borrador_actual.get('asunto', '')}
+Cuerpo:
+{borrador_actual.get('cuerpo', '')}
+[FIN BORRADOR]
+{('[HISTORIAL DEL CHAT]' + historial_txt + chr(10) + '[FIN HISTORIAL]') if historial_txt else ''}
+
+NUEVO MENSAJE DEL USUARIO:
+{mensaje_usuario}
+
+Reglas:
+- Si el usuario te pide CAMBIOS, devuelve el borrador con los cambios
+  aplicados y `modificado` = true. Mantén el resto del borrador intacto.
+- Si el usuario te HACE UNA PREGUNTA sin pedir cambios, no toques el
+  borrador (devuélvelo tal cual) y pon `modificado` = false.
+- Usa cifras exactas de los datos de Yahoo (formato europeo: miles ".",
+  decimal ",") cuando el usuario te pida añadir datos.
+- No incluyas nunca listas de URLs ni "Fuentes consultadas" en el cuerpo.
+- `respuesta_chat`: 1-2 frases describiendo qué hiciste o respondiendo a
+  la pregunta. NO repitas el cuerpo completo del correo aquí.
+
+FORMATO DE SALIDA OBLIGATORIO — devuelve EXCLUSIVAMENTE un objeto JSON
+válido, sin comentarios ni acentos graves:
+
+{{
+  "respuesta_chat": "1-2 frases para el usuario.",
+  "asunto_respuesta": "{borrador_actual.get('asunto', '')}",
+  "cuerpo_respuesta": "(borrador completo actualizado, o el actual si no hubo cambios)",
+  "modificado": true
+}}
+"""
+
+    if datos:
+        prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
+
+    texto, _citas = llamar_ia_con_reintentos(
+        prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+    )
+
+    import json as _json
+    bloque = re.search(r"\{.*\}", texto or "", re.DOTALL)
+    if not bloque:
+        return {
+            "respuesta_chat": (texto or "").strip()[:600] or "(sin respuesta)",
+            "asunto_respuesta": borrador_actual.get("asunto", ""),
+            "cuerpo_respuesta": borrador_actual.get("cuerpo", ""),
+            "modificado": False,
+        }
+    try:
+        parsed = _json.loads(bloque.group(0), strict=False)
+    except _json.JSONDecodeError:
+        return {
+            "respuesta_chat": "No pude procesar la respuesta del modelo. Vuelve a intentarlo.",
+            "asunto_respuesta": borrador_actual.get("asunto", ""),
+            "cuerpo_respuesta": borrador_actual.get("cuerpo", ""),
+            "modificado": False,
+        }
+    parsed.setdefault("respuesta_chat", "")
+    parsed.setdefault("asunto_respuesta", borrador_actual.get("asunto", ""))
+    parsed.setdefault("cuerpo_respuesta", borrador_actual.get("cuerpo", ""))
+    parsed.setdefault("modificado", False)
+    return parsed
+
+
+@app.route("/relacion-inversores/refinar", methods=["POST"])
+def relacion_inversores_refinar():
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    correo_id = (data.get("correo_id") or "").strip()
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
+    mensaje = (data.get("mensaje") or "").strip()
+    historial = data.get("historial") or []
+    borrador_actual = {
+        "asunto": data.get("asunto_actual") or "",
+        "cuerpo": data.get("cuerpo_actual") or "",
+    }
+    if not mensaje:
+        return jsonify({"ok": False, "error": "Mensaje vacío"}), 400
+
+    correo = _GMAIL_CACHE.get(correo_id)
+    if not correo:
+        return jsonify({"ok": False, "error": "Correo no encontrado. Refresca la bandeja."}), 404
+
+    datos = _cargar_datos_ticker_fijo() if TICKER_FIJO else None
+    try:
+        res = _refinar_correo_ir(correo, datos, borrador_actual, historial, mensaje, modelo=modelo)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Error al refinar: {e}"}), 500
+
+    return jsonify({"ok": True, **res})
+
+
 @app.route("/relacion-inversores/enviar", methods=["POST"])
 def relacion_inversores_enviar():
     from flask import jsonify
     from datetime import datetime as _dt
     data = request.get_json(silent=True) or {}
-    fuente = (data.get("fuente") or "historicos").strip()
     destinatario_nombre = data.get("destinatario_nombre", "")
     destinatario_email = data.get("destinatario_email", "")
     asunto = data.get("asunto", "")
     cuerpo = data.get("cuerpo", "")
-
-    if fuente == "gmail":
-        correo_orig = _GMAIL_CACHE.get(data.get("correo_id") or "") or {}
-        try:
-            _enviar_correo_smtp(
-                destinatario_email=destinatario_email,
-                destinatario_nombre=destinatario_nombre,
-                asunto=asunto,
-                cuerpo=cuerpo,
-                in_reply_to=correo_orig.get("_message_id"),
-            )
-        except Exception as e:
-            return jsonify({"ok": False, "error": f"Error al enviar el correo real: {e}"}), 500
-        return jsonify({
-            "ok": True,
-            "timestamp": _dt.now().strftime("%d/%m/%Y %H:%M"),
-            "destinatario_nombre": destinatario_nombre,
-            "destinatario_email": destinatario_email,
-            "asunto": asunto,
-            "enviado_real": True,
-        })
-
-    # Modo históricos: simulado.
+    correo_orig = _GMAIL_CACHE.get(data.get("correo_id") or "") or {}
+    try:
+        _enviar_correo_smtp(
+            destinatario_email=destinatario_email,
+            destinatario_nombre=destinatario_nombre,
+            asunto=asunto,
+            cuerpo=cuerpo,
+            in_reply_to=correo_orig.get("_message_id"),
+        )
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Error al enviar: {e}"}), 500
     return jsonify({
         "ok": True,
         "timestamp": _dt.now().strftime("%d/%m/%Y %H:%M"),
         "destinatario_nombre": destinatario_nombre,
         "destinatario_email": destinatario_email,
         "asunto": asunto,
-        "enviado_real": False,
     })
 
 
