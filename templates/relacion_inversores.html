@@ -42,8 +42,20 @@
         gap: 0;
         align-items: stretch;
     }
+    .ir-grid.con-chat {
+        grid-template-columns: 1.1fr 1.4fr 1fr;
+    }
+    @media (max-width: 1200px) {
+        .ir-grid.con-chat { grid-template-columns: 1fr 1fr; }
+        .ir-grid.con-chat .ir-col-chat {
+            grid-column: 1 / -1;
+            border-top: 1px solid var(--gray-border);
+            border-left: none;
+        }
+    }
     @media (max-width: 900px) {
-        .ir-grid { grid-template-columns: 1fr; }
+        .ir-grid, .ir-grid.con-chat { grid-template-columns: 1fr; }
+        .ir-grid.con-chat .ir-col-chat { grid-column: auto; }
     }
 
     .ir-col {
@@ -59,8 +71,102 @@
     .ir-col-respuesta {
         background: #F1F8E9;
     }
+    .ir-col-chat {
+        background: #FFF8E1;
+        border-left: 1px solid var(--gray-border);
+    }
     @media (max-width: 900px) {
-        .ir-col-entrada { border-right: none; border-bottom: 1px solid var(--gray-border); }
+        .ir-col-entrada,
+        .ir-col-respuesta { border-right: none; border-bottom: 1px solid var(--gray-border); }
+        .ir-col-chat { border-left: none; }
+    }
+
+    .ir-chat-vacio {
+        flex-grow: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--gray-9);
+        font-size: 0.82rem;
+        text-align: center;
+        font-style: italic;
+        padding: 0.8rem;
+    }
+    .ir-chat-historial {
+        flex-grow: 1;
+        overflow-y: auto;
+        max-height: 360px;
+        min-height: 200px;
+        padding: 0.4rem 0.2rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+    .ir-chat-msg {
+        padding: 0.5rem 0.7rem;
+        border-radius: 8px;
+        font-size: 0.84rem;
+        line-height: 1.45;
+        max-width: 92%;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .ir-chat-msg.user {
+        background: #FFE0B2;
+        color: #3E2723;
+        align-self: flex-end;
+        border-bottom-right-radius: 2px;
+    }
+    .ir-chat-msg.assistant {
+        background: #fff;
+        color: var(--black);
+        border: 1px solid var(--gray-border);
+        align-self: flex-start;
+        border-bottom-left-radius: 2px;
+    }
+    .ir-chat-msg.tag-mod {
+        background: #C8E6C9;
+        color: #1B5E20;
+        align-self: stretch;
+        text-align: center;
+        font-size: 0.76rem;
+        max-width: 100%;
+        font-style: italic;
+    }
+    .ir-chat-input-wrap {
+        margin-top: 0.5rem;
+        display: flex;
+        gap: 0.4rem;
+        align-items: flex-end;
+    }
+    .ir-chat-input-wrap textarea {
+        flex-grow: 1;
+        font-family: inherit;
+        font-size: 0.85rem;
+        border: 1px solid #FFCC80;
+        border-radius: 3px;
+        padding: 0.5rem 0.6rem;
+        background: #fff;
+        resize: vertical;
+        min-height: 56px;
+        max-height: 160px;
+        box-sizing: border-box;
+    }
+    .ir-chat-input-wrap textarea:focus {
+        outline: none;
+        border-color: #FB8C00;
+        box-shadow: 0 0 0 3px rgba(251,140,0,0.18);
+    }
+    .ir-chat-input-wrap button {
+        flex-shrink: 0;
+    }
+    .ir-chat-thinking {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        color: #5D4037;
+        padding: 0.3rem 0;
     }
 
     .ir-col-label {
@@ -277,6 +383,20 @@
                 <div class="ir-status error" hidden></div>
             </div>
         </div>
+
+        <div class="ir-col ir-col-chat" hidden>
+            <div class="ir-col-label">Chat con la IA</div>
+            <div class="ir-chat-vacio">Pídele cambios o haz preguntas sobre el borrador. La IA puede ajustar tono, longitud, cifras o redacción.</div>
+            <div class="ir-chat-historial" hidden></div>
+            <div class="ir-chat-thinking" hidden>
+                <span class="ir-spinner"></span>
+                <span>Procesando tu petición…</span>
+            </div>
+            <div class="ir-chat-input-wrap">
+                <textarea class="ir-chat-input" rows="2" placeholder="Ej: hazlo más corto · añade el dato de deuda neta · sé más formal"></textarea>
+                <button type="button" class="btn btn-primary btn-chat-enviar">Enviar</button>
+            </div>
+        </div>
     </div>
 </div>
 {% endfor %}
@@ -284,6 +404,7 @@
 <script>
 (function() {
     const RESOLVER_URL = '/relacion-inversores/resolver';
+    const REFINAR_URL = '/relacion-inversores/refinar';
     const ENVIAR_URL = '/relacion-inversores/enviar';
     const selectModelo = document.getElementById('ir-modelo');
 
@@ -310,6 +431,38 @@
         const inputCuerpo = $(card, '.ir-input-cuerpo');
         const btnEnviar = $(card, '.btn-enviar');
         const btnDescartar = $(card, '.btn-descartar');
+
+        // Chat
+        const colChat = $(card, '.ir-col-chat');
+        const gridCard = $(card, '.ir-grid');
+        const chatHist = $(card, '.ir-chat-historial');
+        const chatVacio = $(card, '.ir-chat-vacio');
+        const chatInput = $(card, '.ir-chat-input');
+        const chatThinking = $(card, '.ir-chat-thinking');
+        const btnChatEnviar = $(card, '.btn-chat-enviar');
+        let historialChat = [];
+
+        function appendChatMsg(rol, contenido, tag) {
+            chatVacio.hidden = true;
+            chatHist.hidden = false;
+            const div = document.createElement('div');
+            div.className = 'ir-chat-msg ' + (tag ? 'tag-mod' : rol);
+            div.textContent = contenido;
+            chatHist.appendChild(div);
+            chatHist.scrollTop = chatHist.scrollHeight;
+        }
+
+        function activarChat() {
+            colChat.hidden = false;
+            if (gridCard) gridCard.classList.add('con-chat');
+            chatInput.disabled = false;
+            btnChatEnviar.disabled = false;
+        }
+
+        function bloquearChat() {
+            chatInput.disabled = true;
+            btnChatEnviar.disabled = true;
+        }
 
         function ocultarStatus() {
             stResoluble.hidden = true;
@@ -391,6 +544,7 @@
                 respuesta.hidden = false;
                 btnResolver.disabled = false;
                 btnResolver.textContent = 'Volver a generar';
+                activarChat();
             } catch (err) {
                 thinking.hidden = true;
                 colVacio.hidden = false;
@@ -405,6 +559,72 @@
             colVacio.hidden = false;
             btnResolver.textContent = 'Resolver con IA';
             btnResolver.disabled = false;
+            // Cerrar chat y limpiar historial
+            colChat.hidden = true;
+            if (gridCard) gridCard.classList.remove('con-chat');
+            historialChat = [];
+            chatHist.innerHTML = '';
+            chatHist.hidden = true;
+            chatVacio.hidden = false;
+        });
+
+        async function enviarMensajeChat() {
+            const mensaje = (chatInput.value || '').trim();
+            if (!mensaje) return;
+            appendChatMsg('user', mensaje);
+            historialChat.push({role: 'user', content: mensaje});
+            chatInput.value = '';
+            chatInput.disabled = true;
+            btnChatEnviar.disabled = true;
+            chatThinking.hidden = false;
+            try {
+                const r = await fetch(REFINAR_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        correo_id: correoId,
+                        fuente: card.dataset.fuente,
+                        modelo: modeloElegido(),
+                        mensaje: mensaje,
+                        asunto_actual: inputAsunto.value,
+                        cuerpo_actual: inputCuerpo.value,
+                        historial: historialChat,
+                    })
+                });
+                const j = await r.json();
+                chatThinking.hidden = true;
+                if (!j.ok) {
+                    appendChatMsg('assistant', 'Error: ' + (j.error || 'fallo desconocido'));
+                    chatInput.disabled = false;
+                    btnChatEnviar.disabled = false;
+                    return;
+                }
+                if (j.respuesta_chat) {
+                    appendChatMsg('assistant', j.respuesta_chat);
+                    historialChat.push({role: 'assistant', content: j.respuesta_chat});
+                }
+                if (j.modificado) {
+                    inputAsunto.value = j.asunto_respuesta || inputAsunto.value;
+                    inputCuerpo.value = j.cuerpo_respuesta || inputCuerpo.value;
+                    appendChatMsg('assistant', 'Borrador actualizado ✓', true);
+                }
+                chatInput.disabled = false;
+                btnChatEnviar.disabled = false;
+                chatInput.focus();
+            } catch (err) {
+                chatThinking.hidden = true;
+                appendChatMsg('assistant', 'Error de red: ' + err.message);
+                chatInput.disabled = false;
+                btnChatEnviar.disabled = false;
+            }
+        }
+
+        btnChatEnviar.addEventListener('click', enviarMensajeChat);
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                enviarMensajeChat();
+            }
         });
 
         btnEnviar.addEventListener('click', async () => {
@@ -437,6 +657,7 @@
                     btnDescartar.disabled = true;
                     btnResolver.disabled = true;
                     btnResolver.textContent = 'Respuesta enviada';
+                    bloquearChat();
                 } else {
                     stError.textContent = 'Error al enviar: ' + (j.error || '');
                     stError.hidden = false;

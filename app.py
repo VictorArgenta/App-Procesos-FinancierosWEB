@@ -3330,6 +3330,128 @@ def relacion_inversores_resolver():
     })
 
 
+def _refinar_correo_ir(correo, datos, borrador_actual, historial, mensaje_usuario, modelo=None):
+    """Refina un borrador de respuesta a un correo de IR mediante chat.
+
+    El usuario puede pedir cambios (tono, longitud, cifras, datos extra…) o
+    hacer preguntas sin tocar el borrador. La IA devuelve una respuesta
+    conversacional + el borrador (modificado o no).
+    """
+    modelo = _normalizar_modelo(modelo or MODELO_POR_DEFECTO)
+    empresa = _BRANDING.get("empresa") or TICKER_FIJO or "la compañía"
+    ticker = TICKER_FIJO or ""
+    tabla = _texto_datos_para_prompt(datos) if datos else "(no hay datos financieros disponibles)"
+
+    historial_txt = ""
+    for turno in (historial or [])[-12:]:
+        rol = "Usuario" if (turno.get("role") == "user") else "Asistente"
+        historial_txt += f"\n{rol}: {(turno.get('content') or '').strip()}"
+
+    prompt = f"""Eres el equipo de Relación con Inversores de {empresa} ({ticker}).
+Estás revisando con el usuario el borrador de respuesta a un correo de un
+inversor. El usuario te pedirá cambios o te preguntará cosas; aplica las
+modificaciones necesarias al borrador.
+
+[CORREO ORIGINAL DEL INVERSOR]
+De: {correo['remitente_nombre']} <{correo['remitente_email']}>
+Asunto: {correo['asunto']}
+Cuerpo:
+{correo['cuerpo']}
+[FIN CORREO ORIGINAL]
+
+[BORRADOR ACTUAL EN EDICIÓN]
+Asunto: {borrador_actual.get('asunto', '')}
+Cuerpo:
+{borrador_actual.get('cuerpo', '')}
+[FIN BORRADOR]
+{('[HISTORIAL DEL CHAT]' + historial_txt + chr(10) + '[FIN HISTORIAL]') if historial_txt else ''}
+
+NUEVO MENSAJE DEL USUARIO:
+{mensaje_usuario}
+
+Reglas:
+- Si el usuario te pide CAMBIOS, devuelve el borrador con los cambios
+  aplicados y `modificado` = true. Mantén el resto del borrador intacto.
+- Si el usuario te HACE UNA PREGUNTA sin pedir cambios, no toques el
+  borrador (devuélvelo tal cual) y pon `modificado` = false.
+- Usa cifras exactas de los datos de Yahoo (formato europeo: miles ".",
+  decimal ",") cuando el usuario te pida añadir datos.
+- No incluyas nunca listas de URLs ni "Fuentes consultadas" en el cuerpo.
+- `respuesta_chat`: 1-2 frases describiendo qué hiciste o respondiendo a
+  la pregunta. NO repitas el cuerpo completo del correo aquí.
+
+FORMATO DE SALIDA OBLIGATORIO — devuelve EXCLUSIVAMENTE un objeto JSON
+válido, sin comentarios ni acentos graves:
+
+{{
+  "respuesta_chat": "1-2 frases para el usuario.",
+  "asunto_respuesta": "{borrador_actual.get('asunto', '')}",
+  "cuerpo_respuesta": "(borrador completo actualizado, o el actual si no hubo cambios)",
+  "modificado": true
+}}
+"""
+
+    if datos:
+        prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
+
+    texto, _citas = llamar_ia_con_reintentos(
+        prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+    )
+
+    import json as _json
+    bloque = re.search(r"\{.*\}", texto or "", re.DOTALL)
+    if not bloque:
+        return {
+            "respuesta_chat": (texto or "").strip()[:600] or "(sin respuesta)",
+            "asunto_respuesta": borrador_actual.get("asunto", ""),
+            "cuerpo_respuesta": borrador_actual.get("cuerpo", ""),
+            "modificado": False,
+        }
+    try:
+        parsed = _json.loads(bloque.group(0), strict=False)
+    except _json.JSONDecodeError:
+        return {
+            "respuesta_chat": "No pude procesar la respuesta del modelo. Vuelve a intentarlo.",
+            "asunto_respuesta": borrador_actual.get("asunto", ""),
+            "cuerpo_respuesta": borrador_actual.get("cuerpo", ""),
+            "modificado": False,
+        }
+    parsed.setdefault("respuesta_chat", "")
+    parsed.setdefault("asunto_respuesta", borrador_actual.get("asunto", ""))
+    parsed.setdefault("cuerpo_respuesta", borrador_actual.get("cuerpo", ""))
+    parsed.setdefault("modificado", False)
+    return parsed
+
+
+@app.route("/relacion-inversores/refinar", methods=["POST"])
+def relacion_inversores_refinar():
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    correo_id = (data.get("correo_id") or "").strip()
+    fuente = (data.get("fuente") or "historicos").strip()
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
+    mensaje = (data.get("mensaje") or "").strip()
+    historial = data.get("historial") or []
+    borrador_actual = {
+        "asunto": data.get("asunto_actual") or "",
+        "cuerpo": data.get("cuerpo_actual") or "",
+    }
+    if not mensaje:
+        return jsonify({"ok": False, "error": "Mensaje vacío"}), 400
+
+    correo = _buscar_correo_ir(correo_id, fuente)
+    if not correo:
+        return jsonify({"ok": False, "error": "Correo no encontrado"}), 404
+
+    datos = _cargar_datos_ticker_fijo() if TICKER_FIJO else None
+    try:
+        res = _refinar_correo_ir(correo, datos, borrador_actual, historial, mensaje, modelo=modelo)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Error al refinar: {e}"}), 500
+
+    return jsonify({"ok": True, **res})
+
+
 @app.route("/relacion-inversores/enviar", methods=["POST"])
 def relacion_inversores_enviar():
     from flask import jsonify
