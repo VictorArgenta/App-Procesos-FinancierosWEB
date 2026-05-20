@@ -421,7 +421,48 @@ def obtener_datos_financieros(ticker_symbol):
             ["Net Income", "Net Income Common Stockholders"],
         )
 
+        # PyG ampliada
+        ebit = safe_get(
+            income_stmt,
+            ["EBIT", "Operating Income", "Total Operating Income As Reported"],
+        )
+        da = safe_get(
+            income_stmt,
+            [
+                "Reconciled Depreciation",
+                "Depreciation And Amortization",
+                "Depreciation Amortization Depletion Income Statement",
+            ],
+        )
+        sga = safe_get(
+            income_stmt,
+            ["Selling General And Administration", "Selling General Administrative"],
+        )
+        rd = safe_get(income_stmt, ["Research And Development"])
+        ingresos_financieros = safe_get(income_stmt, ["Interest Income"])
+        gastos_financieros = safe_get(
+            income_stmt, ["Interest Expense", "Interest Expense Non Operating"],
+        )
+        resultado_financiero_neto = safe_get(
+            income_stmt,
+            ["Net Non Operating Interest Income Expense"],
+        )
+        if not resultado_financiero_neto:
+            resultado_financiero_neto = ingresos_financieros - gastos_financieros
+        resultado_antes_impuestos = safe_get(
+            income_stmt, ["Pretax Income", "Income Before Tax"],
+        )
+        impuestos = safe_get(
+            income_stmt, ["Tax Provision", "Income Tax Expense Benefit"],
+        )
+        bpa_basico = safe_get(income_stmt, ["Basic EPS"])
+        bpa_diluido = safe_get(income_stmt, ["Diluted EPS"])
+
         pct = lambda parte: round((parte / ingresos) * 100, 2) if ingresos else 0.0
+        tasa_impositiva = (
+            round((impuestos / resultado_antes_impuestos) * 100, 2)
+            if resultado_antes_impuestos else 0.0
+        )
 
         datos["periodos"].append(
             {
@@ -436,6 +477,24 @@ def obtener_datos_financieros(ticker_symbol):
                 "pct_gastos_operativos": pct(gastos_operativos),
                 "pct_ebitda": pct(ebitda),
                 "pct_beneficio_neto": pct(beneficio_neto),
+                # Ampliación PyG
+                "ebit": ebit,
+                "pct_ebit": pct(ebit),
+                "da": da,
+                "pct_da": pct(da),
+                "sga": sga,
+                "pct_sga": pct(sga),
+                "rd": rd,
+                "pct_rd": pct(rd),
+                "ingresos_financieros": ingresos_financieros,
+                "gastos_financieros": gastos_financieros,
+                "resultado_financiero_neto": resultado_financiero_neto,
+                "resultado_antes_impuestos": resultado_antes_impuestos,
+                "pct_rai": pct(resultado_antes_impuestos),
+                "impuestos": impuestos,
+                "tasa_impositiva": tasa_impositiva,
+                "bpa_basico": bpa_basico,
+                "bpa_diluido": bpa_diluido,
             }
         )
 
@@ -454,8 +513,18 @@ def _texto_datos_para_prompt(datos):
             f"  Coste de ventas: {p['coste_ventas']:,.0f}\n"
             f"  Margen bruto: {p['margen_bruto']:,.0f} ({p['pct_margen_bruto']}%)\n"
             f"  Gastos operativos: {p['gastos_operativos']:,.0f} ({p['pct_gastos_operativos']}%)\n"
+            f"    - SG&A: {p.get('sga', 0):,.0f} ({p.get('pct_sga', 0)}%)\n"
+            f"    - I+D: {p.get('rd', 0):,.0f} ({p.get('pct_rd', 0)}%)\n"
             f"  EBITDA: {p['ebitda']:,.0f} ({p['pct_ebitda']}%)\n"
+            f"  D&A (amortizaciones): {p.get('da', 0):,.0f} ({p.get('pct_da', 0)}%)\n"
+            f"  EBIT (resultado de explotación): {p.get('ebit', 0):,.0f} ({p.get('pct_ebit', 0)}%)\n"
+            f"  Resultado financiero neto: {p.get('resultado_financiero_neto', 0):,.0f}"
+            f" (ingresos fin.: {p.get('ingresos_financieros', 0):,.0f}, gastos fin.: {p.get('gastos_financieros', 0):,.0f})\n"
+            f"  Resultado antes de impuestos: {p.get('resultado_antes_impuestos', 0):,.0f} ({p.get('pct_rai', 0)}%)\n"
+            f"  Impuesto sobre beneficios: {p.get('impuestos', 0):,.0f}"
+            f" (tasa efectiva: {p.get('tasa_impositiva', 0)}%)\n"
             f"  Beneficio neto: {p['beneficio_neto']:,.0f} ({p['pct_beneficio_neto']}%)\n"
+            f"  BPA básico: {p.get('bpa_basico', 0)} | BPA diluido: {p.get('bpa_diluido', 0)}\n"
         )
     return texto
 
