@@ -185,6 +185,23 @@
     </div>
 </div>
 
+<div class="card" style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+    <label for="ir-modelo" style="font-weight:600; font-size:0.82rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--gray-11); margin:0;">Modelo de IA</label>
+    {% set sel = modelo_actual or 'claude-sonnet-4-6' %}
+    <select id="ir-modelo" style="max-width: 360px;">
+        <optgroup label="Anthropic Claude (de pago)">
+            <option value="claude-opus-4-6" {% if sel == 'claude-opus-4-6' %}selected{% endif %}>claude-opus-4-6 — Máxima calidad</option>
+            <option value="claude-sonnet-4-6" {% if sel == 'claude-sonnet-4-6' %}selected{% endif %}>claude-sonnet-4-6 — Recomendado</option>
+            <option value="claude-haiku-4-5-20251001" {% if sel == 'claude-haiku-4-5-20251001' %}selected{% endif %}>claude-haiku-4-5-20251001 — Más económico</option>
+        </optgroup>
+        <optgroup label="Google Gemini (gratuito)">
+            <option value="gemini-2.5-flash" {% if sel == 'gemini-2.5-flash' %}selected{% endif %}>gemini-2.5-flash — Recomendado gratuito</option>
+            <option value="gemini-2.5-flash-lite" {% if sel == 'gemini-2.5-flash-lite' %}selected{% endif %}>gemini-2.5-flash-lite — Ligero gratuito</option>
+        </optgroup>
+    </select>
+    <span style="color: var(--gray-10); font-size: 0.82rem;">Se aplica a todos los correos. Puedes cambiarlo y volver a generar la respuesta.</span>
+</div>
+
 {% for correo in correos %}
 {% set tipo = 'mayorista' if 'Mayorista' in correo.categoria else 'minorista' %}
 <div class="card ir-card {{ tipo }}" data-correo-id="{{ correo.id }}"
@@ -248,6 +265,11 @@
 (function() {
     const RESOLVER_URL = '/relacion-inversores/resolver';
     const ENVIAR_URL = '/relacion-inversores/enviar';
+    const selectModelo = document.getElementById('ir-modelo');
+
+    function modeloElegido() {
+        return selectModelo ? selectModelo.value : '';
+    }
 
     function $(el, sel) { return el.querySelector(sel); }
 
@@ -296,7 +318,7 @@
                 const r = await fetch(RESOLVER_URL, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({correo_id: correoId})
+                    body: JSON.stringify({correo_id: correoId, modelo: modeloElegido()})
                 });
                 const j = await r.json();
                 thinking.hidden = true;

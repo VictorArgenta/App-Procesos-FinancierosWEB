@@ -2946,12 +2946,13 @@ def _correos_ir_renderizados():
     return out
 
 
-def _resolver_correo_ir(correo, datos):
+def _resolver_correo_ir(correo, datos, modelo=None):
     """Pide al modelo un borrador de respuesta para un correo de IR.
 
     Devuelve un dict con `puede_resolver`, `asunto_respuesta`, `cuerpo_respuesta`
     y `nota_interna`.
     """
+    modelo = _normalizar_modelo(modelo or MODELO_POR_DEFECTO)
     empresa = _BRANDING.get("empresa") or TICKER_FIJO or "la compañía"
     ticker = TICKER_FIJO or ""
     tabla = _texto_datos_para_prompt(datos) if datos else "(no hay datos financieros disponibles en este momento)"
@@ -3006,7 +3007,7 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
         prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
 
     texto, _citas = llamar_ia_con_reintentos(
-        prompt, max_tokens=2500, modelo=MODELO_POR_DEFECTO, permitir_busqueda=True,
+        prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
     )
 
     import json as _json
@@ -3038,7 +3039,11 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
 @app.route("/relacion-inversores")
 def relacion_inversores():
     correos = _correos_ir_renderizados()
-    return render_template("relacion_inversores.html", correos=correos)
+    return render_template(
+        "relacion_inversores.html",
+        correos=correos,
+        modelo_actual=MODELO_POR_DEFECTO,
+    )
 
 
 @app.route("/relacion-inversores/resolver", methods=["POST"])
@@ -3046,13 +3051,14 @@ def relacion_inversores_resolver():
     from flask import jsonify
     data = request.get_json(silent=True) or {}
     correo_id = (data.get("correo_id") or "").strip()
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
     correo = next((c for c in _correos_ir_renderizados() if c["id"] == correo_id), None)
     if not correo:
         return jsonify({"ok": False, "error": "Correo no encontrado"}), 404
 
     datos = _cargar_datos_ticker_fijo() if TICKER_FIJO else None
     try:
-        resultado = _resolver_correo_ir(correo, datos)
+        resultado = _resolver_correo_ir(correo, datos, modelo=modelo)
     except Exception as e:
         return jsonify({"ok": False, "error": f"Error al resolver: {e}"}), 500
 
