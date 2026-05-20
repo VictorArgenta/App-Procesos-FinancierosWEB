@@ -13,17 +13,26 @@
     <div>
         <span class="eyebrow">Módulo · Análisis Individual</span>
         <h1>Generar Informe Narrativo</h1>
+        {% if TICKER_FIJO %}
+        <p class="lead">Esta instancia de la aplicación está dedicada al ticker <strong>{{ TICKER_FIJO }}</strong>. Reinicia con <code>python app.py OTRO_TICKER</code> si necesitas trabajar con otra compañía.</p>
+        {% else %}
         <p class="lead">Introduce el ticker de la compañía cotizada. Verás primero los estados financieros tal como los publica Yahoo Finance (Estado de Ingresos, Balance General y Flujo de Caja) y, sobre esos datos, podrás configurar y generar el informe narrativo que necesites.</p>
+        {% endif %}
     </div>
 </div>
 
 <div class="card">
+    {% if TICKER_FIJO %}
+    <h2>No se pudo cargar el ticker fijado</h2>
+    {% else %}
     <h2>Paso 1 · Selección del ticker</h2>
+    {% endif %}
 
     {% if error %}
     <div class="alert alert-error">{{ error }}</div>
     {% endif %}
 
+    {% if not TICKER_FIJO %}
     <form method="POST" action="/analisis" onsubmit="showLoading()">
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
             <div class="form-group">
@@ -56,8 +65,12 @@
             <a href="/" class="btn btn-secondary" style="margin-left: 0.4rem;">Cancelar</a>
         </div>
     </form>
+    {% else %}
+    <p style="color: var(--gray-10);">No se pudieron recuperar datos de Yahoo Finance para <strong>{{ TICKER_FIJO }}</strong>. Verifica el símbolo bursátil y vuelve a lanzar la aplicación.</p>
+    {% endif %}
 </div>
 
+{% if not TICKER_FIJO %}
 <div class="card">
     <h2>Ejemplos de tickers frecuentes</h2>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.6rem;">
@@ -69,4 +82,5 @@
         {% endfor %}
     </div>
 </div>
+{% endif %}
 {% endblock %}
