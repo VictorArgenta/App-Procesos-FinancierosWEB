@@ -38,7 +38,22 @@ import sys as _sys
 TICKER_FIJO = (_sys.argv[1].strip().upper() if len(_sys.argv) > 1 and _sys.argv[1].strip() else None)
 
 app = Flask(__name__)
-app.jinja_env.globals["TICKER_FIJO"] = TICKER_FIJO
+
+# Branding mutable: arranca con el ticker (o el genérico) y se rellena con el
+# nombre real de la compañía cuando se cargan datos de Yahoo por primera vez.
+_BRANDING = {
+    "empresa": TICKER_FIJO or "Vainilla Corp",
+    "tenant_sufijo": TICKER_FIJO or "Vainilla Corp",
+}
+
+
+@app.context_processor
+def _inyectar_branding():
+    return {
+        "TICKER_FIJO": TICKER_FIJO,
+        "EMPRESA_NOMBRE": _BRANDING["empresa"],
+        "TENANT_NOMBRE": _BRANDING["tenant_sufijo"],
+    }
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -827,7 +842,10 @@ _REGLAS_FORMATO_MEMORIA = """Reglas de formato OBLIGATORIAS (bajo ningún concep
 - Estructura el contenido con encabezados Markdown `## Sección` y `### Subsección`.
 - Usa párrafos en prosa profesional; resalta términos clave con `**negrita**` (uno o dos por párrafo).
 - Cifras siempre con separadores de miles y unidades (millones / %).
-- Asegúrate de cerrar todas las secciones: termina con una sección final de "## Conclusión"."""
+- Asegúrate de cerrar todas las secciones de forma natural. Si NO hay un enfoque
+  estricto definido por el usuario, cierra con una sección "## Conclusión". Si
+  hay un enfoque estricto, NO añadas conclusión genérica ni secciones extra:
+  el cierre debe ser una o dos frases finales sobre el enfoque pedido y nada más."""
 
 
 _TIPOS_INFORME = {
@@ -866,13 +884,31 @@ def _bloque_configuracion_informe(tipo_informe, enfoque, extension):
         partes.append(f"TIPO DE INFORME REQUERIDO: {_TIPOS_INFORME[tipo_informe]}")
     if enfoque and enfoque.strip():
         partes.append(
-            "ENFOQUE PRIORITARIO (debe vertebrar el informe; el resto de "
-            "información se menciona sólo si aporta contexto a este foco):\n"
-            f"{enfoque.strip()}"
+            "ENFOQUE ESTRICTO DEL INFORME (CRÍTICO, no lo amplíes):\n"
+            f"{enfoque.strip()}\n\n"
+            "REGLAS DE ALCANCE — son OBLIGATORIAS y prevalecen sobre cualquier\n"
+            "convención de estructura habitual de notas de memoria o informes:\n"
+            "- El documento debe limitarse EXCLUSIVAMENTE al enfoque indicado arriba.\n"
+            "- NO añadas secciones como 'Perspectivas cualitativas', 'Riesgos',\n"
+            "  'Resumen ejecutivo', 'Evolución general del negocio', 'Contexto sectorial',\n"
+            "  'Conclusión', 'Recomendaciones' u otras secciones genéricas, salvo que\n"
+            "  el propio enfoque las pida.\n"
+            "- NO traigas magnitudes financieras ajenas al enfoque (p. ej. si el enfoque\n"
+            "  es BPA, no hables de margen bruto, deuda, caja ni de operaciones que no\n"
+            "  afecten directamente al BPA), salvo cuando sean estrictamente necesarias\n"
+            "  para explicar el enfoque, y siempre en una sola frase de contexto.\n"
+            "- El cierre del documento es una o dos frases finales sobre el enfoque\n"
+            "  pedido; NO abras nuevos temas en el cierre.\n"
+            "- Si la información disponible sobre el enfoque es escasa, redacta un\n"
+            "  documento más breve antes que rellenarlo con apartados fuera de alcance."
         )
     if extension and extension in _EXTENSIONES:
         descripcion, _ = _EXTENSIONES[extension]
-        partes.append(f"EXTENSIÓN OBJETIVO: {descripcion}.")
+        partes.append(
+            f"EXTENSIÓN OBJETIVO: {descripcion}. Si el enfoque no da para esa "
+            "extensión, prioriza la regla de alcance sobre la de extensión y "
+            "entrega un documento más corto."
+        )
     if not partes:
         return ""
     return "\n\n" + "\n\n".join(partes) + "\n"
@@ -2466,6 +2502,9 @@ def _cargar_datos_ticker_fijo():
     datos = obtener_datos_financieros(TICKER_FIJO)
     _TICKER_FIJO_DATOS["ticker"] = TICKER_FIJO
     _TICKER_FIJO_DATOS["datos"] = datos
+    if datos and datos.get("nombre"):
+        _BRANDING["empresa"] = datos["nombre"]
+        _BRANDING["tenant_sufijo"] = datos["nombre"]
     return datos
 
 
@@ -3015,4 +3054,12 @@ def contacto():
 
 
 if __name__ == "__main__":
+    if TICKER_FIJO:
+        print(f"\n[DFin AI] Precargando datos de Yahoo Finance para {TICKER_FIJO}…")
+        try:
+            _cargar_datos_ticker_fijo()
+            nombre = _BRANDING["empresa"]
+            print(f"[DFin AI] Aplicación dedicada a: {nombre} ({TICKER_FIJO})\n")
+        except Exception as _e:
+            print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}\n")
     app.run(debug=True, host="0.0.0.0", port=5000)

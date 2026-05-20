@@ -5,9 +5,9 @@
 {% block content %}
 <div class="page-header">
     <div>
-        <span class="eyebrow">Vainilla Corp · Área Finanzas &amp; Controlling</span>
-        <h1>Un portfolio completo para el área financiera</h1>
-        <p class="lead">Seleccione el módulo que desee utilizar. Las funcionalidades marcadas como <span class="tag tag-green">Preview</span> se encuentran en fase de rollout controlado para el tenant <strong>Vainilla Corp</strong>.</p>
+        <span class="eyebrow">{{ EMPRESA_NOMBRE }}{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %} · Área Finanzas &amp; Controlling</span>
+        <h1>{% if TICKER_FIJO %}Plataforma financiera de {{ EMPRESA_NOMBRE }}{% else %}Un portfolio completo para el área financiera{% endif %}</h1>
+        <p class="lead">{% if TICKER_FIJO %}Esta instancia está dedicada al análisis financiero de <strong>{{ EMPRESA_NOMBRE }}</strong> ({{ TICKER_FIJO }}). Seleccione el módulo que desee utilizar.{% else %}Seleccione el módulo que desee utilizar. Las funcionalidades marcadas como <span class="tag tag-green">Preview</span> se encuentran en fase de rollout controlado para el tenant <strong>{{ TENANT_NOMBRE }}</strong>.{% endif %}</p>
     </div>
 </div>
 
