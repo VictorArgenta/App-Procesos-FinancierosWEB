@@ -2513,7 +2513,13 @@ def _contar_pendientes_ir(ttl_segundos=30):
         return _IR_PENDIENTES_CACHE["count"]
     try:
         correos = _leer_bandeja_gmail(_prefijo_asunto_actual(), horas_max=2)
-        n = len(correos)
+        # Anotar cada correo con su estado de envío
+        for c in correos:
+            envio = _IR_ENVIADOS.get(_clave_envio(c))
+            c["_enviado"] = envio  # dict o None
+        # Pendientes = los no enviados
+        pendientes = [c for c in correos if not c["_enviado"]]
+        n = len(pendientes)
         _IR_PENDIENTES_CACHE.update({"ts": ahora, "count": n})
         return n
     except Exception:
@@ -2963,6 +2969,18 @@ def _html_a_texto(html):
 
 _GMAIL_CACHE = {}
 
+# Memoria en proceso de los correos ya respondidos durante esta sesión de la
+# app. Clave estable: Message-ID del correo entrante (cambia entre apps, no
+# entre re-aperturas del módulo). Si por algún motivo falta el Message-ID,
+# se cae al id de IMAP. Se pierde al reiniciar la app, que es exactamente
+# la semántica que pide el usuario ("memoria por sesión").
+_IR_ENVIADOS = {}  # {clave: {timestamp, destinatario_nombre, destinatario_email, asunto, cuerpo}}
+
+
+def _clave_envio(correo):
+    """Devuelve la clave estable para registrar un correo enviado."""
+    return (correo.get("_message_id") or "").strip() or correo.get("id", "")
+
 
 def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
     """Lee la INBOX de Gmail por IMAP, filtra y devuelve correos.
@@ -3338,11 +3356,16 @@ def relacion_inversores():
             error=f"No se pudo leer la bandeja de Gmail: {e}",
         )
 
+    # Anotar cada correo con su estado de envío en esta sesión.
+    for c in correos:
+        c["_enviado"] = _IR_ENVIADOS.get(_clave_envio(c))  # dict o None
+
     _GMAIL_CACHE.clear()
     _GMAIL_CACHE.update({c["id"]: c for c in correos})
-    # Refrescamos también el contador en caché para que la home lo vea al vuelo.
+    # Refrescamos el contador (pendientes = no enviados aún en esta sesión).
     import time
-    _IR_PENDIENTES_CACHE.update({"ts": time.time(), "count": len(correos)})
+    pendientes = sum(1 for c in correos if not c["_enviado"])
+    _IR_PENDIENTES_CACHE.update({"ts": time.time(), "count": pendientes})
 
     return render_template(
         "relacion_inversores.html",
@@ -3538,9 +3561,24 @@ def relacion_inversores_enviar():
         )
     except Exception as e:
         return jsonify({"ok": False, "error": f"Error al enviar: {e}"}), 500
+
+    timestamp = _dt.now().strftime("%d/%m/%Y %H:%M")
+    # Registramos el envío en memoria de sesión.
+    clave = _clave_envio(correo_orig) if correo_orig else (data.get("correo_id") or "")
+    if clave:
+        _IR_ENVIADOS[clave] = {
+            "timestamp": timestamp,
+            "destinatario_nombre": destinatario_nombre,
+            "destinatario_email": destinatario_email,
+            "asunto": asunto,
+            "cuerpo": cuerpo,
+        }
+        # Invalidamos el cache del contador para que la home se entere ya.
+        _IR_PENDIENTES_CACHE.update({"ts": 0.0, "count": None})
+
     return jsonify({
         "ok": True,
-        "timestamp": _dt.now().strftime("%d/%m/%Y %H:%M"),
+        "timestamp": timestamp,
         "destinatario_nombre": destinatario_nombre,
         "destinatario_email": destinatario_email,
         "asunto": asunto,
