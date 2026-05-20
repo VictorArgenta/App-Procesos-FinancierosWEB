@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}{{ datos.nombre }} — Nota de Memoria — DFin AI{% endblock %}
+{% block title %}{{ datos.nombre }} — Informe Narrativo — DFin AI{% endblock %}
 
 {% block content %}
 <div class="breadcrumbs">
     <a href="/">Inicio</a><span class="sep">/</span>
-    <a href="/analisis">Generación Nota de Memoria</a><span class="sep">/</span>
+    <a href="/analisis">Generar Informe Narrativo</a><span class="sep">/</span>
     <span class="current">{{ datos.ticker }}</span>
 </div>
 
@@ -190,7 +190,7 @@
 </div>
 
 <div class="card memoria-card">
-    <h2>Nota de memoria explicativa</h2>
+    <h2>Informe narrativo</h2>
     {% if instrucciones_iniciales %}
     <div class="alert alert-info" style="margin-bottom: 1rem;">
         <strong>Instrucciones aplicadas en la generación inicial:</strong>
