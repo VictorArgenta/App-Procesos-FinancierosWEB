@@ -58,6 +58,15 @@ def _inyectar_branding():
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
+# Credenciales de Gmail (opcionales). Si están presentes, el módulo de
+# Relación con Inversores ofrece la opción "Leer bandeja de entrada" que se
+# conecta vía IMAP a la cuenta y devuelve los correos cuyo asunto empieza
+# por `IR_PREFIJO_ASUNTO` recibidos en las últimas dos horas. Si faltan,
+# solo está disponible el modo "correos históricos" (los 4 simulados).
+GMAIL_USER = os.getenv("GMAIL_USER")
+GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+IR_PREFIJO_ASUNTO = os.getenv("IR_PREFIJO_ASUNTO", "INVERSORES")
+
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
@@ -2935,6 +2944,170 @@ Equity Analyst — Horizon Asset Management""",
 ]
 
 
+def _decodificar_cabecera(h):
+    """Decodifica cabeceras MIME tipo `=?utf-8?B?...?=` a string Unicode."""
+    if not h:
+        return ""
+    from email.header import decode_header as _dh
+    out = []
+    for trozo, enc in _dh(h):
+        if isinstance(trozo, bytes):
+            try:
+                out.append(trozo.decode(enc or "utf-8", errors="replace"))
+            except (LookupError, UnicodeDecodeError):
+                out.append(trozo.decode("utf-8", errors="replace"))
+        else:
+            out.append(trozo)
+    return "".join(out)
+
+
+def _html_a_texto(html):
+    """Conversión rudimentaria HTML → texto plano."""
+    txt = re.sub(r"(?i)<br\s*/?>", "\n", html)
+    txt = re.sub(r"(?i)</p>", "\n\n", txt)
+    txt = re.sub(r"<[^>]+>", "", txt)
+    txt = re.sub(r"\n{3,}", "\n\n", txt)
+    return txt.strip()
+
+
+_GMAIL_CACHE = {}
+
+
+def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
+    """Lee la INBOX de Gmail por IMAP, filtra y devuelve correos.
+
+    Filtros:
+    - Asunto que EMPIEZA por `prefijo` (case-insensitive).
+    - Recibidos en las últimas `horas_max` horas (medido en hora UTC con
+      precisión real; IMAP solo permite filtrar por día, por lo que el
+      filtro fino se aplica después).
+    """
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        raise RuntimeError(
+            "Faltan GMAIL_USER y/o GMAIL_APP_PASSWORD en el archivo .env"
+        )
+
+    import imaplib
+    import email as _emaillib
+    from email.utils import parseaddr, parsedate_to_datetime
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+
+    desde = _dt.now(_tz.utc) - _td(hours=horas_max)
+    desde_imap_dia = desde.strftime("%d-%b-%Y")
+
+    correos = []
+    with imaplib.IMAP4_SSL("imap.gmail.com", 993) as M:
+        M.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+        M.select("INBOX")
+        criterio = f'(SUBJECT "{prefijo}" SINCE "{desde_imap_dia}")'
+        status, data = M.search(None, criterio)
+        if status != "OK" or not data or not data[0]:
+            return []
+        ids = data[0].split()
+        for num in reversed(ids[-limite:]):
+            status, msg_data = M.fetch(num, "(RFC822)")
+            if status != "OK" or not msg_data or not msg_data[0]:
+                continue
+            msg = _emaillib.message_from_bytes(msg_data[0][1])
+
+            # Fecha del correo
+            try:
+                fecha = parsedate_to_datetime(msg.get("Date", ""))
+                if fecha.tzinfo is None:
+                    fecha = fecha.replace(tzinfo=_tz.utc)
+            except (TypeError, ValueError):
+                fecha = None
+            if fecha and fecha < desde:
+                continue  # más viejo de lo permitido
+
+            subject = _decodificar_cabecera(msg.get("Subject", ""))
+            if not subject.upper().startswith(prefijo.upper()):
+                continue
+
+            from_nombre_raw, from_email = parseaddr(msg.get("From", ""))
+            from_nombre = _decodificar_cabecera(from_nombre_raw) or from_email
+
+            # Cuerpo: preferimos text/plain; fallback a HTML stripped.
+            cuerpo = ""
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain" and "attachment" not in str(part.get("Content-Disposition", "")):
+                        payload = part.get_payload(decode=True) or b""
+                        cuerpo = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
+                        break
+                if not cuerpo:
+                    for part in msg.walk():
+                        if part.get_content_type() == "text/html":
+                            payload = part.get_payload(decode=True) or b""
+                            html = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
+                            cuerpo = _html_a_texto(html)
+                            break
+            else:
+                payload = msg.get_payload(decode=True)
+                if payload:
+                    cuerpo = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
+
+            # Limpiamos el prefijo del asunto para no repetirlo en el "Re:".
+            asunto_limpio = subject
+            if asunto_limpio.upper().startswith(prefijo.upper()):
+                asunto_limpio = asunto_limpio[len(prefijo):].lstrip(" :-—|")
+            if not asunto_limpio:
+                asunto_limpio = subject
+
+            # Heurística minorista vs mayorista por dominio.
+            dominio = from_email.split("@")[-1].lower() if "@" in from_email else ""
+            CONSUMER = {
+                "gmail.com", "hotmail.com", "hotmail.es", "outlook.com", "outlook.es",
+                "yahoo.com", "yahoo.es", "live.com", "icloud.com", "me.com",
+                "telefonica.net", "movistar.es",
+            }
+            es_minorista = dominio in CONSUMER
+            categoria = ("Minorista · Bandeja Gmail" if es_minorista
+                         else "Mayorista · Bandeja Gmail")
+            perfil = ("Inversor minorista" if es_minorista
+                      else f"Inversor corporativo ({dominio})")
+
+            correos.append({
+                "id": f"gmail-{num.decode()}",
+                "remitente_nombre": (from_nombre or "").strip(),
+                "remitente_email": (from_email or "").strip(),
+                "remitente_perfil": perfil,
+                "asunto": asunto_limpio.strip(),
+                "categoria": categoria,
+                "cuerpo": (cuerpo or "").strip(),
+                "_message_id": msg.get("Message-ID", ""),
+                "_fecha": fecha.strftime("%d/%m/%Y %H:%M") if fecha else "",
+            })
+    return correos
+
+
+def _enviar_correo_smtp(destinatario_email, destinatario_nombre, asunto,
+                        cuerpo, in_reply_to=None):
+    """Envía un correo real vía SMTP de Gmail (SSL en :465)."""
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        raise RuntimeError(
+            "Faltan GMAIL_USER y/o GMAIL_APP_PASSWORD para enviar el correo."
+        )
+    import smtplib
+    from email.mime.text import MIMEText
+    from email.utils import formataddr, formatdate, make_msgid
+
+    msg = MIMEText(cuerpo or "", "plain", "utf-8")
+    remite = f"IR — {_BRANDING.get('empresa') or 'Equipo de IR'}"
+    msg["From"] = formataddr((remite, GMAIL_USER))
+    msg["To"] = formataddr((destinatario_nombre or "", destinatario_email))
+    msg["Subject"] = asunto or ""
+    msg["Date"] = formatdate(localtime=True)
+    msg["Message-ID"] = make_msgid()
+    if in_reply_to:
+        msg["In-Reply-To"] = in_reply_to
+        msg["References"] = in_reply_to
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+        server.send_message(msg)
+
+
 def _correos_ir_renderizados():
     """Sustituye los placeholders {empresa} y {ticker} con el branding actual."""
     empresa = _BRANDING.get("empresa") or TICKER_FIJO or "la compañía"
@@ -3038,12 +3211,67 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
 
 @app.route("/relacion-inversores")
 def relacion_inversores():
+    """Landing: elige fuente de correos (históricos simulados o Gmail real)."""
+    return render_template(
+        "relacion_inversores_landing.html",
+        gmail_configurado=bool(GMAIL_USER and GMAIL_APP_PASSWORD),
+        gmail_user=GMAIL_USER,
+        prefijo=IR_PREFIJO_ASUNTO,
+    )
+
+
+@app.route("/relacion-inversores/historicos")
+def relacion_inversores_historicos():
     correos = _correos_ir_renderizados()
     return render_template(
         "relacion_inversores.html",
         correos=correos,
         modelo_actual=MODELO_POR_DEFECTO,
+        fuente="historicos",
+        prefijo=IR_PREFIJO_ASUNTO,
     )
+
+
+@app.route("/relacion-inversores/gmail")
+def relacion_inversores_gmail():
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        return render_template(
+            "relacion_inversores_landing.html",
+            gmail_configurado=False,
+            prefijo=IR_PREFIJO_ASUNTO,
+            error="Para usar la bandeja en vivo necesitas configurar GMAIL_USER "
+                  "y GMAIL_APP_PASSWORD en el archivo .env y reiniciar la app.",
+        )
+    try:
+        correos = _leer_bandeja_gmail(IR_PREFIJO_ASUNTO, horas_max=2)
+    except Exception as e:
+        return render_template(
+            "relacion_inversores_landing.html",
+            gmail_configurado=True,
+            gmail_user=GMAIL_USER,
+            prefijo=IR_PREFIJO_ASUNTO,
+            error=f"No se pudo leer la bandeja de Gmail: {e}",
+        )
+
+    # Cache para que /resolver y /enviar puedan recuperar el correo original.
+    _GMAIL_CACHE.clear()
+    _GMAIL_CACHE.update({c["id"]: c for c in correos})
+
+    return render_template(
+        "relacion_inversores.html",
+        correos=correos,
+        modelo_actual=MODELO_POR_DEFECTO,
+        fuente="gmail",
+        prefijo=IR_PREFIJO_ASUNTO,
+        gmail_user=GMAIL_USER,
+    )
+
+
+def _buscar_correo_ir(correo_id, fuente):
+    """Localiza un correo por su id en la fuente correspondiente."""
+    if fuente == "gmail":
+        return _GMAIL_CACHE.get(correo_id)
+    return next((c for c in _correos_ir_renderizados() if c["id"] == correo_id), None)
 
 
 @app.route("/relacion-inversores/resolver", methods=["POST"])
@@ -3051,10 +3279,12 @@ def relacion_inversores_resolver():
     from flask import jsonify
     data = request.get_json(silent=True) or {}
     correo_id = (data.get("correo_id") or "").strip()
+    fuente = (data.get("fuente") or "historicos").strip()
     modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
-    correo = next((c for c in _correos_ir_renderizados() if c["id"] == correo_id), None)
+
+    correo = _buscar_correo_ir(correo_id, fuente)
     if not correo:
-        return jsonify({"ok": False, "error": "Correo no encontrado"}), 404
+        return jsonify({"ok": False, "error": "Correo no encontrado en la fuente actual."}), 404
 
     datos = _cargar_datos_ticker_fijo() if TICKER_FIJO else None
     try:
@@ -3076,12 +3306,41 @@ def relacion_inversores_enviar():
     from flask import jsonify
     from datetime import datetime as _dt
     data = request.get_json(silent=True) or {}
+    fuente = (data.get("fuente") or "historicos").strip()
+    destinatario_nombre = data.get("destinatario_nombre", "")
+    destinatario_email = data.get("destinatario_email", "")
+    asunto = data.get("asunto", "")
+    cuerpo = data.get("cuerpo", "")
+
+    if fuente == "gmail":
+        correo_orig = _GMAIL_CACHE.get(data.get("correo_id") or "") or {}
+        try:
+            _enviar_correo_smtp(
+                destinatario_email=destinatario_email,
+                destinatario_nombre=destinatario_nombre,
+                asunto=asunto,
+                cuerpo=cuerpo,
+                in_reply_to=correo_orig.get("_message_id"),
+            )
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"Error al enviar el correo real: {e}"}), 500
+        return jsonify({
+            "ok": True,
+            "timestamp": _dt.now().strftime("%d/%m/%Y %H:%M"),
+            "destinatario_nombre": destinatario_nombre,
+            "destinatario_email": destinatario_email,
+            "asunto": asunto,
+            "enviado_real": True,
+        })
+
+    # Modo históricos: simulado.
     return jsonify({
         "ok": True,
         "timestamp": _dt.now().strftime("%d/%m/%Y %H:%M"),
-        "destinatario_nombre": data.get("destinatario_nombre", ""),
-        "destinatario_email": data.get("destinatario_email", ""),
-        "asunto": data.get("asunto", ""),
+        "destinatario_nombre": destinatario_nombre,
+        "destinatario_email": destinatario_email,
+        "asunto": asunto,
+        "enviado_real": False,
     })
 
 

@@ -181,9 +181,28 @@
     <div>
         <span class="eyebrow">Módulo · Atención al inversor</span>
         <h1>Relación con Inversores</h1>
-        <p class="lead">Bandeja de entrada con consultas reales del equipo de IR de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}. Pulsa <strong>Resolver con IA</strong> en cada correo: la asistente analizará si puede responder, y prepará un borrador editable para que lo revises antes de enviar.</p>
+        {% if fuente == 'gmail' %}
+        <p class="lead">
+            <span class="tag tag-green" style="margin-right: 0.4rem;">Bandeja en vivo · Gmail</span>
+            Correos recibidos en <strong>{{ gmail_user }}</strong> en las últimas <strong>2 horas</strong> cuyo asunto empieza por <code>{{ prefijo }}</code>. El botón <strong>Enviar</strong> mandará la respuesta <strong>real</strong> al inversor.
+        </p>
+        {% else %}
+        <p class="lead">
+            <span class="tag tag-blue" style="margin-right: 0.4rem;">Demo · Correos históricos</span>
+            Bandeja simulada con 4 consultas predefinidas. El envío es simulado (no se manda ningún correo real).
+        </p>
+        {% endif %}
+        <p style="font-size: 0.85rem; color: var(--gray-10); margin-top: 0.4rem;">
+            <a href="/relacion-inversores">← Cambiar fuente de correos</a>
+        </p>
     </div>
 </div>
+
+{% if fuente == 'gmail' and correos|length == 0 %}
+<div class="alert alert-info">
+    No hay correos en <strong>{{ gmail_user }}</strong> recibidos en las últimas 2 horas cuyo asunto empiece por <code>{{ prefijo }}</code>. Envía un correo de prueba y vuelve a entrar.
+</div>
+{% endif %}
 
 <div class="card" style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
     <label for="ir-modelo" style="font-weight:600; font-size:0.82rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--gray-11); margin:0;">Modelo de IA</label>
@@ -206,11 +225,12 @@
 {% set tipo = 'mayorista' if 'Mayorista' in correo.categoria else 'minorista' %}
 <div class="card ir-card {{ tipo }}" data-correo-id="{{ correo.id }}"
      data-destinatario-nombre="{{ correo.remitente_nombre }}"
-     data-destinatario-email="{{ correo.remitente_email }}">
+     data-destinatario-email="{{ correo.remitente_email }}"
+     data-fuente="{{ fuente }}">
     <div class="ir-card-head">
         <div>
             <div class="ir-from"><strong>{{ correo.remitente_nombre }}</strong> <span class="email">&lt;{{ correo.remitente_email }}&gt;</span></div>
-            <div class="ir-perfil">{{ correo.remitente_perfil }}</div>
+            <div class="ir-perfil">{{ correo.remitente_perfil }}{% if correo._fecha %} · <span style="color: var(--gray-10);">recibido {{ correo._fecha }}</span>{% endif %}</div>
         </div>
         <span class="ir-cat {{ tipo }}">{{ correo.categoria }}</span>
     </div>
@@ -318,7 +338,11 @@
                 const r = await fetch(RESOLVER_URL, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({correo_id: correoId, modelo: modeloElegido()})
+                    body: JSON.stringify({
+                        correo_id: correoId,
+                        modelo: modeloElegido(),
+                        fuente: card.dataset.fuente,
+                    })
                 });
                 const j = await r.json();
                 thinking.hidden = true;
@@ -368,6 +392,7 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         correo_id: correoId,
+                        fuente: card.dataset.fuente,
                         destinatario_nombre: card.dataset.destinatarioNombre,
                         destinatario_email: card.dataset.destinatarioEmail,
                         asunto: inputAsunto.value,
@@ -376,7 +401,10 @@
                 });
                 const j = await r.json();
                 if (j.ok) {
-                    stEnviado.innerHTML = `✓ Respuesta enviada a <strong>${j.destinatario_nombre}</strong> &lt;${j.destinatario_email}&gt; · ${j.timestamp}`;
+                    const etiqueta = j.enviado_real
+                        ? '✓ Correo <strong>enviado</strong> a'
+                        : '✓ Envío simulado a';
+                    stEnviado.innerHTML = `${etiqueta} <strong>${j.destinatario_nombre}</strong> &lt;${j.destinatario_email}&gt; · ${j.timestamp}`;
                     stEnviado.hidden = false;
                     // Tras enviar: bloquear toda interacción con este correo
                     inputAsunto.disabled = true;
