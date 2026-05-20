@@ -32,14 +32,27 @@
             <h2>Relación con Inversores</h2>
             <span class="tag tag-green">Disponible</span>
         </div>
-        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Bandeja simulada con consultas de inversores minoristas y mayoristas. La IA valora si puede responder con datos públicos o de internet y prepara el borrador de correo para que lo revises antes de enviar.</p>
-        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
-            <li>Cuatro consultas de perfiles distintos</li>
-            <li>Resolución automática con datos de Yahoo + web</li>
-            <li>Borrador editable y envío simulado</li>
-            <li>Detección honesta de datos no públicos</li>
-        </ul>
-        <div style="margin-top: 1rem;"><a href="/relacion-inversores" class="btn btn-primary">Acceder</a></div>
+        <p style="color: var(--gray-10); margin-bottom: 0.8rem; line-height: 1.5; font-size: 0.9rem;">Consultas reales del equipo de IR de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %} recibidas en las últimas 2 horas.</p>
+        <div style="display:flex; align-items:center; gap:1rem; margin: 0.8rem 0;">
+            {% if ir_pendientes is none %}
+            <div style="font-size: 0.92rem; color: var(--gray-10); padding: 0.5rem 0;">
+                <strong>Bandeja Gmail no conectada.</strong><br>
+                <span style="font-size: 0.82rem;">Configura <code>GMAIL_USER</code> y <code>GMAIL_APP_PASSWORD</code> en <code>.env</code> para activarla.</span>
+            </div>
+            {% else %}
+            <div style="font-size: 3.2rem; font-weight: 800; color: {% if ir_pendientes > 0 %}#43B02A{% else %}var(--gray-9){% endif %}; line-height: 1; min-width: 70px; text-align: center;">{{ ir_pendientes }}</div>
+            <div style="font-size: 0.88rem; color: var(--gray-11); line-height: 1.4;">
+                {% if ir_pendientes == 0 %}
+                  Sin correos pendientes con el filtro <code>{{ ir_prefijo }}</code>.
+                {% elif ir_pendientes == 1 %}
+                  correo pendiente con el filtro <code>{{ ir_prefijo }}</code>.
+                {% else %}
+                  correos pendientes con el filtro <code>{{ ir_prefijo }}</code>.
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        <div style="margin-top: 1rem;"><a href="/relacion-inversores" class="btn btn-primary">{% if ir_pendientes and ir_pendientes > 0 %}Atender bandeja{% else %}Abrir bandeja{% endif %}</a></div>
     </div>
 
     <div class="card" style="border-top: 3px solid #A7A8AA;">
