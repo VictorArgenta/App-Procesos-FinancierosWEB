@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Relación con Inversores — {{ EMPRESA_NOMBRE }}{% endblock %}
+
+{% block content %}
+<style>
+    .ir-card { border-left: 4px solid var(--gray-border); margin-bottom: 1rem; }
+    .ir-card.minorista { border-left-color: #1976D2; }
+    .ir-card.mayorista { border-left-color: #6A1B9A; }
+    .ir-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        margin-bottom: 0.4rem;
+    }
+    .ir-from { font-size: 0.9rem; color: var(--gray-11); }
+    .ir-from strong { color: var(--black); }
+    .ir-from .email { color: var(--gray-10); font-weight: 400; }
+    .ir-perfil { color: var(--gray-10); font-size: 0.78rem; margin-top: 2px; }
+    .ir-cat {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        background: var(--gray-bg);
+        color: var(--gray-11);
+        white-space: nowrap;
+    }
+    .ir-cat.minorista { background: #E3F2FD; color: #0D47A1; }
+    .ir-cat.mayorista { background: #F3E5F5; color: #4A148C; }
+    .ir-asunto { font-weight: 700; margin: 0.4rem 0; color: var(--black); }
+    .ir-cuerpo {
+        background: #FAFAFA;
+        border: 1px solid var(--gray-border);
+        border-radius: 3px;
+        padding: 0.8rem 1rem;
+        font-family: 'Inter', system-ui, sans-serif;
+        white-space: pre-wrap;
+        font-size: 0.88rem;
+        line-height: 1.55;
+        margin-bottom: 0.8rem;
+    }
+    .ir-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .ir-respuesta {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed var(--gray-border);
+    }
+    .ir-respuesta[hidden] { display: none; }
+    .ir-status {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.6rem 0.9rem;
+        border-radius: 3px;
+        font-size: 0.85rem;
+        margin-bottom: 0.7rem;
+    }
+    .ir-status.thinking { background: #FFF8E1; color: #5D4037; border: 1px solid #FFE082; }
+    .ir-status.resoluble { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
+    .ir-status.no-resoluble { background: #FFF3E0; color: #BF360C; border: 1px solid #FFCC80; }
+    .ir-status.enviado { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
+    .ir-status.error { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
+    .ir-spinner {
+        width: 14px; height: 14px;
+        border: 2px solid rgba(0,0,0,0.15);
+        border-top-color: currentColor;
+        border-radius: 50%;
+        animation: ir-spin 0.7s linear infinite;
+    }
+    @keyframes ir-spin { to { transform: rotate(360deg); } }
+    .ir-respuesta label { font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-11); }
+    .ir-respuesta input[type="text"], .ir-respuesta textarea {
+        width: 100%;
+        font-family: inherit;
+        font-size: 0.88rem;
+        border: 1px solid var(--gray-border);
+        border-radius: 3px;
+        padding: 0.6rem 0.8rem;
+        margin: 0.3rem 0 0.8rem;
+        background: #fff;
+    }
+    .ir-respuesta textarea { min-height: 240px; line-height: 1.5; }
+    .ir-nota-interna {
+        background: #F5F5F5;
+        border-left: 3px solid var(--gray-border);
+        padding: 0.5rem 0.8rem;
+        font-size: 0.82rem;
+        color: var(--gray-11);
+        margin-bottom: 0.8rem;
+        font-style: italic;
+    }
+</style>
+
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span class="current">Relación con Inversores</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Módulo · Atención al inversor</span>
+        <h1>Relación con Inversores</h1>
+        <p class="lead">Bandeja de entrada simulada con consultas reales que recibe el equipo de IR de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}. Pulsa <strong>Resolver con IA</strong> en cada correo y la asistente valorará si puede contestar con datos públicos; si no, dejará el borrador para que lo completes manualmente.</p>
+    </div>
+</div>
+
+{% for correo in correos %}
+{% set tipo = 'mayorista' if 'Mayorista' in correo.categoria else 'minorista' %}
+<div class="card ir-card {{ tipo }}" data-correo-id="{{ correo.id }}">
+    <div class="ir-header">
+        <div>
+            <div class="ir-from"><strong>{{ correo.remitente_nombre }}</strong> <span class="email">&lt;{{ correo.remitente_email }}&gt;</span></div>
+            <div class="ir-perfil">{{ correo.remitente_perfil }}</div>
+        </div>
+        <span class="ir-cat {{ tipo }}">{{ correo.categoria }}</span>
+    </div>
+
+    <div class="ir-asunto">{{ correo.asunto }}</div>
+    <div class="ir-cuerpo">{{ correo.cuerpo }}</div>
+
+    <div class="ir-actions">
+        <button type="button" class="btn btn-primary btn-resolver">Resolver con IA</button>
+        <span class="ir-status thinking" hidden>
+            <span class="ir-spinner"></span> La IA está analizando el correo y los datos disponibles…
+        </span>
+    </div>
+
+    <div class="ir-respuesta" hidden>
+        <div class="ir-nota-interna"></div>
+
+        <div class="ir-status resoluble" hidden></div>
+        <div class="ir-status no-resoluble" hidden></div>
+
+        <label>Asunto</label>
+        <input type="text" class="ir-input-asunto">
+
+        <label>Cuerpo del correo de respuesta</label>
+        <textarea class="ir-input-cuerpo"></textarea>
+
+        <div class="ir-actions">
+            <button type="button" class="btn btn-primary btn-enviar">Enviar respuesta</button>
+            <button type="button" class="btn btn-secondary btn-descartar">Descartar borrador</button>
+            <span class="ir-status enviado" hidden></span>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<script>
+(function() {
+    const RESOLVER_URL = '/relacion-inversores/resolver';
+    const ENVIAR_URL = '/relacion-inversores/enviar';
+
+    function $(el, sel) { return el.querySelector(sel); }
+
+    document.querySelectorAll('.ir-card').forEach(card => {
+        const correoId = card.dataset.correoId;
+        const btnResolver = $(card, '.btn-resolver');
+        const statusThinking = card.querySelectorAll('.ir-status.thinking')[0];
+        const respuesta = $(card, '.ir-respuesta');
+        const nota = $(card, '.ir-nota-interna');
+        const stResoluble = $(card, '.ir-status.resoluble');
+        const stNoResoluble = $(card, '.ir-status.no-resoluble');
+        const inputAsunto = $(card, '.ir-input-asunto');
+        const inputCuerpo = $(card, '.ir-input-cuerpo');
+        const btnEnviar = $(card, '.btn-enviar');
+        const btnDescartar = $(card, '.btn-descartar');
+        const stEnviado = $(card, '.ir-status.enviado');
+
+        btnResolver.addEventListener('click', async () => {
+            statusThinking.hidden = false;
+            btnResolver.disabled = true;
+            respuesta.hidden = true;
+            stEnviado.hidden = true;
+            stResoluble.hidden = true;
+            stNoResoluble.hidden = true;
+
+            try {
+                const r = await fetch(RESOLVER_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({correo_id: correoId})
+                });
+                const j = await r.json();
+                statusThinking.hidden = true;
+                btnResolver.disabled = false;
+                if (!j.ok) {
+                    alert('Error: ' + (j.error || 'fallo desconocido'));
+                    return;
+                }
+                card.dataset.destinatarioNombre = j.destinatario_nombre || '';
+                card.dataset.destinatarioEmail = j.destinatario_email || '';
+                inputAsunto.value = j.asunto_respuesta || '';
+                inputCuerpo.value = j.cuerpo_respuesta || '';
+                nota.textContent = j.nota_interna || '';
+                nota.hidden = !j.nota_interna;
+                if (j.puede_resolver) {
+                    stResoluble.textContent = '✓ La IA pudo resolver la consulta con datos públicos. Revisa el borrador, edítalo si lo necesitas y pulsa Enviar.';
+                    stResoluble.hidden = false;
+                } else {
+                    stNoResoluble.textContent = '⚠ La IA no dispone de toda la información solicitada. Ha dejado un borrador parcial con [PENDIENTE: …] marcando lo que debes completar antes de enviar.';
+                    stNoResoluble.hidden = false;
+                }
+                respuesta.hidden = false;
+                btnResolver.textContent = 'Volver a generar';
+            } catch (err) {
+                statusThinking.hidden = true;
+                btnResolver.disabled = false;
+                alert('Error de red: ' + err.message);
+            }
+        });
+
+        btnDescartar.addEventListener('click', () => {
+            respuesta.hidden = true;
+            stEnviado.hidden = true;
+            btnResolver.textContent = 'Resolver con IA';
+        });
+
+        btnEnviar.addEventListener('click', async () => {
+            btnEnviar.disabled = true;
+            try {
+                const r = await fetch(ENVIAR_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        correo_id: correoId,
+                        destinatario_nombre: card.dataset.destinatarioNombre,
+                        destinatario_email: card.dataset.destinatarioEmail,
+                        asunto: inputAsunto.value,
+                        cuerpo: inputCuerpo.value,
+                    })
+                });
+                const j = await r.json();
+                if (j.ok) {
+                    stEnviado.className = 'ir-status enviado';
+                    stEnviado.textContent = `✓ Respuesta enviada a ${j.destinatario_nombre} <${j.destinatario_email}> · ${j.timestamp}`;
+                    stEnviado.hidden = false;
+                    btnEnviar.disabled = true;
+                    btnDescartar.disabled = true;
+                    inputAsunto.disabled = true;
+                    inputCuerpo.disabled = true;
+                    btnResolver.disabled = true;
+                } else {
+                    stEnviado.className = 'ir-status error';
+                    stEnviado.textContent = 'Error al enviar: ' + (j.error || '');
+                    stEnviado.hidden = false;
+                    btnEnviar.disabled = false;
+                }
+            } catch (err) {
+                btnEnviar.disabled = false;
+                alert('Error de red: ' + err.message);
+            }
+        });
+    });
+})();
+</script>
+{% endblock %}
