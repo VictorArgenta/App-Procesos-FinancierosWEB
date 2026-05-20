@@ -2839,6 +2839,246 @@ def comparador():
     return render_template("comparador.html", modelo_seleccionado=MODELO_POR_DEFECTO)
 
 
+# =============================================================================
+# Módulo: Relación con Inversores
+# Cuatro correos simulados de inversores (minoristas y mayoristas). El usuario
+# pide a la IA un borrador de respuesta; la IA decide si puede resolver con
+# datos públicos de Yahoo Finance + búsqueda web, o si tiene que dejar el
+# correo medio hecho para que el equipo humano de IR lo complete.
+# =============================================================================
+_CORREOS_IR = [
+    {
+        "id": "minorista_bpa",
+        "remitente_nombre": "Laura Méndez",
+        "remitente_email": "laura.mendez88@gmail.com",
+        "remitente_perfil": "Inversora minorista particular",
+        "asunto": "Duda sobre la evolución del beneficio por acción",
+        "categoria": "Minorista · Datos públicos",
+        "cuerpo": """Buenos días,
+
+Soy una pequeña inversora particular y estoy pensando en abrir una posición en {empresa}. Antes de dar el paso me gustaría entender cómo ha evolucionado el beneficio por acción de la compañía en los últimos 3-4 años y si la tendencia es estable o ha habido saltos relevantes que conviene tener en cuenta.
+
+¿Podríais darme un resumen rápido? No soy profesional del sector y necesito entenderlo sin tecnicismos.
+
+Muchas gracias por vuestro tiempo.
+
+Un saludo,
+Laura Méndez""",
+    },
+    {
+        "id": "fondo_ratios",
+        "remitente_nombre": "Carlos Ferrer, CFA",
+        "remitente_email": "c.ferrer@altea-capital.es",
+        "remitente_perfil": "Senior Portfolio Manager — Altea Capital Partners",
+        "asunto": "Apalancamiento y conversión de caja — solicitud de aclaración",
+        "categoria": "Mayorista · Cálculo sobre datos públicos",
+        "cuerpo": """Estimado equipo de Relación con Inversores,
+
+Les escribo desde Altea Capital Partners. En el marco de la revisión anual de nuestra exposición a {ticker} necesitaríamos confirmar tres puntos relativos al último ejercicio cerrado:
+
+  1. Ratio Deuda Neta / EBITDA.
+  2. Porcentaje de conversión de EBITDA a Flujo de Caja Libre.
+  3. Evolución del CAPEX como porcentaje de ingresos en los últimos tres ejercicios.
+
+Si pudieran adjuntar también el comparable del ejercicio anterior se lo agradeceríamos, así como cualquier matiz que consideren relevante (efectos extraordinarios, partidas no recurrentes, etc.) que pueda distorsionar la lectura de los ratios.
+
+Quedo a su disposición para cualquier aclaración.
+
+Atentamente,
+
+Carlos Ferrer, CFA
+Senior Portfolio Manager — Altea Capital Partners""",
+    },
+    {
+        "id": "minorista_noticias",
+        "remitente_nombre": "Andrés Vega",
+        "remitente_email": "vegaandres74@hotmail.com",
+        "remitente_perfil": "Accionista minorista veterano",
+        "asunto": "¿Hay alguna novedad reciente que me deba preocupar?",
+        "categoria": "Minorista · Requiere búsqueda web",
+        "cuerpo": """Hola,
+
+Llevo varios años con acciones de {empresa} y últimamente he leído algunos titulares hablando de novedades del sector y de la propia compañía. Como no soy inversor profesional, no tengo tiempo de seguir todo lo que se publica y me genera bastante incertidumbre.
+
+¿Podríais resumirme en pocas líneas si en los últimos meses ha habido alguna noticia relevante —resultados, regulación, adquisiciones, cambios en la dirección, etc.— que pueda afectar a la cotización a medio plazo? Me ayudaría mucho tener una visión clara directamente de la fuente oficial para no quedarme solo con lo que dice la prensa.
+
+Gracias por vuestra atención.
+
+Saludos,
+Andrés Vega""",
+    },
+    {
+        "id": "institucional_kpis",
+        "remitente_nombre": "Marina Solé",
+        "remitente_email": "marina.sole@horizon-asset.com",
+        "remitente_perfil": "Equity Analyst — Horizon Asset Management",
+        "asunto": "Petición de KPIs operativos internos del Q4",
+        "categoria": "Mayorista · Datos no públicos",
+        "cuerpo": """Buenos días, equipo de Relación con Inversores,
+
+Soy analista de renta variable en Horizon Asset Management y actualmente estamos modelando {empresa} de cara a la próxima revisión de nuestro fondo sectorial. Necesitaríamos disponer de los siguientes datos del cuarto trimestre cerrado, que no aparecen desglosados en el informe trimestral público:
+
+  1. Margen EBITDA desglosado por línea de negocio.
+  2. Porcentaje de ingresos recurrentes vs no recurrentes por segmento geográfico.
+  3. Tasa de churn de clientes corporativos durante el trimestre.
+  4. Coste medio de adquisición de cliente (CAC) y, si disponen del dato, LTV/CAC del último ejercicio.
+
+Si alguno de estos datos puede facilitarse bajo NDA o como guidance no público, agradeceríamos poder agendar una llamada de 30 minutos con el equipo de IR a su mejor conveniencia durante las próximas dos semanas.
+
+Quedamos a la espera de su respuesta.
+
+Saludos cordiales,
+
+Marina Solé
+Equity Analyst — Horizon Asset Management""",
+    },
+]
+
+
+def _correos_ir_renderizados():
+    """Sustituye los placeholders {empresa} y {ticker} con el branding actual."""
+    empresa = _BRANDING.get("empresa") or TICKER_FIJO or "la compañía"
+    ticker = TICKER_FIJO or ""
+    out = []
+    for c in _CORREOS_IR:
+        cuerpo = c["cuerpo"].replace("{empresa}", empresa).replace("{ticker}", ticker)
+        out.append({**c, "cuerpo": cuerpo})
+    return out
+
+
+def _resolver_correo_ir(correo, datos):
+    """Pide al modelo un borrador de respuesta para un correo de IR.
+
+    Devuelve un dict con `puede_resolver`, `asunto_respuesta`, `cuerpo_respuesta`
+    y `nota_interna`.
+    """
+    empresa = _BRANDING.get("empresa") or TICKER_FIJO or "la compañía"
+    ticker = TICKER_FIJO or ""
+    tabla = _texto_datos_para_prompt(datos) if datos else "(no hay datos financieros disponibles en este momento)"
+
+    prompt = f"""Eres el equipo de Relación con Inversores de {empresa} ({ticker}).
+Acabas de recibir el siguiente correo electrónico de un inversor.
+
+[CORREO RECIBIDO]
+De: {correo['remitente_nombre']} <{correo['remitente_email']}>
+Perfil del remitente: {correo['remitente_perfil']}
+Asunto: {correo['asunto']}
+
+Cuerpo:
+{correo['cuerpo']}
+[FIN DEL CORREO]
+
+Tu tarea:
+1. Analiza si puedes responder a la consulta con (a) los datos financieros
+   PÚBLICOS de Yahoo Finance que se adjuntan más abajo, o (b) información
+   pública que puedas localizar mediante búsqueda web sobre {empresa}.
+2. Si puedes responder, redacta un BORRADOR PROFESIONAL adecuado al perfil
+   del remitente:
+   - Minorista → lenguaje claro y didáctico, evita tecnicismos.
+   - Profesional / institucional → tono técnico, conciso, cifras exactas.
+   Usa cifras CONCRETAS y EXACTAS de los datos provistos cuando aplique.
+   Formato europeo: separador de miles ".", decimal ",".
+   No incluyas en el cuerpo ningún listado de URLs ni "Fuentes consultadas":
+   la información debe estar integrada en la respuesta como hechos.
+3. Si NO puedes responder porque los datos solicitados son internos, no
+   públicos o no están disponibles ni en Yahoo ni en internet, marca
+   `puede_resolver` = false. El borrador alternativo debe:
+   (a) reconocer cortésmente la solicitud,
+   (b) explicar honestamente que esa información no es pública o no se
+       desglosa a ese nivel,
+   (c) ofrecer lo que sí está disponible o proponer un canal alternativo
+       (call con IR, reunión, próximo earnings call),
+   (d) marcar entre corchetes [PENDIENTE: ...] los datos concretos que el
+       equipo humano de IR deberá completar antes de enviar.
+
+FORMATO DE SALIDA OBLIGATORIO — devuelve EXCLUSIVAMENTE un objeto JSON
+válido, sin comentarios, sin texto antes ni después, sin acentos graves:
+
+{{
+  "puede_resolver": true,
+  "asunto_respuesta": "Re: {correo['asunto']}",
+  "cuerpo_respuesta": "Estimado/a ...\\n\\n[respuesta completa]\\n\\nUn saludo,\\nEquipo de Relación con Inversores — {empresa}",
+  "nota_interna": "1-2 frases para el usuario: qué he podido resolver, qué datos he usado, qué he dejado pendiente."
+}}
+"""
+
+    if datos:
+        prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
+
+    texto, _citas = llamar_ia_con_reintentos(
+        prompt, max_tokens=2500, modelo=MODELO_POR_DEFECTO, permitir_busqueda=True,
+    )
+
+    import json as _json
+    bloque = re.search(r"\{.*\}", texto or "", re.DOTALL)
+    if not bloque:
+        return {
+            "puede_resolver": False,
+            "asunto_respuesta": f"Re: {correo['asunto']}",
+            "cuerpo_respuesta": (texto or "").strip() or "[La IA no devolvió respuesta]",
+            "nota_interna": "La IA no devolvió JSON válido; se muestra el texto bruto.",
+        }
+    try:
+        parsed = _json.loads(bloque.group(0), strict=False)
+    except _json.JSONDecodeError:
+        return {
+            "puede_resolver": False,
+            "asunto_respuesta": f"Re: {correo['asunto']}",
+            "cuerpo_respuesta": bloque.group(0),
+            "nota_interna": "JSON no parseable; se muestra el bloque tal cual.",
+        }
+    # Saneo defensivo
+    parsed.setdefault("puede_resolver", False)
+    parsed.setdefault("asunto_respuesta", f"Re: {correo['asunto']}")
+    parsed.setdefault("cuerpo_respuesta", "")
+    parsed.setdefault("nota_interna", "")
+    return parsed
+
+
+@app.route("/relacion-inversores")
+def relacion_inversores():
+    correos = _correos_ir_renderizados()
+    return render_template("relacion_inversores.html", correos=correos)
+
+
+@app.route("/relacion-inversores/resolver", methods=["POST"])
+def relacion_inversores_resolver():
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    correo_id = (data.get("correo_id") or "").strip()
+    correo = next((c for c in _correos_ir_renderizados() if c["id"] == correo_id), None)
+    if not correo:
+        return jsonify({"ok": False, "error": "Correo no encontrado"}), 404
+
+    datos = _cargar_datos_ticker_fijo() if TICKER_FIJO else None
+    try:
+        resultado = _resolver_correo_ir(correo, datos)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Error al resolver: {e}"}), 500
+
+    return jsonify({
+        "ok": True,
+        "correo_id": correo_id,
+        "destinatario_nombre": correo["remitente_nombre"],
+        "destinatario_email": correo["remitente_email"],
+        **resultado,
+    })
+
+
+@app.route("/relacion-inversores/enviar", methods=["POST"])
+def relacion_inversores_enviar():
+    from flask import jsonify
+    from datetime import datetime as _dt
+    data = request.get_json(silent=True) or {}
+    return jsonify({
+        "ok": True,
+        "timestamp": _dt.now().strftime("%d/%m/%Y %H:%M"),
+        "destinatario_nombre": data.get("destinatario_nombre", ""),
+        "destinatario_email": data.get("destinatario_email", ""),
+        "asunto": data.get("asunto", ""),
+    })
+
+
 @app.route("/descargar_word", methods=["POST"])
 def descargar_word():
     cache_id = request.form.get("cache_id", "")
