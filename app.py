@@ -274,8 +274,11 @@ def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4,
 
     max_output_tokens = max(max_tokens * 4, 8192)
 
-    # Gemini 2.5 usa `google_search`; 1.5 usaba `google_search_retrieval`.
-    # Configuramos ambos como fallback silencioso.
+    # Gemini 2.5+ usa `google_search`. La variante antigua
+    # `google_search_retrieval` (Gemini 1.5) ya no está soportada y devuelve
+    # 400, por eso no la usamos como fallback. Si la búsqueda con
+    # `google_search` falla, reintentamos SIN herramientas para que el
+    # contenido siga generándose con el conocimiento del modelo + el prompt.
     tools_config = None
     if permitir_busqueda:
         tools_config = [{"google_search": {}}]
@@ -298,9 +301,17 @@ def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4,
             try:
                 respuesta = _ejecutar(tools_config)
             except Exception as primary_err:
-                # Fallback: probar el otro identificador del tool antes de reintentar
-                if permitir_busqueda and "google_search_retrieval" not in str(primary_err):
-                    respuesta = _ejecutar([{"google_search_retrieval": {}}])
+                # Si el problema viene de la herramienta de búsqueda, hacemos
+                # un retry sin herramientas (sigue siendo útil para el
+                # usuario, sólo perdemos la posibilidad de citar noticias).
+                msg = str(primary_err).lower()
+                es_error_de_tool = (
+                    "google_search" in msg
+                    or "tool" in msg
+                    or "grounding" in msg
+                )
+                if permitir_busqueda and es_error_de_tool:
+                    respuesta = _ejecutar(None)
                 else:
                     raise
             texto = _extraer_texto_gemini(respuesta)
