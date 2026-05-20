@@ -2914,6 +2914,44 @@ def _decodificar_cabecera(h):
     return "".join(out)
 
 
+def _limpiar_disclaimer_correo(cuerpo):
+    """Corta los disclaimers legales del final del correo.
+
+    Detecta el primer "punto de corte" típico (separadores largos de
+    guiones, líneas de subrayados, o frases canónicas de cláusulas de
+    confidencialidad) y devuelve sólo el texto anterior. Si no encuentra
+    nada, devuelve el cuerpo intacto.
+    """
+    if not cuerpo:
+        return cuerpo
+    # Separadores: 8 o más guiones, em-dashes o subrayados consecutivos en
+    # una línea. Cubre los típicos `-----`, `———`, `_____`.
+    patrones = [
+        r"\n[ \t]*[-–—]{8,}[ \t]*\n",
+        r"\n[ \t]*_{8,}[ \t]*\n",
+        r"\n[ \t]*\*{8,}[ \t]*\n",
+        r"\n[ \t]*={8,}[ \t]*\n",
+        # Frases inequívocas de disclaimer; cortamos justo antes.
+        r"\n(?=[ \t]*(?:Este (?:mensaje|correo|e-?mail|email)"
+        r"|AVISO LEGAL|AVISO DE CONFIDENCIALIDAD|CONFIDENCIALIDAD"
+        r"|CL[ÁA]USULA DE CONFIDENCIALIDAD"
+        r"|PROTECCI[ÓO]N DE DATOS"
+        r"|This (?:message|e-?mail|email)"
+        r"|CONFIDENTIAL(?:ITY)? NOTICE"
+        r"|DISCLAIMER)[\s\S]{0,200}"
+        r"(?:confidencial|destinatari|recipient|exclusiv|legal|privacy))",
+    ]
+    indices = []
+    for p in patrones:
+        m = re.search(p, cuerpo, flags=re.IGNORECASE)
+        if m:
+            indices.append(m.start())
+    if not indices:
+        return cuerpo
+    corte = min(indices)
+    return cuerpo[:corte].rstrip()
+
+
 def _html_a_texto(html):
     """Conversión rudimentaria HTML → texto plano."""
     txt = re.sub(r"(?i)<br\s*/?>", "\n", html)
@@ -3019,7 +3057,7 @@ def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
                 "remitente_perfil": perfil,
                 "asunto": asunto_limpio.strip(),
                 "categoria": categoria,
-                "cuerpo": (cuerpo or "").strip(),
+                "cuerpo": _limpiar_disclaimer_correo((cuerpo or "").strip()),
                 "_message_id": msg.get("Message-ID", ""),
                 "_fecha": fecha.strftime("%d/%m/%Y %H:%M") if fecha else "",
             })
@@ -3077,46 +3115,69 @@ Cuerpo:
 {correo['cuerpo']}
 [FIN DEL CORREO]
 
-Tu tarea:
-1. CLASIFICA al remitente según el contenido, el remitente, el dominio del
-   correo, el tono y la naturaleza de la consulta:
-   - "minorista": particular, inversión modesta, lenguaje no técnico, dudas
-     básicas o vinculadas a su patrimonio personal.
-   - "mayorista": profesional institucional (gestor de fondo, banca privada,
-     analista, family office, etc.), tono técnico, foco en ratios y
-     modelización.
-2. Analiza si puedes responder a la consulta con (a) los datos financieros
-   PÚBLICOS de Yahoo Finance que se adjuntan más abajo, o (b) información
-   pública que puedas localizar mediante búsqueda web sobre {empresa}.
-3. Si puedes responder, redacta un BORRADOR PROFESIONAL adecuado al perfil
-   clasificado:
-   - Minorista → lenguaje claro y didáctico, evita tecnicismos.
-   - Mayorista → tono técnico, conciso, cifras exactas.
-   Usa cifras CONCRETAS y EXACTAS de los datos provistos cuando aplique.
-   Formato europeo: separador de miles ".", decimal ",".
-   No incluyas en el cuerpo ningún listado de URLs ni "Fuentes consultadas":
-   la información debe estar integrada en la respuesta como hechos.
-4. Si NO puedes responder porque los datos solicitados son internos, no
-   públicos o no están disponibles ni en Yahoo ni en internet, marca
-   `puede_resolver` = false. El borrador alternativo debe:
-   (a) reconocer cortésmente la solicitud,
-   (b) explicar honestamente que esa información no es pública o no se
-       desglosa a ese nivel,
-   (c) ofrecer lo que sí está disponible o proponer un canal alternativo
-       (call con IR, reunión, próximo earnings call),
-   (d) marcar entre corchetes [PENDIENTE: ...] los datos concretos que el
-       equipo humano de IR deberá completar antes de enviar.
+REGLAS DE OPERACIÓN (críticas, NO te desvíes):
+
+0. Si el cuerpo del correo termina con un separador de guiones, asteriscos o
+   subrayados largos seguido de un aviso legal (frases tipo "Este mensaje va
+   dirigido…", "AVISO LEGAL", "CONFIDENCIAL", "DISCLAIMER", "This message is
+   intended only…"), IGNÓRALO POR COMPLETO: no es parte de la consulta, es
+   la firma legal de la empresa del remitente. Trabaja únicamente con lo que
+   viene ANTES de esa frontera.
+
+1. Tu ÚNICA salida válida es el objeto JSON descrito al final. NUNCA escribas
+   razonamiento, cálculos intermedios, "I'll search", "let me think", "Tengo
+   todos los datos necesarios", "Procedo ahora", "CÁLCULOS INTERNOS", notas,
+   comentarios o cualquier otro texto fuera del JSON. El primer carácter de
+   tu salida debe ser '{{' y el último '}}'.
+
+2. CLASIFICA al remitente como "minorista" (particular sin tecnicismos) o
+   "mayorista" (profesional institucional con tono técnico).
+
+3. Decide si puedes responder la consulta con (a) los datos PÚBLICOS de
+   Yahoo Finance que se adjuntan o (b) información pública localizable
+   mediante búsqueda web sobre {empresa}.
+
+4. SI PUEDES responder con datos suficientes y verificables:
+   - Redacta un BORRADOR PROFESIONAL adecuado al perfil clasificado.
+   - Minorista: lenguaje claro y didáctico, evita tecnicismos.
+   - Mayorista: tono técnico, conciso, cifras exactas con unidades.
+   - Cifras concretas y exactas de los datos provistos, formato europeo
+     (separador de miles ".", decimal ",").
+   - El cuerpo es **íntegramente texto redactado en prosa**. PROHIBIDO usar
+     tablas markdown, tablas ASCII, símbolos `|`, `---`, columnas alineadas
+     con espacios, esquemas, bullets en formato de columnas, ni cualquier
+     formato tabular: en un correo electrónico quedan mal y se rompen.
+     Todo lo que quieras transmitir va en frases y, si necesitas enumerar,
+     usa frases tipo "el ratio X fue 2,3 en 2024 frente a 1,9 en 2023" o
+     listas con guion simple "- texto:" pero NUNCA columnas alineadas.
+   - No incluyas listas de URLs, citas, "Fuentes consultadas" ni nada
+     similar al final.
+
+5. SI NO PUEDES responder con calidad porque los datos solicitados son
+   internos, no públicos, no están disponibles o no llegas a una respuesta
+   sólida con lo disponible:
+   - Marca `puede_resolver` = false.
+   - NO inventes cifras ni des respuestas vagas.
+   - El cuerpo del correo debe (a) reconocer cortésmente la solicitud,
+     (b) explicar honestamente que esa información no es pública o no se
+     desglosa a ese nivel, (c) ofrecer alternativa (call con IR, próximo
+     earnings call), (d) marcar entre corchetes [PENDIENTE: …] los datos
+     concretos que el equipo humano de IR debe completar antes de enviar.
+
+6. CALIDAD: relee tu borrador antes de cerrar el JSON. Si detectas que has
+   metido razonamiento, marcadores de cálculo, símbolos `**`, encabezados
+   markdown `#`, código `` ` `` o tablas, vuelve a redactarlo en prosa limpia.
 
 FORMATO DE SALIDA OBLIGATORIO — devuelve EXCLUSIVAMENTE un objeto JSON
 válido, sin comentarios, sin texto antes ni después, sin acentos graves:
 
 {{
   "tipo_inversor": "minorista",
-  "perfil_estimado": "Frase breve describiendo al remitente y por qué (p. ej. 'Particular con cuenta personal de Gmail que pregunta sin tecnicismos').",
+  "perfil_estimado": "Frase breve describiendo al remitente y por qué.",
   "puede_resolver": true,
   "asunto_respuesta": "Re: {correo['asunto']}",
-  "cuerpo_respuesta": "Estimado/a ...\\n\\n[respuesta completa]\\n\\nUn saludo,\\nEquipo de Relación con Inversores — {empresa}",
-  "nota_interna": "1-2 frases para el usuario: qué he podido resolver, qué datos he usado, qué he dejado pendiente."
+  "cuerpo_respuesta": "Estimado/a ...\\n\\n[texto en prosa, sin tablas ni listados tabulares]\\n\\nUn saludo,\\nEquipo de Relación con Inversores — {empresa}",
+  "nota_interna": "1-2 frases para el usuario."
 }}
 """
 
@@ -3152,9 +3213,67 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
     parsed.setdefault("nota_interna", "")
     tipo = (parsed.get("tipo_inversor") or "").lower().strip()
     if tipo not in ("minorista", "mayorista"):
-        tipo = "mayorista"  # default conservador
+        tipo = "mayorista"
     parsed["tipo_inversor"] = tipo
     parsed.setdefault("perfil_estimado", "")
+    parsed = _validar_borrador_ir(parsed, correo)
+    return parsed
+
+
+# Patrones que delatan "fugas" de razonamiento del modelo en el cuerpo del
+# correo. Si aparecen, el borrador no es publicable y se degrada a
+# `puede_resolver=false` con un mensaje claro.
+_PATRONES_RAZONAMIENTO = [
+    r"(?:^|\s)(I'll|I will|Let me|I need to|I'm going to|I should)\s",
+    r"\b(search for|let me search|search the web|let me calculate|I'll calculate)\b",
+    r"\b(C[ÁA]LCULOS INTERNOS|REASONING|CHAIN OF THOUGHT)\b",
+    r"\bTengo todos los datos\b",
+    r"\bProcedo ahora a\b",
+    r"\bvoy a (calcular|buscar|verificar|consultar)\b",
+    r"\baqu[íi] est[áa] el JSON\b",
+    r"\bd[ée]jame (calcular|buscar|verificar|pensar)\b",
+]
+_PATRONES_TABLA = [
+    r"\n\s*\|[^\n]+\|",         # filas markdown tipo `| a | b |`
+    r"\n\s*-{3,}\s*\|",         # separadores `---|`
+    r"\n\s*\|?\s*:?-{3,}:?",    # separadores tipo `:---:`
+]
+
+
+def _validar_borrador_ir(parsed, correo):
+    """Detecta fugas de razonamiento o tablas en el cuerpo y degrada a no-resoluble.
+
+    Si encuentra contenido que no debería estar en un correo (razonamiento,
+    tablas markdown/ASCII), sobrescribe el cuerpo con un mensaje claro y
+    pone `puede_resolver=false`. Así el usuario nunca verá basura técnica
+    en la previsualización; tendrá un borrador limpio que debe completar
+    manualmente.
+    """
+    cuerpo = parsed.get("cuerpo_respuesta") or ""
+    razones = []
+    for patron in _PATRONES_RAZONAMIENTO:
+        if re.search(patron, cuerpo, flags=re.IGNORECASE):
+            razones.append("razonamiento expuesto")
+            break
+    for patron in _PATRONES_TABLA:
+        if re.search(patron, cuerpo):
+            razones.append("tabla detectada")
+            break
+    if razones:
+        parsed["puede_resolver"] = False
+        parsed["cuerpo_respuesta"] = (
+            f"Estimado/a {correo['remitente_nombre']},\n\n"
+            "Gracias por escribirnos. En este momento no disponemos de toda "
+            "la información necesaria para responder a su consulta con la "
+            "calidad adecuada, por lo que dejamos su mensaje pendiente para "
+            "que el equipo de Relación con Inversores lo atienda manualmente "
+            "en cuanto sea posible.\n\n"
+            "[PENDIENTE: redactar la respuesta sobre los puntos planteados en "
+            "el correo, evitando tablas y manteniendo el texto en prosa].\n\n"
+            "Un saludo,\n"
+            f"Equipo de Relación con Inversores — {_BRANDING.get('empresa') or 'la compañía'}"
+        )
+        parsed["nota_interna"] = "Borrador descartado tras validación: " + ", ".join(razones) + "."
     return parsed
 
 
@@ -3308,6 +3427,23 @@ válido, sin comentarios ni acentos graves:
     parsed.setdefault("asunto_respuesta", borrador_actual.get("asunto", ""))
     parsed.setdefault("cuerpo_respuesta", borrador_actual.get("cuerpo", ""))
     parsed.setdefault("modificado", False)
+    # Reusa la misma validación que la primera redacción: si la IA cuela
+    # razonamiento o tablas al refinar, también se descarta.
+    pseudo = {
+        "puede_resolver": True,
+        "asunto_respuesta": parsed["asunto_respuesta"],
+        "cuerpo_respuesta": parsed["cuerpo_respuesta"],
+        "nota_interna": "",
+    }
+    pseudo = _validar_borrador_ir(pseudo, correo)
+    if not pseudo["puede_resolver"]:
+        parsed["cuerpo_respuesta"] = pseudo["cuerpo_respuesta"]
+        parsed["respuesta_chat"] = (
+            "He intentado aplicar tus cambios pero la respuesta contenía contenido "
+            "no apto (razonamiento expuesto o tablas). He marcado el borrador como "
+            "pendiente para revisión manual."
+        )
+        parsed["modificado"] = True
     return parsed
 
 

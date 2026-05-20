@@ -42,20 +42,8 @@
         gap: 0;
         align-items: stretch;
     }
-    .ir-grid.con-chat {
-        grid-template-columns: 1.1fr 1.4fr 1fr;
-    }
-    @media (max-width: 1200px) {
-        .ir-grid.con-chat { grid-template-columns: 1fr 1fr; }
-        .ir-grid.con-chat .ir-col-chat {
-            grid-column: 1 / -1;
-            border-top: 1px solid var(--gray-border);
-            border-left: none;
-        }
-    }
     @media (max-width: 900px) {
-        .ir-grid, .ir-grid.con-chat { grid-template-columns: 1fr; }
-        .ir-grid.con-chat .ir-col-chat { grid-column: auto; }
+        .ir-grid { grid-template-columns: 1fr; }
     }
 
     .ir-col {
@@ -71,102 +59,114 @@
     .ir-col-respuesta {
         background: #F1F8E9;
     }
-    .ir-col-chat {
-        background: #FFF8E1;
-        border-left: 1px solid var(--gray-border);
-    }
     @media (max-width: 900px) {
-        .ir-col-entrada,
-        .ir-col-respuesta { border-right: none; border-bottom: 1px solid var(--gray-border); }
-        .ir-col-chat { border-left: none; }
+        .ir-col-entrada { border-right: none; border-bottom: 1px solid var(--gray-border); }
     }
 
-    .ir-chat-vacio {
+    /* La respuesta crece para igualar la altura del correo entrante */
+    .ir-respuesta { display: flex; flex-direction: column; flex-grow: 1; }
+    .ir-respuesta .field-cuerpo { flex-grow: 1; display: flex; flex-direction: column; }
+    .ir-respuesta .field-cuerpo textarea {
         flex-grow: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--gray-9);
-        font-size: 0.82rem;
-        text-align: center;
-        font-style: italic;
-        padding: 0.8rem;
+        min-height: 280px;
     }
-    .ir-chat-historial {
-        flex-grow: 1;
-        overflow-y: auto;
-        max-height: 360px;
-        min-height: 200px;
-        padding: 0.4rem 0.2rem;
+
+    /* Modal de refinamiento (mismo estilo que el del informe narrativo) */
+    dialog.refinar-modal {
+        border: none;
+        border-radius: 6px;
+        padding: 0;
+        max-width: 720px;
+        width: 92%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    dialog.refinar-modal::backdrop {
+        background: rgba(0,0,0,0.45);
+        backdrop-filter: blur(2px);
+    }
+    .refinar-modal .modal-header {
+        padding: 1rem 1.3rem 0.6rem;
+        border-bottom: 1px solid var(--gray-border);
         display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .refinar-modal .modal-header h2 { margin: 0; font-size: 1.1rem; }
+    .refinar-modal .modal-header .modal-sub { color: var(--gray-10); font-size: 0.82rem; margin-top: 0.2rem; }
+    .refinar-modal .modal-close {
+        background: transparent;
+        border: none;
+        font-size: 1.4rem;
+        line-height: 1;
+        color: var(--gray-10);
+        cursor: pointer;
+        padding: 0.2rem 0.4rem;
+    }
+    .refinar-modal .modal-body { padding: 1rem 1.3rem; max-height: 60vh; overflow-y: auto; }
+    .refinar-modal .modal-footer {
+        padding: 0.8rem 1.3rem 1rem;
+        border-top: 1px solid var(--gray-border);
+        display: flex;
+        gap: 0.5rem;
+        align-items: flex-end;
+    }
+    .refinar-modal .modal-footer textarea {
+        flex-grow: 1;
+        font-family: inherit;
+        font-size: 0.86rem;
+        border: 1px solid var(--gray-border);
+        border-radius: 3px;
+        padding: 0.55rem 0.7rem;
+        resize: vertical;
+        min-height: 56px;
+        max-height: 160px;
+        box-sizing: border-box;
     }
     .ir-chat-msg {
-        padding: 0.5rem 0.7rem;
+        padding: 0.5rem 0.75rem;
         border-radius: 8px;
-        font-size: 0.84rem;
+        font-size: 0.86rem;
         line-height: 1.45;
         max-width: 92%;
         white-space: pre-wrap;
         word-break: break-word;
+        margin-bottom: 0.45rem;
     }
     .ir-chat-msg.user {
         background: #FFE0B2;
         color: #3E2723;
-        align-self: flex-end;
+        margin-left: auto;
         border-bottom-right-radius: 2px;
     }
     .ir-chat-msg.assistant {
         background: #fff;
         color: var(--black);
         border: 1px solid var(--gray-border);
-        align-self: flex-start;
         border-bottom-left-radius: 2px;
     }
     .ir-chat-msg.tag-mod {
         background: #C8E6C9;
         color: #1B5E20;
-        align-self: stretch;
         text-align: center;
-        font-size: 0.76rem;
+        font-size: 0.78rem;
         max-width: 100%;
         font-style: italic;
-    }
-    .ir-chat-input-wrap {
-        margin-top: 0.5rem;
-        display: flex;
-        gap: 0.4rem;
-        align-items: flex-end;
-    }
-    .ir-chat-input-wrap textarea {
-        flex-grow: 1;
-        font-family: inherit;
-        font-size: 0.85rem;
-        border: 1px solid #FFCC80;
-        border-radius: 3px;
-        padding: 0.5rem 0.6rem;
-        background: #fff;
-        resize: vertical;
-        min-height: 56px;
-        max-height: 160px;
-        box-sizing: border-box;
-    }
-    .ir-chat-input-wrap textarea:focus {
-        outline: none;
-        border-color: #FB8C00;
-        box-shadow: 0 0 0 3px rgba(251,140,0,0.18);
-    }
-    .ir-chat-input-wrap button {
-        flex-shrink: 0;
     }
     .ir-chat-thinking {
         display: flex;
         align-items: center;
         gap: 0.5rem;
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         color: #5D4037;
-        padding: 0.3rem 0;
+        padding: 0.4rem 0;
+    }
+    .ir-chat-vacio {
+        color: var(--gray-9);
+        font-size: 0.86rem;
+        text-align: center;
+        font-style: italic;
+        padding: 1.5rem;
     }
 
     .ir-col-label {
@@ -357,42 +357,51 @@
             <div class="ir-respuesta" hidden>
                 <div class="ir-status resoluble"    hidden>Borrador redactado <strong>íntegramente</strong> con la información disponible. Revisa y edita si quieres antes de enviar.</div>
                 <div class="ir-status parcial"      hidden>Borrador <strong>parcial</strong>: parte de la información solicitada no está disponible. Completa los huecos marcados antes de enviar.</div>
-                <div class="ir-status no-resoluble" hidden>No ha sido posible redactar la respuesta con la información disponible. Tienes un borrador base; complétalo manualmente antes de enviar.</div>
+                <div class="ir-status no-resoluble" hidden>No ha sido posible redactar la respuesta con la información disponible. La IA no encontró suficiente información pública para responder esta consulta.</div>
 
                 <div class="field">
                     <label>Asunto</label>
                     <input type="text" class="ir-input-asunto">
                 </div>
-                <div class="field">
+                <div class="field field-cuerpo">
                     <label>Cuerpo del correo de respuesta</label>
                     <textarea class="ir-input-cuerpo"></textarea>
                 </div>
 
                 <div class="ir-actions">
                     <button type="button" class="btn btn-primary btn-enviar">Enviar respuesta</button>
+                    <button type="button" class="btn btn-secondary btn-refinar">Refinar con IA</button>
                     <button type="button" class="btn btn-secondary btn-descartar">Descartar borrador</button>
                 </div>
                 <div class="ir-status enviado" hidden></div>
                 <div class="ir-status error" hidden></div>
             </div>
         </div>
-
-        <div class="ir-col ir-col-chat" hidden>
-            <div class="ir-col-label">Chat con la IA</div>
-            <div class="ir-chat-vacio">Pídele cambios o haz preguntas sobre el borrador. La IA puede ajustar tono, longitud, cifras o redacción.</div>
-            <div class="ir-chat-historial" hidden></div>
-            <div class="ir-chat-thinking" hidden>
-                <span class="ir-spinner"></span>
-                <span>Procesando tu petición…</span>
-            </div>
-            <div class="ir-chat-input-wrap">
-                <textarea class="ir-chat-input" rows="2" placeholder="Ej: hazlo más corto · añade el dato de deuda neta · sé más formal"></textarea>
-                <button type="button" class="btn btn-primary btn-chat-enviar">Enviar</button>
-            </div>
-        </div>
     </div>
 </div>
 {% endfor %}
+
+<dialog class="refinar-modal" id="refinar-dialog" aria-labelledby="refinar-titulo">
+    <div class="modal-header">
+        <div>
+            <h2 id="refinar-titulo">Refinar borrador con IA</h2>
+            <p class="modal-sub" id="refinar-sub">Pide cambios al borrador o haz preguntas. La IA mantiene el contexto del correo.</p>
+        </div>
+        <button type="button" class="modal-close" id="refinar-cerrar" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+        <div class="ir-chat-vacio" id="refinar-vacio">Aún no has enviado ningún mensaje. Pídele a la IA lo que quieras cambiar.</div>
+        <div id="refinar-historial" hidden></div>
+        <div class="ir-chat-thinking" id="refinar-thinking" hidden>
+            <span class="ir-spinner"></span>
+            <span>Procesando tu petición…</span>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <textarea id="refinar-input" rows="2" placeholder="Ej: hazlo más corto · añade el dato de deuda neta · sé más formal"></textarea>
+        <button type="button" class="btn btn-primary" id="refinar-enviar">Enviar</button>
+    </div>
+</dialog>
 
 <script>
 (function() {
@@ -401,11 +410,117 @@
     const ENVIAR_URL = '/relacion-inversores/enviar';
     const selectModelo = document.getElementById('ir-modelo');
 
-    function modeloElegido() {
-        return selectModelo ? selectModelo.value : '';
+    function modeloElegido() { return selectModelo ? selectModelo.value : ''; }
+    function $(el, sel) { return el.querySelector(sel); }
+
+    // Estado global del modal de refinamiento: una conversación por correo.
+    const dlg = document.getElementById('refinar-dialog');
+    const dlgHist = document.getElementById('refinar-historial');
+    const dlgVacio = document.getElementById('refinar-vacio');
+    const dlgThinking = document.getElementById('refinar-thinking');
+    const dlgInput = document.getElementById('refinar-input');
+    const dlgEnviar = document.getElementById('refinar-enviar');
+    const dlgCerrar = document.getElementById('refinar-cerrar');
+    const dlgSub = document.getElementById('refinar-sub');
+
+    const conversaciones = {};       // {correoId: [{role,content,tag?}]}
+    let cardActiva = null;            // card asociada al modal mientras está abierto
+
+    function pintarHistorial(correoId) {
+        dlgHist.innerHTML = '';
+        const conv = conversaciones[correoId] || [];
+        if (conv.length === 0) {
+            dlgHist.hidden = true;
+            dlgVacio.hidden = false;
+            return;
+        }
+        dlgVacio.hidden = true;
+        dlgHist.hidden = false;
+        conv.forEach(m => {
+            const div = document.createElement('div');
+            div.className = 'ir-chat-msg ' + (m.tag ? 'tag-mod' : m.role);
+            div.textContent = m.content;
+            dlgHist.appendChild(div);
+        });
+        dlgHist.scrollTop = dlgHist.scrollHeight;
     }
 
-    function $(el, sel) { return el.querySelector(sel); }
+    function cerrarModal() {
+        if (typeof dlg.close === 'function') dlg.close();
+        else dlg.removeAttribute('open');
+        cardActiva = null;
+    }
+    dlgCerrar.addEventListener('click', cerrarModal);
+    dlg.addEventListener('click', (e) => {
+        // Click fuera del contenido del dialog
+        const rect = dlg.getBoundingClientRect();
+        const dentro = e.clientX >= rect.left && e.clientX <= rect.right
+                    && e.clientY >= rect.top && e.clientY <= rect.bottom;
+        if (!dentro) cerrarModal();
+    });
+
+    async function enviarMensajeRefinar() {
+        if (!cardActiva) return;
+        const mensaje = (dlgInput.value || '').trim();
+        if (!mensaje) return;
+        const correoId = cardActiva.dataset.correoId;
+        const inputAsunto = $(cardActiva, '.ir-input-asunto');
+        const inputCuerpo = $(cardActiva, '.ir-input-cuerpo');
+
+        conversaciones[correoId] = conversaciones[correoId] || [];
+        conversaciones[correoId].push({role: 'user', content: mensaje});
+        pintarHistorial(correoId);
+        dlgInput.value = '';
+        dlgInput.disabled = true;
+        dlgEnviar.disabled = true;
+        dlgThinking.hidden = false;
+
+        try {
+            const r = await fetch(REFINAR_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    correo_id: correoId,
+                    modelo: modeloElegido(),
+                    mensaje: mensaje,
+                    asunto_actual: inputAsunto.value,
+                    cuerpo_actual: inputCuerpo.value,
+                    historial: conversaciones[correoId].filter(m => !m.tag),
+                })
+            });
+            const j = await r.json();
+            dlgThinking.hidden = true;
+            if (!j.ok) {
+                conversaciones[correoId].push({role: 'assistant', content: 'Error: ' + (j.error || 'fallo desconocido')});
+            } else {
+                if (j.respuesta_chat) {
+                    conversaciones[correoId].push({role: 'assistant', content: j.respuesta_chat});
+                }
+                if (j.modificado) {
+                    inputAsunto.value = j.asunto_respuesta || inputAsunto.value;
+                    inputCuerpo.value = j.cuerpo_respuesta || inputCuerpo.value;
+                    conversaciones[correoId].push({role: 'assistant', content: 'Borrador actualizado ✓', tag: true});
+                }
+            }
+            pintarHistorial(correoId);
+            dlgInput.disabled = false;
+            dlgEnviar.disabled = false;
+            dlgInput.focus();
+        } catch (err) {
+            dlgThinking.hidden = true;
+            conversaciones[correoId].push({role: 'assistant', content: 'Error de red: ' + err.message});
+            pintarHistorial(correoId);
+            dlgInput.disabled = false;
+            dlgEnviar.disabled = false;
+        }
+    }
+    dlgEnviar.addEventListener('click', enviarMensajeRefinar);
+    dlgInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            enviarMensajeRefinar();
+        }
+    });
 
     document.querySelectorAll('.ir-card').forEach(card => {
         const correoId = card.dataset.correoId;
@@ -423,39 +538,8 @@
         const inputAsunto = $(card, '.ir-input-asunto');
         const inputCuerpo = $(card, '.ir-input-cuerpo');
         const btnEnviar = $(card, '.btn-enviar');
+        const btnRefinar = $(card, '.btn-refinar');
         const btnDescartar = $(card, '.btn-descartar');
-
-        // Chat
-        const colChat = $(card, '.ir-col-chat');
-        const gridCard = $(card, '.ir-grid');
-        const chatHist = $(card, '.ir-chat-historial');
-        const chatVacio = $(card, '.ir-chat-vacio');
-        const chatInput = $(card, '.ir-chat-input');
-        const chatThinking = $(card, '.ir-chat-thinking');
-        const btnChatEnviar = $(card, '.btn-chat-enviar');
-        let historialChat = [];
-
-        function appendChatMsg(rol, contenido, tag) {
-            chatVacio.hidden = true;
-            chatHist.hidden = false;
-            const div = document.createElement('div');
-            div.className = 'ir-chat-msg ' + (tag ? 'tag-mod' : rol);
-            div.textContent = contenido;
-            chatHist.appendChild(div);
-            chatHist.scrollTop = chatHist.scrollHeight;
-        }
-
-        function activarChat() {
-            colChat.hidden = false;
-            if (gridCard) gridCard.classList.add('con-chat');
-            chatInput.disabled = false;
-            btnChatEnviar.disabled = false;
-        }
-
-        function bloquearChat() {
-            chatInput.disabled = true;
-            btnChatEnviar.disabled = true;
-        }
 
         function ocultarStatus() {
             stResoluble.hidden = true;
@@ -466,7 +550,6 @@
         }
 
         function clasificar(puedeResolver, cuerpo) {
-            // Detecta marcadores [PENDIENTE: ...] para distinguir parcial vs no resoluble.
             const tienePendientes = /\[PENDIENTE[:\s]/i.test(cuerpo || '');
             if (puedeResolver && !tienePendientes) return 'resoluble';
             if (tienePendientes && (cuerpo || '').length > 200) return 'parcial';
@@ -484,11 +567,7 @@
                 const r = await fetch(RESOLVER_URL, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        correo_id: correoId,
-                        modelo: modeloElegido(),
-                        fuente: card.dataset.fuente,
-                    })
+                    body: JSON.stringify({correo_id: correoId, modelo: modeloElegido()})
                 });
                 const j = await r.json();
                 thinking.hidden = true;
@@ -503,10 +582,9 @@
                 inputAsunto.disabled = false;
                 inputCuerpo.disabled = false;
                 btnEnviar.disabled = false;
+                btnRefinar.disabled = false;
                 btnDescartar.disabled = false;
 
-                // Aplica la clasificación de la IA (siempre): actualiza el
-                // badge de categoría y la línea de perfil del remitente.
                 const tipoIA = (j.tipo_inversor || '').toLowerCase();
                 if (tipoIA === 'minorista' || tipoIA === 'mayorista') {
                     card.classList.remove('minorista', 'mayorista');
@@ -522,7 +600,6 @@
                 if (j.perfil_estimado) {
                     const perfil = card.querySelector('.ir-perfil');
                     if (perfil) {
-                        // Mantenemos la fecha si la había.
                         const fechaSpan = perfil.querySelector('span');
                         const fechaHtml = fechaSpan ? ' · ' + fechaSpan.outerHTML : '';
                         perfil.innerHTML = j.perfil_estimado + fechaHtml;
@@ -537,7 +614,8 @@
                 respuesta.hidden = false;
                 btnResolver.disabled = false;
                 btnResolver.textContent = 'Volver a generar';
-                activarChat();
+                // Resetea la conversación de refinamiento al regenerar.
+                conversaciones[correoId] = [];
             } catch (err) {
                 thinking.hidden = true;
                 colVacio.hidden = false;
@@ -546,82 +624,31 @@
             }
         });
 
+        btnRefinar.addEventListener('click', () => {
+            cardActiva = card;
+            const destNombre = card.dataset.destinatarioNombre || '';
+            dlgSub.textContent = `Conversación con la IA sobre el borrador a ${destNombre}.`;
+            pintarHistorial(correoId);
+            dlgInput.value = '';
+            dlgInput.disabled = false;
+            dlgEnviar.disabled = false;
+            if (typeof dlg.showModal === 'function') dlg.showModal();
+            else dlg.setAttribute('open', '');
+            setTimeout(() => dlgInput.focus(), 50);
+        });
+
         btnDescartar.addEventListener('click', () => {
             respuesta.hidden = true;
             ocultarStatus();
             colVacio.hidden = false;
             btnResolver.textContent = 'Resolver con IA';
             btnResolver.disabled = false;
-            // Cerrar chat y limpiar historial
-            colChat.hidden = true;
-            if (gridCard) gridCard.classList.remove('con-chat');
-            historialChat = [];
-            chatHist.innerHTML = '';
-            chatHist.hidden = true;
-            chatVacio.hidden = false;
-        });
-
-        async function enviarMensajeChat() {
-            const mensaje = (chatInput.value || '').trim();
-            if (!mensaje) return;
-            appendChatMsg('user', mensaje);
-            historialChat.push({role: 'user', content: mensaje});
-            chatInput.value = '';
-            chatInput.disabled = true;
-            btnChatEnviar.disabled = true;
-            chatThinking.hidden = false;
-            try {
-                const r = await fetch(REFINAR_URL, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        correo_id: correoId,
-                        fuente: card.dataset.fuente,
-                        modelo: modeloElegido(),
-                        mensaje: mensaje,
-                        asunto_actual: inputAsunto.value,
-                        cuerpo_actual: inputCuerpo.value,
-                        historial: historialChat,
-                    })
-                });
-                const j = await r.json();
-                chatThinking.hidden = true;
-                if (!j.ok) {
-                    appendChatMsg('assistant', 'Error: ' + (j.error || 'fallo desconocido'));
-                    chatInput.disabled = false;
-                    btnChatEnviar.disabled = false;
-                    return;
-                }
-                if (j.respuesta_chat) {
-                    appendChatMsg('assistant', j.respuesta_chat);
-                    historialChat.push({role: 'assistant', content: j.respuesta_chat});
-                }
-                if (j.modificado) {
-                    inputAsunto.value = j.asunto_respuesta || inputAsunto.value;
-                    inputCuerpo.value = j.cuerpo_respuesta || inputCuerpo.value;
-                    appendChatMsg('assistant', 'Borrador actualizado ✓', true);
-                }
-                chatInput.disabled = false;
-                btnChatEnviar.disabled = false;
-                chatInput.focus();
-            } catch (err) {
-                chatThinking.hidden = true;
-                appendChatMsg('assistant', 'Error de red: ' + err.message);
-                chatInput.disabled = false;
-                btnChatEnviar.disabled = false;
-            }
-        }
-
-        btnChatEnviar.addEventListener('click', enviarMensajeChat);
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                enviarMensajeChat();
-            }
+            conversaciones[correoId] = [];
         });
 
         btnEnviar.addEventListener('click', async () => {
             btnEnviar.disabled = true;
+            btnRefinar.disabled = true;
             btnDescartar.disabled = true;
             try {
                 const r = await fetch(ENVIAR_URL, {
@@ -629,7 +656,6 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
                         correo_id: correoId,
-                        fuente: card.dataset.fuente,
                         destinatario_nombre: card.dataset.destinatarioNombre,
                         destinatario_email: card.dataset.destinatarioEmail,
                         asunto: inputAsunto.value,
@@ -640,22 +666,23 @@
                 if (j.ok) {
                     stEnviado.innerHTML = `✓ Correo <strong>enviado</strong> a <strong>${j.destinatario_nombre}</strong> &lt;${j.destinatario_email}&gt; · ${j.timestamp}`;
                     stEnviado.hidden = false;
-                    // Tras enviar: bloquear toda interacción con este correo
                     inputAsunto.disabled = true;
                     inputCuerpo.disabled = true;
                     btnEnviar.disabled = true;
+                    btnRefinar.disabled = true;
                     btnDescartar.disabled = true;
                     btnResolver.disabled = true;
                     btnResolver.textContent = 'Respuesta enviada';
-                    bloquearChat();
                 } else {
                     stError.textContent = 'Error al enviar: ' + (j.error || '');
                     stError.hidden = false;
                     btnEnviar.disabled = false;
+                    btnRefinar.disabled = false;
                     btnDescartar.disabled = false;
                 }
             } catch (err) {
                 btnEnviar.disabled = false;
+                btnRefinar.disabled = false;
                 btnDescartar.disabled = false;
                 alert('Error de red: ' + err.message);
             }
