@@ -44,6 +44,68 @@
     }
     .yh-statement-table tbody tr:hover { background: var(--gray-bg); }
     .yh-empty { color: var(--gray-9); font-style: italic; padding: 1rem 0; }
+    .yh-unit-tag {
+        color: var(--gray-10);
+        font-size: 0.78rem;
+        margin: 0.5rem 0 0.4rem;
+        font-style: italic;
+    }
+    .cta-generar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1.4rem;
+        padding: 1.2rem 1.4rem;
+        background: linear-gradient(135deg, #fff 0%, #f5f5f4 100%);
+        border-left: 4px solid var(--deloitte-green, #86BC25);
+        border-radius: 3px;
+    }
+    .cta-generar h3 { margin: 0 0 0.2rem; }
+    .cta-generar p { margin: 0; color: var(--gray-10); font-size: 0.9rem; }
+
+    /* Modal del configurador */
+    dialog.configurador-modal {
+        border: none;
+        border-radius: 6px;
+        padding: 0;
+        max-width: 760px;
+        width: 92%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    dialog.configurador-modal::backdrop {
+        background: rgba(0,0,0,0.45);
+        backdrop-filter: blur(2px);
+    }
+    .modal-header {
+        padding: 1.1rem 1.4rem 0.6rem;
+        border-bottom: 1px solid var(--gray-border);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .modal-header h2 { margin: 0; font-size: 1.15rem; }
+    .modal-header .modal-sub { color: var(--gray-10); font-size: 0.85rem; margin-top: 0.3rem; }
+    .modal-close {
+        background: transparent;
+        border: none;
+        font-size: 1.4rem;
+        line-height: 1;
+        color: var(--gray-10);
+        cursor: pointer;
+        padding: 0.2rem 0.4rem;
+    }
+    .modal-close:hover { color: var(--black); }
+    .modal-body { padding: 1rem 1.4rem 0.4rem; max-height: 70vh; overflow-y: auto; }
+    .modal-footer {
+        padding: 0.9rem 1.4rem 1.1rem;
+        border-top: 1px solid var(--gray-border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
 
     .chip-group { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.3rem; }
     .chip-input { position: absolute; opacity: 0; pointer-events: none; }
@@ -80,9 +142,9 @@
     <div>
         <span class="eyebrow">Paso 2 · Revisión de datos</span>
         <h1>{{ datos.nombre }} <span style="color: var(--gray-10); font-weight: 400;">({{ datos.ticker }})</span></h1>
-        <p class="lead">Estos son los estados financieros publicados por Yahoo Finance. Revísalos y, cuando estés listo, configura abajo el informe narrativo que quieras generar.</p>
+        <p class="lead">Estos son los estados financieros publicados por Yahoo Finance, traducidos al castellano y reordenados como en es.finance.yahoo.com. Cuando los hayas revisado, pulsa <strong>Generar Informe Narrativo</strong> para configurar el documento que necesitas.</p>
         {% if datos.moneda %}
-        <p style="color: var(--gray-10); font-size: 0.85rem; margin-top: 0.4rem;"><strong>Moneda de reporting:</strong> {{ datos.moneda }}. Las cifras se muestran tal cual las publica la fuente (sin abreviar).</p>
+        <p style="color: var(--gray-10); font-size: 0.85rem; margin-top: 0.4rem;"><strong>Moneda de reporting:</strong> {{ datos.moneda }}.</p>
         {% endif %}
     </div>
 </div>
@@ -107,8 +169,12 @@
     ] %}
     {% for tab_id, key, titulo in estados_map %}
     {% set bloque = datos.estados.get(key) if datos.estados else None %}
+    {% set escala = escala_para_estado(bloque) if bloque else {} %}
     <div class="yh-tab-panel {% if loop.first %}is-active{% endif %}" data-panel="{{ tab_id }}">
         {% if bloque and bloque.filas %}
+        {% if escala.sufijo %}
+        <p class="yh-unit-tag">Cifras en <strong>{{ escala.sufijo }}</strong>{% if datos.moneda %} de {{ datos.moneda }}{% endif %} — separador de miles "."</p>
+        {% endif %}
         <div class="table-scroll">
             <table class="yh-statement-table">
                 <thead>
@@ -124,7 +190,7 @@
                     <tr>
                         <td>{{ fila.concepto }}</td>
                         {% for v in fila.valores %}
-                        <td>{% if v is none %}<span style="color: var(--gray-7);">—</span>{% else %}{{ '{:,.0f}'.format(v) }}{% endif %}</td>
+                        <td>{% if v is none %}<span style="color: var(--gray-7);">—</span>{% else %}{{ formatear_celda_estado(v, escala, fila.concepto) }}{% endif %}</td>
                         {% endfor %}
                     </tr>
                     {% endfor %}
@@ -132,7 +198,7 @@
             </table>
         </div>
         <p style="color: var(--gray-10); font-size: 0.78rem; margin-top: 0.5rem; font-style: italic;">
-            Datos brutos. Los guiones (—) indican que Yahoo Finance no publica ese concepto para ese ejercicio.
+            Los guiones (—) indican que Yahoo Finance no publica ese concepto para ese ejercicio. BPA y número de acciones se muestran sin escalar.
         </p>
         {% else %}
         <div class="yh-empty">Yahoo Finance no devuelve este estado para {{ datos.ticker }}.</div>
@@ -141,94 +207,108 @@
     {% endfor %}
 </div>
 
-<div class="card" id="configurador-informe">
-    <h2>Paso 3 · Generar Informe Narrativo</h2>
-    <p style="color: var(--gray-10); margin-bottom: 1rem;">Configura el documento que quieres que la IA elabore a partir de los estados financieros de arriba.</p>
+<div class="cta-generar">
+    <div>
+        <h3>¿Listo para redactar?</h3>
+        <p>Configura tipo, enfoque, extensión y contexto externo antes de lanzar a la IA.</p>
+    </div>
+    <button type="button" class="btn btn-primary" id="btn-abrir-configurador">Generar Informe Narrativo</button>
+</div>
 
+<dialog class="configurador-modal" id="configurador-dialog" aria-labelledby="configurador-titulo">
     <form method="POST" action="/generar_informe" onsubmit="showLoading()">
         <input type="hidden" name="cache_id" value="{{ cache_id }}">
         <input type="hidden" name="modelo" value="{{ modelo_actual }}">
 
-        <div class="form-group">
-            <label>Tipo de informe</label>
-            <div class="chip-group" role="radiogroup">
-                {% set tipos = [
-                    ('nota_memoria', 'Nota de Memoria', true),
-                    ('consejo', 'Informe al Consejo', false),
-                    ('interno', 'Informe Interno', false),
-                    ('accionista', 'Explicación a accionista', false)
-                ] %}
-                {% for valor, etiqueta, marcado in tipos %}
-                <input type="radio" id="tipo-{{ valor }}" name="tipo_informe" value="{{ valor }}" class="chip-input" {% if marcado %}checked{% endif %}>
-                <label for="tipo-{{ valor }}" class="chip-label">{{ etiqueta }}</label>
-                {% endfor %}
+        <div class="modal-header">
+            <div>
+                <h2 id="configurador-titulo">Configurar el Informe Narrativo</h2>
+                <p class="modal-sub">Define cómo quieres que la IA redacte el documento sobre {{ datos.nombre }}.</p>
             </div>
-            <span class="hint" style="margin-top: 0.5rem; display: block;">Si necesitas un formato diferente, descríbelo en el campo "instrucciones adicionales".</span>
+            <button type="button" class="modal-close" id="btn-cerrar-configurador" aria-label="Cerrar">&times;</button>
         </div>
 
-        <div class="form-group">
-            <label>Enfoque del análisis <span style="color: var(--gray-7); font-weight: 400; text-transform:none; letter-spacing:0;">(elige una o varias áreas)</span></label>
-            <div class="chip-group">
-                {% set enfoques = [
-                    'Evolución de ingresos',
-                    'Margen y rentabilidad',
-                    'Estructura de costes',
-                    'Endeudamiento y solvencia',
-                    'Generación de caja',
-                    'Capital circulante',
-                    'Fiscalidad y resultado financiero',
-                    'Inversiones (CAPEX)',
-                    'Retorno al accionista (BPA, dividendos)'
-                ] %}
-                {% for e in enfoques %}
-                <input type="checkbox" id="enf-{{ loop.index }}" name="enfoque_predefinido" value="{{ e }}" class="chip-input">
-                <label for="enf-{{ loop.index }}" class="chip-label">{{ e }}</label>
-                {% endfor %}
-            </div>
-            <textarea name="enfoque_libre" rows="2" maxlength="1000" placeholder="O describe libremente en qué quieres que la IA se enfoque." style="margin-top: 0.6rem; width: 100%;"></textarea>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem;">
+        <div class="modal-body">
             <div class="form-group">
-                <label>Extensión del informe</label>
+                <label>Tipo de informe</label>
                 <div class="chip-group" role="radiogroup">
-                    {% set extensiones = [
-                        ('breve', 'Breve (~400–500 palabras)', false),
-                        ('estandar', 'Estándar (~800–1000)', true),
-                        ('extensa', 'Extensa (~1500–2000)', false)
+                    {% set tipos = [
+                        ('nota_memoria', 'Nota de Memoria', true),
+                        ('consejo', 'Informe al Consejo', false),
+                        ('interno', 'Informe Interno', false),
+                        ('accionista', 'Explicación a accionista', false)
                     ] %}
-                    {% for valor, etiqueta, marcado in extensiones %}
-                    <input type="radio" id="ext-{{ valor }}" name="extension" value="{{ valor }}" class="chip-input" {% if marcado %}checked{% endif %}>
-                    <label for="ext-{{ valor }}" class="chip-label">{{ etiqueta }}</label>
+                    {% for valor, etiqueta, marcado in tipos %}
+                    <input type="radio" id="tipo-{{ valor }}" name="tipo_informe" value="{{ valor }}" class="chip-input" {% if marcado %}checked{% endif %}>
+                    <label for="tipo-{{ valor }}" class="chip-label">{{ etiqueta }}</label>
                     {% endfor %}
                 </div>
+                <span class="hint" style="margin-top: 0.5rem; display: block;">Si necesitas otro formato, descríbelo en "instrucciones adicionales".</span>
             </div>
+
             <div class="form-group">
-                <label>Contexto externo</label>
-                <label style="display:flex; align-items:center; gap:10px; cursor:pointer; text-transform:none; letter-spacing:0; font-weight:600; color: var(--black); background: var(--gray-bg); border: 1px solid var(--gray-border); padding: 10px 14px; border-radius: 3px;">
-                    <input type="checkbox" name="buscar_noticias" value="1" style="width:16px; height:16px; accent-color: var(--deloitte-green);">
-                    <span>
-                        Buscar noticias y hechos relevantes en internet
-                        <small style="display:block; color: var(--gray-10); font-weight:400; font-size:0.78rem; margin-top:2px;">La IA consultará la web y añadirá una sección con las fuentes citadas.</small>
-                    </span>
-                </label>
+                <label>Enfoque del análisis <span style="color: var(--gray-7); font-weight: 400; text-transform:none; letter-spacing:0;">(una o varias áreas)</span></label>
+                <div class="chip-group">
+                    {% set enfoques = [
+                        'Evolución de ingresos',
+                        'Margen y rentabilidad',
+                        'Estructura de costes',
+                        'Endeudamiento y solvencia',
+                        'Generación de caja',
+                        'Capital circulante',
+                        'Fiscalidad y resultado financiero',
+                        'Inversiones (CAPEX)',
+                        'Retorno al accionista (BPA, dividendos)'
+                    ] %}
+                    {% for e in enfoques %}
+                    <input type="checkbox" id="enf-{{ loop.index }}" name="enfoque_predefinido" value="{{ e }}" class="chip-input">
+                    <label for="enf-{{ loop.index }}" class="chip-label">{{ e }}</label>
+                    {% endfor %}
+                </div>
+                <textarea name="enfoque_libre" rows="2" maxlength="1000" placeholder="O describe libremente en qué quieres que la IA se enfoque." style="margin-top: 0.6rem; width: 100%;"></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem;">
+                <div class="form-group">
+                    <label>Extensión del informe</label>
+                    <div class="chip-group" role="radiogroup">
+                        {% set extensiones = [
+                            ('breve', 'Breve (~400–500)', false),
+                            ('estandar', 'Estándar (~800–1000)', true),
+                            ('extensa', 'Extensa (~1500–2000)', false)
+                        ] %}
+                        {% for valor, etiqueta, marcado in extensiones %}
+                        <input type="radio" id="ext-{{ valor }}" name="extension" value="{{ valor }}" class="chip-input" {% if marcado %}checked{% endif %}>
+                        <label for="ext-{{ valor }}" class="chip-label">{{ etiqueta }}</label>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Contexto externo</label>
+                    <label style="display:flex; align-items:center; gap:10px; cursor:pointer; text-transform:none; letter-spacing:0; font-weight:600; color: var(--black); background: var(--gray-bg); border: 1px solid var(--gray-border); padding: 10px 14px; border-radius: 3px;">
+                        <input type="checkbox" name="buscar_noticias" value="1" style="width:16px; height:16px; accent-color: var(--deloitte-green);">
+                        <span>
+                            Buscar noticias en internet
+                            <small style="display:block; color: var(--gray-10); font-weight:400; font-size:0.78rem; margin-top:2px;">La IA consultará la web y citará fuentes.</small>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="instrucciones">Instrucciones adicionales <span style="color: var(--gray-7); font-weight: 400; text-transform:none; letter-spacing:0;">(opcional)</span></label>
+                <textarea id="instrucciones" name="instrucciones" rows="3" maxlength="2000"
+                          placeholder="Ej: tono conservador, añade una sección de riesgos regulatorios."
+                          style="width: 100%;"></textarea>
             </div>
         </div>
 
-        <div class="form-group">
-            <label for="instrucciones">Instrucciones adicionales <span style="color: var(--gray-7); font-weight: 400; text-transform:none; letter-spacing:0;">(opcional)</span></label>
-            <textarea id="instrucciones" name="instrucciones" rows="3" maxlength="2000"
-                      placeholder="Ej: tono conservador, añade una sección de riesgos regulatorios, evita comparaciones con competidores."
-                      style="width: 100%;"></textarea>
-            <span class="hint">Cualquier matiz que no encaje en los campos anteriores.</span>
-        </div>
-
-        <div style="margin-top: 0.5rem;">
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-cerrar>Cancelar</button>
             <button type="submit" class="btn btn-primary">Generar Informe Narrativo</button>
-            <a href="/analisis" class="btn btn-secondary" style="margin-left: 0.4rem;">Cambiar ticker</a>
         </div>
     </form>
-</div>
+</dialog>
 
 <script>
     document.querySelectorAll('.yh-tab-btn').forEach(btn => {
@@ -238,5 +318,33 @@
             document.querySelectorAll('.yh-tab-panel').forEach(p => p.classList.toggle('is-active', p.dataset.panel === target));
         });
     });
+
+    const dialog = document.getElementById('configurador-dialog');
+    const btnAbrir = document.getElementById('btn-abrir-configurador');
+    const btnCerrar = document.getElementById('btn-cerrar-configurador');
+    if (btnAbrir && dialog) {
+        btnAbrir.addEventListener('click', () => {
+            if (typeof dialog.showModal === 'function') {
+                dialog.showModal();
+            } else {
+                dialog.setAttribute('open', '');
+            }
+        });
+    }
+    const cerrarDialog = () => {
+        if (typeof dialog.close === 'function') dialog.close();
+        else dialog.removeAttribute('open');
+    };
+    if (btnCerrar) btnCerrar.addEventListener('click', cerrarDialog);
+    document.querySelectorAll('[data-cerrar]').forEach(el => el.addEventListener('click', cerrarDialog));
+    // Cerrar al clicar fuera del contenido
+    if (dialog) {
+        dialog.addEventListener('click', (e) => {
+            const rect = dialog.getBoundingClientRect();
+            const dentro = e.clientX >= rect.left && e.clientX <= rect.right
+                        && e.clientY >= rect.top  && e.clientY <= rect.bottom;
+            if (!dentro) cerrarDialog();
+        });
+    }
 </script>
 {% endblock %}

@@ -502,25 +502,217 @@ def obtener_datos_financieros(ticker_symbol):
     return datos
 
 
+# Mapeo de orden + traducción a español por estado, alineado con la presentación
+# de Yahoo Finance (es.finance.yahoo.com). Cada lista es el orden de aparición
+# canónico; las filas que yfinance devuelva fuera de este mapeo se añaden al
+# final manteniendo su nombre original.
+_ORDEN_INCOME_STATEMENT = [
+    ("Total Revenue", "Ingresos totales"),
+    ("Operating Revenue", "Ingresos operativos"),
+    ("Cost Of Revenue", "Coste de los ingresos"),
+    ("Gross Profit", "Beneficio bruto"),
+    ("Operating Expense", "Gastos operativos"),
+    ("Research And Development", "Investigación y desarrollo"),
+    ("Selling General And Administration", "Gastos generales y de administración"),
+    ("Selling And Marketing Expense", "Gastos de ventas y marketing"),
+    ("General And Administrative Expense", "Gastos generales y administrativos"),
+    ("Other Operating Expenses", "Otros gastos operativos"),
+    ("Operating Income", "Beneficio operativo"),
+    ("Total Operating Income As Reported", "Beneficio operativo (declarado)"),
+    ("Net Non Operating Interest Income Expense", "Resultado financiero neto"),
+    ("Interest Income", "Ingresos por intereses"),
+    ("Interest Expense", "Gastos por intereses"),
+    ("Interest Income Non Operating", "Ingresos por intereses no operativos"),
+    ("Interest Expense Non Operating", "Gastos por intereses no operativos"),
+    ("Other Income Expense", "Otros ingresos / gastos"),
+    ("Other Non Operating Income Expenses", "Otros ingresos / gastos no operativos"),
+    ("Special Income Charges", "Cargos / ingresos especiales"),
+    ("Gain On Sale Of Security", "Beneficio por venta de inversiones"),
+    ("Pretax Income", "Beneficio antes de impuestos"),
+    ("Tax Provision", "Provisión para impuestos sobre la renta"),
+    ("Tax Effect Of Unusual Items", "Efecto fiscal de partidas inusuales"),
+    ("Tax Rate For Calcs", "Tasa impositiva (para cálculos)"),
+    ("Net Income Common Stockholders", "Beneficio neto para los accionistas comunes"),
+    ("Net Income", "Beneficio neto"),
+    ("Net Income Continuous Operations", "Beneficio neto de operaciones continuadas"),
+    ("Net Income Discontinuous Operations", "Beneficio neto de operaciones discontinuadas"),
+    ("Net Income From Continuing And Discontinued Operation", "Beneficio neto de operaciones continuadas y discontinuadas"),
+    ("Net Income From Continuing Operation Net Minority Interest", "Beneficio neto de operación continua (interés minoritario neto)"),
+    ("Net Income Including Noncontrolling Interests", "Beneficio neto incluyendo intereses minoritarios"),
+    ("Minority Interests", "Intereses minoritarios"),
+    ("Diluted NI Available To Com Stockholders", "Beneficio neto diluido para accionistas comunes"),
+    ("Basic EPS", "BPA básico"),
+    ("Diluted EPS", "BPA diluido"),
+    ("Basic Average Shares", "Acciones medias básicas"),
+    ("Diluted Average Shares", "Acciones medias diluidas"),
+    ("Total Expenses", "Total gastos"),
+    ("Normalized Income", "Beneficio normalizado"),
+    ("Reconciled Cost Of Revenue", "Coste de los ingresos reconciliado"),
+    ("Reconciled Depreciation", "Amortización reconciliada"),
+    ("Total Unusual Items Excluding Goodwill", "Partidas inusuales (excl. fondo de comercio)"),
+    ("Total Unusual Items", "Total partidas inusuales"),
+    ("EBIT", "EBIT"),
+    ("EBITDA", "EBITDA"),
+    ("Normalized EBITDA", "EBITDA normalizado"),
+]
+
+_ORDEN_BALANCE_SHEET = [
+    ("Total Assets", "Activos totales"),
+    ("Current Assets", "Activos corrientes"),
+    ("Cash Cash Equivalents And Short Term Investments", "Efectivo, equivalentes e inversiones a corto plazo"),
+    ("Cash And Cash Equivalents", "Efectivo y equivalentes de efectivo"),
+    ("Cash Financial", "Efectivo (financiero)"),
+    ("Cash Equivalents", "Equivalentes de efectivo"),
+    ("Other Short Term Investments", "Otras inversiones a corto plazo"),
+    ("Receivables", "Cuentas por cobrar"),
+    ("Accounts Receivable", "Cuentas por cobrar comerciales"),
+    ("Other Receivables", "Otras cuentas por cobrar"),
+    ("Inventory", "Existencias"),
+    ("Prepaid Assets", "Pagos anticipados"),
+    ("Other Current Assets", "Otros activos corrientes"),
+    ("Total Non Current Assets", "Activos no corrientes"),
+    ("Net PPE", "Inmovilizado material neto"),
+    ("Gross PPE", "Inmovilizado material bruto"),
+    ("Accumulated Depreciation", "Amortización acumulada"),
+    ("Goodwill And Other Intangible Assets", "Fondo de comercio y otros intangibles"),
+    ("Goodwill", "Fondo de comercio"),
+    ("Other Intangible Assets", "Otros activos intangibles"),
+    ("Investments And Advances", "Inversiones y anticipos"),
+    ("Long Term Equity Investment", "Inversiones a largo plazo en patrimonio"),
+    ("Other Non Current Assets", "Otros activos no corrientes"),
+    ("Total Liabilities Net Minority Interest", "Pasivos totales (neto de intereses minoritarios)"),
+    ("Current Liabilities", "Pasivos corrientes"),
+    ("Payables And Accrued Expenses", "Cuentas por pagar y gastos devengados"),
+    ("Payables", "Cuentas por pagar"),
+    ("Accounts Payable", "Cuentas por pagar comerciales"),
+    ("Current Debt And Capital Lease Obligation", "Deuda a corto plazo y arrendamientos"),
+    ("Current Debt", "Deuda a corto plazo"),
+    ("Current Capital Lease Obligation", "Arrendamientos a corto plazo"),
+    ("Current Deferred Revenue", "Ingresos diferidos a corto plazo"),
+    ("Other Current Liabilities", "Otros pasivos corrientes"),
+    ("Total Non Current Liabilities Net Minority Interest", "Pasivos no corrientes (neto de intereses minoritarios)"),
+    ("Long Term Debt And Capital Lease Obligation", "Deuda a largo plazo y arrendamientos"),
+    ("Long Term Debt", "Deuda a largo plazo"),
+    ("Long Term Capital Lease Obligation", "Arrendamientos a largo plazo"),
+    ("Non Current Deferred Revenue", "Ingresos diferidos a largo plazo"),
+    ("Non Current Deferred Taxes Liabilities", "Pasivos por impuestos diferidos a largo plazo"),
+    ("Tradeand Other Payables Non Current", "Otras cuentas por pagar no corrientes"),
+    ("Other Non Current Liabilities", "Otros pasivos no corrientes"),
+    ("Total Equity Gross Minority Interest", "Patrimonio neto total"),
+    ("Stockholders Equity", "Fondos propios"),
+    ("Capital Stock", "Capital social"),
+    ("Common Stock", "Acciones ordinarias"),
+    ("Additional Paid In Capital", "Prima de emisión"),
+    ("Retained Earnings", "Reservas / Beneficios acumulados"),
+    ("Treasury Stock", "Acciones propias en cartera"),
+    ("Gains Losses Not Affecting Retained Earnings", "Ganancias / pérdidas no afectan reservas"),
+    ("Minority Interest", "Intereses minoritarios"),
+    ("Total Capitalization", "Capitalización total"),
+    ("Common Stock Equity", "Patrimonio en acciones ordinarias"),
+    ("Net Tangible Assets", "Activos netos tangibles"),
+    ("Working Capital", "Capital circulante"),
+    ("Invested Capital", "Capital invertido"),
+    ("Tangible Book Value", "Valor en libros tangible"),
+    ("Total Debt", "Deuda total"),
+    ("Net Debt", "Deuda neta"),
+    ("Share Issued", "Acciones emitidas"),
+    ("Ordinary Shares Number", "Número de acciones ordinarias"),
+]
+
+_ORDEN_CASHFLOW = [
+    ("Operating Cash Flow", "Flujo de caja operativo"),
+    ("Cash Flow From Continuing Operating Activities", "Flujo de caja de actividades operativas continuadas"),
+    ("Net Income From Continuing Operations", "Beneficio neto de operaciones continuadas"),
+    ("Depreciation Amortization Depletion", "Amortizaciones (D&A)"),
+    ("Depreciation And Amortization", "Amortizaciones"),
+    ("Deferred Income Tax", "Impuesto sobre la renta diferido"),
+    ("Stock Based Compensation", "Retribución basada en acciones"),
+    ("Change In Working Capital", "Variación del capital circulante"),
+    ("Change In Receivables", "Variación de cuentas por cobrar"),
+    ("Change In Inventory", "Variación de existencias"),
+    ("Change In Payables And Accrued Expense", "Variación de cuentas por pagar y devengos"),
+    ("Change In Other Current Assets", "Variación de otros activos corrientes"),
+    ("Change In Other Current Liabilities", "Variación de otros pasivos corrientes"),
+    ("Change In Other Working Capital", "Variación de otro capital circulante"),
+    ("Other Non Cash Items", "Otras partidas no monetarias"),
+    ("Investing Cash Flow", "Flujo de caja de inversión"),
+    ("Cash Flow From Continuing Investing Activities", "Flujo de caja de actividades de inversión continuadas"),
+    ("Capital Expenditure", "Inversiones en inmovilizado (CAPEX)"),
+    ("Net PPE Purchase And Sale", "Compra / venta neta de inmovilizado"),
+    ("Purchase Of PPE", "Compras de inmovilizado"),
+    ("Sale Of PPE", "Ventas de inmovilizado"),
+    ("Net Investment Purchase And Sale", "Compra / venta neta de inversiones"),
+    ("Purchase Of Investment", "Compras de inversiones"),
+    ("Sale Of Investment", "Ventas de inversiones"),
+    ("Net Business Purchase And Sale", "Compra / venta neta de negocios"),
+    ("Purchase Of Business", "Compras de negocios"),
+    ("Sale Of Business", "Ventas de negocios"),
+    ("Net Other Investing Changes", "Otras variaciones netas de inversión"),
+    ("Financing Cash Flow", "Flujo de caja de financiación"),
+    ("Cash Flow From Continuing Financing Activities", "Flujo de caja de actividades de financiación continuadas"),
+    ("Net Issuance Payments Of Debt", "Emisiones / amortizaciones netas de deuda"),
+    ("Net Long Term Debt Issuance", "Emisión neta de deuda a largo plazo"),
+    ("Long Term Debt Issuance", "Emisión de deuda a largo plazo"),
+    ("Long Term Debt Payments", "Amortización de deuda a largo plazo"),
+    ("Net Short Term Debt Issuance", "Emisión neta de deuda a corto plazo"),
+    ("Net Common Stock Issuance", "Emisión neta de acciones ordinarias"),
+    ("Common Stock Issuance", "Emisión de acciones ordinarias"),
+    ("Common Stock Payments", "Recompra de acciones ordinarias"),
+    ("Cash Dividends Paid", "Dividendos pagados en efectivo"),
+    ("Common Stock Dividend Paid", "Dividendos ordinarios pagados"),
+    ("Net Other Financing Charges", "Otros cargos netos de financiación"),
+    ("End Cash Position", "Saldo final de efectivo"),
+    ("Beginning Cash Position", "Saldo inicial de efectivo"),
+    ("Changes In Cash", "Variación neta de efectivo"),
+    ("Effect Of Exchange Rate Changes", "Efecto del tipo de cambio"),
+    ("Income Tax Paid Supplemental Data", "Impuesto sobre la renta pagado (info. complementaria)"),
+    ("Interest Paid Supplemental Data", "Intereses pagados (info. complementaria)"),
+    ("Free Cash Flow", "Flujo de caja libre"),
+    ("Repurchase Of Capital Stock", "Recompra de capital social"),
+    ("Issuance Of Capital Stock", "Emisión de capital social"),
+    ("Issuance Of Debt", "Emisión de deuda"),
+    ("Repayment Of Debt", "Amortización de deuda"),
+]
+
+
+def _ordenar_y_traducir_filas(df_index_to_valores, orden):
+    """Devuelve la lista de filas {concepto, valores} ordenadas según `orden`.
+
+    `df_index_to_valores` es un dict concepto_en_inglés → lista de valores.
+    `orden` es la lista de tuplas (clave_yfinance, traducción_es).
+    Las filas no presentes en `orden` se añaden al final con su nombre original.
+    """
+    en_orden = set()
+    filas = []
+    for clave, traduccion in orden:
+        if clave in df_index_to_valores:
+            filas.append({"concepto": traduccion, "valores": df_index_to_valores[clave]})
+            en_orden.add(clave)
+    for clave, valores in df_index_to_valores.items():
+        if clave not in en_orden:
+            filas.append({"concepto": clave, "valores": valores})
+    return filas
+
+
 def _serializar_estados_yahoo(ticker):
-    """Devuelve los 3 estados financieros completos tal cual los entrega yfinance.
+    """Devuelve los 3 estados financieros, traducidos al español y reordenados.
 
     Estructura: {nombre_estado: {"periodos": [str], "filas": [{"concepto", "valores": [float|None]}]}}.
     """
     import math
     fuentes = {
-        "income_statement": getattr(ticker, "income_stmt", None),
-        "balance_sheet": getattr(ticker, "balance_sheet", None),
-        "cashflow": getattr(ticker, "cashflow", None),
+        "income_statement": (getattr(ticker, "income_stmt", None), _ORDEN_INCOME_STATEMENT),
+        "balance_sheet": (getattr(ticker, "balance_sheet", None), _ORDEN_BALANCE_SHEET),
+        "cashflow": (getattr(ticker, "cashflow", None), _ORDEN_CASHFLOW),
     }
     salida = {}
-    for clave, df in fuentes.items():
+    for clave, (df, orden) in fuentes.items():
         if df is None or df.empty:
             salida[clave] = {"periodos": [], "filas": []}
             continue
         cols = list(df.columns[:4])
         periodos = [str(c.date()) if hasattr(c, "date") else str(c) for c in cols]
-        filas = []
+        crudo = {}
         for concepto in df.index:
             valores = []
             for col in cols:
@@ -534,7 +726,8 @@ def _serializar_estados_yahoo(ticker):
                 except (TypeError, ValueError):
                     valores.append(None)
             if any(v is not None for v in valores):
-                filas.append({"concepto": str(concepto), "valores": valores})
+                crudo[str(concepto)] = valores
+        filas = _ordenar_y_traducir_filas(crudo, orden)
         salida[clave] = {"periodos": periodos, "filas": filas}
     return salida
 
@@ -1847,13 +2040,31 @@ def crear_documento_pdf(datos, nota):
 
 
 def formatear_numero(valor):
-    """Formatea números grandes para mostrar en la UI."""
-    if abs(valor) >= 1_000_000_000:
-        return f"{valor / 1_000_000_000:,.2f}B"
-    elif abs(valor) >= 1_000_000:
-        return f"{valor / 1_000_000:,.2f}M"
-    else:
-        return f"{valor:,.0f}"
+    """Formatea números grandes en formato europeo (miles con `.`, decimales con `,`).
+
+    Escala el número a la unidad más cómoda visualmente:
+    - < 1.000        → entero o 2 decimales según haya parte decimal
+    - < 1.000.000    → entero con separadores de miles
+    - < mil millones → millones con 2 decimales y sufijo "M"
+    - < 1 billón     → miles de millones con 2 decimales y sufijo "mil M"
+    - resto          → billones con 2 decimales y sufijo "B" (1 B = 10^12)
+    """
+    try:
+        v = float(valor)
+    except (TypeError, ValueError):
+        return ""
+    abs_v = abs(v)
+    if abs_v >= 1e12:
+        return _fmt_es(v / 1e12, 2) + " B"
+    if abs_v >= 1e9:
+        return _fmt_es(v / 1e9, 2) + " mil M"
+    if abs_v >= 1e6:
+        return _fmt_es(v / 1e6, 2) + " M"
+    if abs_v >= 1000:
+        return _fmt_es(v, 0)
+    if abs_v == 0 or float(v).is_integer():
+        return _fmt_es(v, 0)
+    return _fmt_es(v, 2)
 
 
 def _fmt_es(valor, decimales):
@@ -1886,6 +2097,65 @@ def determinar_escala_tabla(datos):
     if max_v >= 1e3:
         return {"divisor": 1e3, "sufijo": "miles", "decimales": 0}
     return {"divisor": 1, "sufijo": "", "decimales": 0}
+
+
+def escala_para_estado(bloque):
+    """Elige una escala común para un estado financiero completo.
+
+    `bloque` es la entrada de `datos["estados"][clave]` con `periodos` y `filas`.
+    Devuelve la misma estructura que `determinar_escala_tabla`. Las filas que
+    parecen ratios o porcentajes (`Tax Rate`, `EPS`, `Acciones medias`) se
+    excluyen del cálculo para no falsear la escala con valores pequeños o
+    enormes según el caso.
+    """
+    EXCLUIDOS = (
+        "BPA", "EPS", "Acciones medias", "Tasa impositiva", "Number", "Acciones emitidas",
+    )
+    vals = []
+    for fila in bloque.get("filas", []):
+        nombre = fila.get("concepto", "")
+        if any(t.lower() in nombre.lower() for t in EXCLUIDOS):
+            continue
+        for v in fila.get("valores", []):
+            if v is None:
+                continue
+            try:
+                vals.append(abs(float(v)))
+            except (TypeError, ValueError):
+                pass
+    max_v = max(vals) if vals else 0
+    if max_v >= 1e12:
+        return {"divisor": 1e9, "sufijo": "miles de millones", "decimales": 2}
+    if max_v >= 1e9:
+        return {"divisor": 1e6, "sufijo": "millones", "decimales": 0}
+    if max_v >= 1e6:
+        return {"divisor": 1e6, "sufijo": "millones", "decimales": 1}
+    if max_v >= 1e3:
+        return {"divisor": 1e3, "sufijo": "miles", "decimales": 0}
+    return {"divisor": 1, "sufijo": "", "decimales": 0}
+
+
+def formatear_celda_estado(valor, escala, concepto=""):
+    """Aplica la escala del estado y devuelve la cadena formateada en español.
+
+    Las filas tipo BPA/EPS, tasas impositivas o número de acciones se muestran
+    SIN aplicar la escala (no son magnitudes monetarias en millones).
+    """
+    if valor is None:
+        return ""
+    try:
+        v = float(valor)
+    except (TypeError, ValueError):
+        return ""
+    nombre = (concepto or "").lower()
+    if any(t in nombre for t in ("bpa", "eps", "acciones medias", "tasa impositiva", "acciones emitidas", "ordinary shares number")):
+        # Magnitudes per-share o conteos: sin escala, hasta 2 decimales.
+        decimales = 2 if abs(v) < 1000 else 0
+        return _fmt_es(v, decimales)
+    divisor = escala.get("divisor", 1) or 1
+    decimales = escala.get("decimales", 0)
+    return _fmt_es(v / divisor, decimales)
+
 
 
 def formatear_importe_escalado(valor, escala):
@@ -2034,6 +2304,8 @@ def analisis():
                 cache_id=cache_id,
                 modelo_actual=modelo,
                 formatear=formatear_numero,
+                escala_para_estado=escala_para_estado,
+                formatear_celda_estado=formatear_celda_estado,
             )
         except Exception as e:
             return render_template(
@@ -2094,6 +2366,8 @@ def generar_informe():
             cache_id=cache_id,
             modelo_actual=modelo,
             formatear=formatear_numero,
+            escala_para_estado=escala_para_estado,
+            formatear_celda_estado=formatear_celda_estado,
             error=f"Error generando el informe: {e}",
         )
 
