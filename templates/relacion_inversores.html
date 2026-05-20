@@ -359,6 +359,30 @@
                 btnEnviar.disabled = false;
                 btnDescartar.disabled = false;
 
+                // Aplica la clasificación de la IA (siempre): actualiza el
+                // badge de categoría y la línea de perfil del remitente.
+                const tipoIA = (j.tipo_inversor || '').toLowerCase();
+                if (tipoIA === 'minorista' || tipoIA === 'mayorista') {
+                    card.classList.remove('minorista', 'mayorista');
+                    card.classList.add(tipoIA);
+                    const badge = card.querySelector('.ir-cat');
+                    if (badge) {
+                        badge.classList.remove('minorista', 'mayorista');
+                        badge.classList.add(tipoIA);
+                        const tipoLabel = tipoIA.charAt(0).toUpperCase() + tipoIA.slice(1);
+                        badge.textContent = `${tipoLabel} · Clasificado por IA`;
+                    }
+                }
+                if (j.perfil_estimado) {
+                    const perfil = card.querySelector('.ir-perfil');
+                    if (perfil) {
+                        // Mantenemos la fecha si la había.
+                        const fechaSpan = perfil.querySelector('span');
+                        const fechaHtml = fechaSpan ? ' · ' + fechaSpan.outerHTML : '';
+                        perfil.innerHTML = j.perfil_estimado + fechaHtml;
+                    }
+                }
+
                 const clase = clasificar(j.puede_resolver, j.cuerpo_respuesta);
                 if (clase === 'resoluble') stResoluble.hidden = false;
                 else if (clase === 'parcial') stParcial.hidden = false;

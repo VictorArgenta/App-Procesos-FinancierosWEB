@@ -54,17 +54,18 @@
             Conecta a la cuenta de Gmail configurada y lee los correos
             <strong>recibidos en las últimas 2 horas</strong> cuyo asunto empiece por
             <code style="background: var(--gray-bg); padding: 2px 6px; border-radius: 3px;">{{ prefijo }}</code>.
+            El prefijo incluye el ticker para que esta instancia sólo procese los correos dirigidos a <strong>{{ TICKER_FIJO or 'la compañía' }}</strong>.
         </p>
         <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
             {% if gmail_configurado %}
             <li>Cuenta conectada: <strong>{{ gmail_user }}</strong></li>
-            <li>Prefijo de asunto: <strong>{{ prefijo }}</strong></li>
+            <li>Filtro de asunto: empieza por <code>{{ prefijo }}</code></li>
             <li>Ventana temporal: últimas <strong>2 horas</strong></li>
             <li>El botón "Enviar" remitirá la respuesta <strong>real</strong> al inversor.</li>
             {% else %}
             <li>Para activar: define <code>GMAIL_USER</code> y <code>GMAIL_APP_PASSWORD</code> en el archivo <code>.env</code> de la app.</li>
             <li>Después reinicia con <code>python app.py {{ TICKER_FIJO or '&lt;TICKER&gt;' }}</code>.</li>
-            <li>Prefijo de asunto actual: <strong>{{ prefijo }}</strong> (variable <code>IR_PREFIJO_ASUNTO</code>).</li>
+            <li>Filtro de asunto actual: empieza por <code>{{ prefijo }}</code> (la base <code>INVERSORES</code> es configurable con <code>IR_PREFIJO_ASUNTO</code>).</li>
             {% endif %}
         </ul>
         <div style="margin-top: 1rem;">

@@ -65,7 +65,19 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 # solo está disponible el modo "correos históricos" (los 4 simulados).
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
+# `IR_PREFIJO_ASUNTO` es la *base* del filtro. El prefijo efectivo aplicado
+# a la bandeja es `f"{IR_PREFIJO_ASUNTO}-{TICKER_FIJO}-"` (p. ej. para
+# `python app.py META` queda "INVERSORES-META-"). Así cada instancia solo
+# ve los correos que le corresponden, aunque varios tickers compartan
+# bandeja de gmail.
 IR_PREFIJO_ASUNTO = os.getenv("IR_PREFIJO_ASUNTO", "INVERSORES")
+
+
+def _prefijo_asunto_actual():
+    base = (IR_PREFIJO_ASUNTO or "INVERSORES").strip()
+    if TICKER_FIJO:
+        return f"{base}-{TICKER_FIJO}-"
+    return f"{base}-"
 
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
@@ -3054,18 +3066,10 @@ def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
             if not asunto_limpio:
                 asunto_limpio = subject
 
-            # Heurística minorista vs mayorista por dominio.
-            dominio = from_email.split("@")[-1].lower() if "@" in from_email else ""
-            CONSUMER = {
-                "gmail.com", "hotmail.com", "hotmail.es", "outlook.com", "outlook.es",
-                "yahoo.com", "yahoo.es", "live.com", "icloud.com", "me.com",
-                "telefonica.net", "movistar.es",
-            }
-            es_minorista = dominio in CONSUMER
-            categoria = ("Minorista · Bandeja Gmail" if es_minorista
-                         else "Mayorista · Bandeja Gmail")
-            perfil = ("Inversor minorista" if es_minorista
-                      else f"Inversor corporativo ({dominio})")
+            # El perfil del remitente lo clasificará la IA al pulsar
+            # "Resolver con IA"; aquí dejamos un placeholder neutro.
+            categoria = "Bandeja Gmail · Por clasificar"
+            perfil = "Perfil del inversor pendiente de clasificación por IA"
 
             correos.append({
                 "id": f"gmail-{num.decode()}",
@@ -3143,18 +3147,25 @@ Cuerpo:
 [FIN DEL CORREO]
 
 Tu tarea:
-1. Analiza si puedes responder a la consulta con (a) los datos financieros
+1. CLASIFICA al remitente según el contenido, el remitente, el dominio del
+   correo, el tono y la naturaleza de la consulta:
+   - "minorista": particular, inversión modesta, lenguaje no técnico, dudas
+     básicas o vinculadas a su patrimonio personal.
+   - "mayorista": profesional institucional (gestor de fondo, banca privada,
+     analista, family office, etc.), tono técnico, foco en ratios y
+     modelización.
+2. Analiza si puedes responder a la consulta con (a) los datos financieros
    PÚBLICOS de Yahoo Finance que se adjuntan más abajo, o (b) información
    pública que puedas localizar mediante búsqueda web sobre {empresa}.
-2. Si puedes responder, redacta un BORRADOR PROFESIONAL adecuado al perfil
-   del remitente:
+3. Si puedes responder, redacta un BORRADOR PROFESIONAL adecuado al perfil
+   clasificado:
    - Minorista → lenguaje claro y didáctico, evita tecnicismos.
-   - Profesional / institucional → tono técnico, conciso, cifras exactas.
+   - Mayorista → tono técnico, conciso, cifras exactas.
    Usa cifras CONCRETAS y EXACTAS de los datos provistos cuando aplique.
    Formato europeo: separador de miles ".", decimal ",".
    No incluyas en el cuerpo ningún listado de URLs ni "Fuentes consultadas":
    la información debe estar integrada en la respuesta como hechos.
-3. Si NO puedes responder porque los datos solicitados son internos, no
+4. Si NO puedes responder porque los datos solicitados son internos, no
    públicos o no están disponibles ni en Yahoo ni en internet, marca
    `puede_resolver` = false. El borrador alternativo debe:
    (a) reconocer cortésmente la solicitud,
@@ -3169,6 +3180,8 @@ FORMATO DE SALIDA OBLIGATORIO — devuelve EXCLUSIVAMENTE un objeto JSON
 válido, sin comentarios, sin texto antes ni después, sin acentos graves:
 
 {{
+  "tipo_inversor": "minorista",
+  "perfil_estimado": "Frase breve describiendo al remitente y por qué (p. ej. 'Particular con cuenta personal de Gmail que pregunta sin tecnicismos').",
   "puede_resolver": true,
   "asunto_respuesta": "Re: {correo['asunto']}",
   "cuerpo_respuesta": "Estimado/a ...\\n\\n[respuesta completa]\\n\\nUn saludo,\\nEquipo de Relación con Inversores — {empresa}",
@@ -3206,6 +3219,11 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
     parsed.setdefault("asunto_respuesta", f"Re: {correo['asunto']}")
     parsed.setdefault("cuerpo_respuesta", "")
     parsed.setdefault("nota_interna", "")
+    tipo = (parsed.get("tipo_inversor") or "").lower().strip()
+    if tipo not in ("minorista", "mayorista"):
+        tipo = "mayorista"  # default conservador
+    parsed["tipo_inversor"] = tipo
+    parsed.setdefault("perfil_estimado", "")
     return parsed
 
 
@@ -3216,7 +3234,7 @@ def relacion_inversores():
         "relacion_inversores_landing.html",
         gmail_configurado=bool(GMAIL_USER and GMAIL_APP_PASSWORD),
         gmail_user=GMAIL_USER,
-        prefijo=IR_PREFIJO_ASUNTO,
+        prefijo=_prefijo_asunto_actual(),
     )
 
 
@@ -3228,7 +3246,7 @@ def relacion_inversores_historicos():
         correos=correos,
         modelo_actual=MODELO_POR_DEFECTO,
         fuente="historicos",
-        prefijo=IR_PREFIJO_ASUNTO,
+        prefijo=_prefijo_asunto_actual(),
     )
 
 
@@ -3238,18 +3256,18 @@ def relacion_inversores_gmail():
         return render_template(
             "relacion_inversores_landing.html",
             gmail_configurado=False,
-            prefijo=IR_PREFIJO_ASUNTO,
+            prefijo=_prefijo_asunto_actual(),
             error="Para usar la bandeja en vivo necesitas configurar GMAIL_USER "
                   "y GMAIL_APP_PASSWORD en el archivo .env y reiniciar la app.",
         )
     try:
-        correos = _leer_bandeja_gmail(IR_PREFIJO_ASUNTO, horas_max=2)
+        correos = _leer_bandeja_gmail(_prefijo_asunto_actual(), horas_max=2)
     except Exception as e:
         return render_template(
             "relacion_inversores_landing.html",
             gmail_configurado=True,
             gmail_user=GMAIL_USER,
-            prefijo=IR_PREFIJO_ASUNTO,
+            prefijo=_prefijo_asunto_actual(),
             error=f"No se pudo leer la bandeja de Gmail: {e}",
         )
 
@@ -3262,7 +3280,7 @@ def relacion_inversores_gmail():
         correos=correos,
         modelo_actual=MODELO_POR_DEFECTO,
         fuente="gmail",
-        prefijo=IR_PREFIJO_ASUNTO,
+        prefijo=_prefijo_asunto_actual(),
         gmail_user=GMAIL_USER,
     )
 
