@@ -2183,6 +2183,187 @@ def etiqueta_unidad(escala, moneda):
     return ""
 
 
+# KPIs por defecto (siempre se muestran en el cuadro de "Datos relevantes").
+_KPI_BASE = [
+    {"label": "Ingresos", "fuente": ("pyg", "ingresos"), "tipo": "moneda"},
+    {"label": "Margen bruto", "fuente": ("pyg", "margen_bruto"), "pct": "pct_margen_bruto", "tipo": "moneda"},
+    {"label": "EBITDA", "fuente": ("pyg", "ebitda"), "pct": "pct_ebitda", "tipo": "moneda"},
+    {"label": "EBIT", "fuente": ("pyg", "ebit"), "pct": "pct_ebit", "tipo": "moneda"},
+    {"label": "Beneficio neto", "fuente": ("pyg", "beneficio_neto"), "pct": "pct_beneficio_neto", "tipo": "moneda"},
+    {"label": "BPA básico", "fuente": ("pyg", "bpa_basico"), "tipo": "per_share"},
+]
+
+# KPIs adicionales por enfoque (texto literal del chip seleccionado).
+_KPI_POR_ENFOQUE = {
+    "Estructura de costes": [
+        {"label": "Coste de ventas", "fuente": ("pyg", "coste_ventas"), "tipo": "moneda"},
+        {"label": "SG&A", "fuente": ("pyg", "sga"), "pct": "pct_sga", "tipo": "moneda"},
+        {"label": "I+D", "fuente": ("pyg", "rd"), "pct": "pct_rd", "tipo": "moneda"},
+        {"label": "Amortizaciones (D&A)", "fuente": ("pyg", "da"), "pct": "pct_da", "tipo": "moneda"},
+    ],
+    "Fiscalidad y resultado financiero": [
+        {"label": "Resultado financiero neto", "fuente": ("pyg", "resultado_financiero_neto"), "tipo": "moneda"},
+        {"label": "Resultado antes de impuestos", "fuente": ("pyg", "resultado_antes_impuestos"), "pct": "pct_rai", "tipo": "moneda"},
+        {"label": "Impuesto sobre beneficios", "fuente": ("pyg", "impuestos"), "tipo": "moneda"},
+        {"label": "Tasa impositiva efectiva", "fuente": ("pyg", "tasa_impositiva"), "tipo": "porcentaje"},
+    ],
+    "Retorno al accionista (BPA, dividendos)": [
+        {"label": "BPA diluido", "fuente": ("pyg", "bpa_diluido"), "tipo": "per_share"},
+        {"label": "Dividendos pagados", "fuente": ("cashflow", "Dividendos pagados en efectivo"), "tipo": "moneda"},
+    ],
+    "Endeudamiento y solvencia": [
+        {"label": "Deuda total", "fuente": ("balance_sheet", "Deuda total"), "tipo": "moneda"},
+        {"label": "Deuda neta", "fuente": ("balance_sheet", "Deuda neta"), "tipo": "moneda"},
+        {"label": "Patrimonio neto", "fuente": ("balance_sheet", "Patrimonio neto total"), "tipo": "moneda"},
+        {"label": "Activos totales", "fuente": ("balance_sheet", "Activos totales"), "tipo": "moneda"},
+    ],
+    "Generación de caja": [
+        {"label": "Flujo de caja operativo", "fuente": ("cashflow", "Flujo de caja operativo"), "tipo": "moneda"},
+        {"label": "CAPEX", "fuente": ("cashflow", "Inversiones en inmovilizado (CAPEX)"), "tipo": "moneda"},
+        {"label": "Flujo de caja libre", "fuente": ("cashflow", "Flujo de caja libre"), "tipo": "moneda"},
+    ],
+    "Capital circulante": [
+        {"label": "Capital circulante", "fuente": ("balance_sheet", "Capital circulante"), "tipo": "moneda"},
+        {"label": "Existencias", "fuente": ("balance_sheet", "Existencias"), "tipo": "moneda"},
+        {"label": "Cuentas por cobrar", "fuente": ("balance_sheet", "Cuentas por cobrar comerciales"), "tipo": "moneda"},
+        {"label": "Cuentas por pagar", "fuente": ("balance_sheet", "Cuentas por pagar comerciales"), "tipo": "moneda"},
+    ],
+    "Inversiones (CAPEX)": [
+        {"label": "CAPEX", "fuente": ("cashflow", "Inversiones en inmovilizado (CAPEX)"), "tipo": "moneda"},
+        {"label": "Inmovilizado material neto", "fuente": ("balance_sheet", "Inmovilizado material neto"), "tipo": "moneda"},
+    ],
+    # "Evolución de ingresos" y "Margen y rentabilidad" se cubren con los KPIs base.
+}
+
+
+def _buscar_fila_estado(datos, estado_key, concepto):
+    """Busca una fila por concepto exacto en datos['estados'][estado_key]."""
+    estado = (datos.get("estados") or {}).get(estado_key) or {}
+    for fila in estado.get("filas", []):
+        if fila.get("concepto") == concepto:
+            return fila.get("valores", [])
+    return []
+
+
+def _valores_kpi(datos, fuente):
+    """Devuelve [valor_ultimo, valor_anterior] para una fuente declarada en un KPI."""
+    origen, clave = fuente
+    if origen == "pyg":
+        periodos = datos.get("periodos", []) or []
+        ultimo = periodos[0].get(clave) if len(periodos) > 0 else None
+        anterior = periodos[1].get(clave) if len(periodos) > 1 else None
+        return ultimo, anterior
+    valores = _buscar_fila_estado(datos, origen, clave)
+    ultimo = valores[0] if len(valores) > 0 else None
+    anterior = valores[1] if len(valores) > 1 else None
+    return ultimo, anterior
+
+
+def construir_metricas_relevantes(datos, enfoques_pred):
+    """Selecciona las métricas a destacar en función del enfoque del informe.
+
+    `enfoques_pred` es la lista de chips seleccionados por el usuario en el
+    configurador. Si está vacía, devolvemos sólo los KPIs base.
+    """
+    seleccion = list(_KPI_BASE)
+    vistos = {(k["fuente"][0], k["fuente"][1]) for k in seleccion}
+    for enfoque in enfoques_pred or []:
+        for kpi in _KPI_POR_ENFOQUE.get(enfoque, []):
+            firma = (kpi["fuente"][0], kpi["fuente"][1])
+            if firma in vistos:
+                continue
+            seleccion.append(kpi)
+            vistos.add(firma)
+
+    periodos = datos.get("periodos", []) or []
+    label_ult = periodos[0]["periodo"] if periodos else ""
+    label_ant = periodos[1]["periodo"] if len(periodos) > 1 else ""
+
+    # Escala común para todas las cifras monetarias del cuadro, basada en el
+    # mayor importe presente (igual criterio que las pestañas de Yahoo).
+    vals_mon = []
+    for kpi in seleccion:
+        if kpi["tipo"] not in ("moneda",):
+            continue
+        u, a = _valores_kpi(datos, kpi["fuente"])
+        for v in (u, a):
+            if v is not None:
+                try:
+                    vals_mon.append(abs(float(v)))
+                except (TypeError, ValueError):
+                    pass
+    max_v = max(vals_mon) if vals_mon else 0
+    if max_v >= 1e9:
+        escala = {"divisor": 1e6, "sufijo": "millones", "decimales": 0}
+    elif max_v >= 1e6:
+        escala = {"divisor": 1e6, "sufijo": "millones", "decimales": 1}
+    elif max_v >= 1e3:
+        escala = {"divisor": 1e3, "sufijo": "miles", "decimales": 0}
+    else:
+        escala = {"divisor": 1, "sufijo": "", "decimales": 0}
+
+    def _fmt_valor(v, tipo):
+        if v is None:
+            return "—"
+        try:
+            vf = float(v)
+        except (TypeError, ValueError):
+            return "—"
+        if tipo == "moneda":
+            return _fmt_es(vf / escala["divisor"], escala["decimales"])
+        if tipo == "per_share":
+            return _fmt_es(vf, 2)
+        if tipo == "porcentaje":
+            return _fmt_es(vf, 1) + "%"
+        return _fmt_es(vf, 0)
+
+    def _fmt_variacion(ult, ant):
+        if ult is None or ant is None:
+            return "—", "neutro"
+        try:
+            u = float(ult); a = float(ant)
+        except (TypeError, ValueError):
+            return "—", "neutro"
+        if a == 0:
+            return "—", "neutro"
+        var = ((u - a) / abs(a)) * 100
+        sentido = "positivo" if var >= 0 else "negativo"
+        signo = "+" if var >= 0 else "−"
+        return f"{signo}{_fmt_es(abs(var), 1)}%", sentido
+
+    filas = []
+    for kpi in seleccion:
+        u, a = _valores_kpi(datos, kpi["fuente"])
+        # No mostrar la fila si ambos valores faltan.
+        if u is None and a is None:
+            continue
+        fila = {
+            "label": kpi["label"],
+            "valor_ultimo": _fmt_valor(u, kpi["tipo"]),
+            "valor_anterior": _fmt_valor(a, kpi["tipo"]),
+            "tipo": kpi["tipo"],
+        }
+        pct_clave = kpi.get("pct")
+        if pct_clave and periodos:
+            pct_ult = periodos[0].get(pct_clave)
+            pct_ant = periodos[1].get(pct_clave) if len(periodos) > 1 else None
+            fila["pct_ultimo"] = (_fmt_es(pct_ult, 1) + "%") if pct_ult is not None else ""
+            fila["pct_anterior"] = (_fmt_es(pct_ant, 1) + "%") if pct_ant is not None else ""
+        var_txt, var_sentido = _fmt_variacion(u, a)
+        fila["variacion"] = var_txt
+        fila["variacion_sentido"] = var_sentido
+        filas.append(fila)
+
+    return {
+        "filas": filas,
+        "periodo_ultimo": label_ult,
+        "periodo_anterior": label_ant,
+        "escala": escala,
+        "moneda": datos.get("moneda", ""),
+        "etiqueta_unidad": etiqueta_unidad(escala, datos.get("moneda", "")),
+    }
+
+
 def preparar_datos_graficos(datos):
     """Construye un dict JSON-serializable para renderizar gráficos Chart.js.
 
@@ -2373,6 +2554,8 @@ def generar_informe():
 
     secciones_html, pendientes = _render_secciones_para_resultado(nota)
 
+    metricas_relevantes = construir_metricas_relevantes(datos, enfoques_pred)
+
     cache_entry.update({
         "nota": nota,
         "modelo": modelo,
@@ -2395,6 +2578,13 @@ def generar_informe():
         modelo_actual=modelo,
         instrucciones_iniciales=instrucciones,
         busqueda_activa_inicial=buscar_noticias,
+        metricas_relevantes=metricas_relevantes,
+        meta_informe={
+            "tipo": tipo_informe,
+            "enfoques": enfoques_pred,
+            "enfoque_libre": enfoque_libre,
+            "extension": extension,
+        },
     )
 
 

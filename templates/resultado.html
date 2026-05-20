@@ -35,159 +35,47 @@
 <div class="resultado-layout">
 <div class="col-main">
 
+{% if metricas_relevantes and metricas_relevantes.filas %}
 <div class="card">
-    <h2>Datos financieros — serie histórica</h2>
-    {% if datos.moneda %}
-    <p style="color: var(--gray-10); font-size: 0.82rem; margin: -0.4rem 0 0.8rem; font-style: italic;">
-        Cifras expresadas en {{ datos.moneda }}. Abreviaturas: K = miles, M = millones, B = miles de millones.
+    <h2>Datos relevantes para el informe</h2>
+    <p style="color: var(--gray-10); font-size: 0.82rem; margin: -0.4rem 0 0.8rem;">
+        Métricas clave que vertebran la narrativa, seleccionadas a partir del enfoque que has configurado.
+        {% if metricas_relevantes.etiqueta_unidad %}<br><em>{{ metricas_relevantes.etiqueta_unidad }} — separador de miles "."; decimales ","</em>{% endif %}
     </p>
-    {% endif %}
     <div class="table-scroll">
-        <table class="data-table metricas-table">
+        <table class="data-table metricas-relevantes-table">
             <thead>
                 <tr>
                     <th>Métrica</th>
-                    {% for p in datos.periodos %}
-                    <th>{{ p.periodo }}</th>
-                    {% endfor %}
+                    <th>{{ metricas_relevantes.periodo_ultimo or "Último ejercicio" }}</th>
+                    {% if metricas_relevantes.periodo_anterior %}
+                    <th>{{ metricas_relevantes.periodo_anterior }}</th>
+                    <th>Variación</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
+                {% for fila in metricas_relevantes.filas %}
                 <tr>
-                    <td><strong>Ingresos</strong></td>
-                    {% for p in datos.periodos %}
-                    <td>{{ formatear(p.ingresos) }}</td>
-                    {% endfor %}
+                    <td><strong>{{ fila.label }}</strong></td>
+                    <td>
+                        {{ fila.valor_ultimo }}
+                        {% if fila.pct_ultimo %}<span class="pct">({{ fila.pct_ultimo }})</span>{% endif %}
+                    </td>
+                    {% if metricas_relevantes.periodo_anterior %}
+                    <td>
+                        {{ fila.valor_anterior }}
+                        {% if fila.pct_anterior %}<span class="pct">({{ fila.pct_anterior }})</span>{% endif %}
+                    </td>
+                    <td class="var-{{ fila.variacion_sentido }}">{{ fila.variacion }}</td>
+                    {% endif %}
                 </tr>
-                <tr>
-                    <td><strong>Coste de ventas</strong></td>
-                    {% for p in datos.periodos %}
-                    <td>{{ formatear(p.coste_ventas) }}</td>
-                    {% endfor %}
-                </tr>
-                <tr>
-                    <td><strong>Margen bruto</strong></td>
-                    {% for p in datos.periodos %}
-                    <td>{{ formatear(p.margen_bruto) }} <span class="pct">({{ p.pct_margen_bruto }}%)</span></td>
-                    {% endfor %}
-                </tr>
-                <tr>
-                    <td><strong>Gastos operativos</strong></td>
-                    {% for p in datos.periodos %}
-                    <td>{{ formatear(p.gastos_operativos) }} <span class="pct">({{ p.pct_gastos_operativos }}%)</span></td>
-                    {% endfor %}
-                </tr>
-                <tr>
-                    <td><strong>EBITDA</strong></td>
-                    {% for p in datos.periodos %}
-                    <td>{{ formatear(p.ebitda) }} <span class="pct">({{ p.pct_ebitda }}%)</span></td>
-                    {% endfor %}
-                </tr>
-                <tr>
-                    <td><strong>Beneficio neto</strong></td>
-                    {% for p in datos.periodos %}
-                    <td>{{ formatear(p.beneficio_neto) }} <span class="pct">({{ p.pct_beneficio_neto }}%)</span></td>
-                    {% endfor %}
-                </tr>
+                {% endfor %}
             </tbody>
         </table>
     </div>
-
-    <details class="pyg-detallada">
-        <summary>Ver PyG detallada (EBIT, D&amp;A, opex desglosado, resultado financiero, impuestos, BPA)</summary>
-        <div class="table-scroll" style="margin-top: 0.8rem;">
-            <table class="data-table metricas-table">
-                <thead>
-                    <tr>
-                        <th>Métrica</th>
-                        {% for p in datos.periodos %}
-                        <th>{{ p.periodo }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td style="padding-left: 1.4rem;">SG&amp;A (ventas, generales y admin.)</td>
-                        {% for p in datos.periodos %}
-                        <td>{{ formatear(p.sga) }} <span class="pct">({{ p.pct_sga }}%)</span></td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td style="padding-left: 1.4rem;">I+D (investigación y desarrollo)</td>
-                        {% for p in datos.periodos %}
-                        <td>{{ formatear(p.rd) }} <span class="pct">({{ p.pct_rd }}%)</span></td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td><strong>Amortizaciones (D&amp;A)</strong></td>
-                        {% for p in datos.periodos %}
-                        <td>{{ formatear(p.da) }} <span class="pct">({{ p.pct_da }}%)</span></td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td><strong>EBIT (resultado de explotación)</strong></td>
-                        {% for p in datos.periodos %}
-                        <td>{{ formatear(p.ebit) }} <span class="pct">({{ p.pct_ebit }}%)</span></td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td style="padding-left: 1.4rem;">Ingresos financieros</td>
-                        {% for p in datos.periodos %}
-                        <td>{{ formatear(p.ingresos_financieros) }}</td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td style="padding-left: 1.4rem;">Gastos financieros</td>
-                        {% for p in datos.periodos %}
-                        <td>{{ formatear(p.gastos_financieros) }}</td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td><strong>Resultado financiero neto</strong></td>
-                        {% for p in datos.periodos %}
-                        <td>{{ formatear(p.resultado_financiero_neto) }}</td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td><strong>Resultado antes de impuestos</strong></td>
-                        {% for p in datos.periodos %}
-                        <td>{{ formatear(p.resultado_antes_impuestos) }} <span class="pct">({{ p.pct_rai }}%)</span></td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td style="padding-left: 1.4rem;">Impuesto sobre beneficios</td>
-                        {% for p in datos.periodos %}
-                        <td>{{ formatear(p.impuestos) }}</td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td style="padding-left: 1.4rem;">Tasa impositiva efectiva</td>
-                        {% for p in datos.periodos %}
-                        <td>{{ p.tasa_impositiva }}%</td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td><strong>BPA básico</strong></td>
-                        {% for p in datos.periodos %}
-                        <td>{{ '%.2f'|format(p.bpa_basico) }}</td>
-                        {% endfor %}
-                    </tr>
-                    <tr>
-                        <td><strong>BPA diluido</strong></td>
-                        {% for p in datos.periodos %}
-                        <td>{{ '%.2f'|format(p.bpa_diluido) }}</td>
-                        {% endfor %}
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        <p style="color: var(--gray-10); font-size: 0.78rem; margin-top: 0.5rem; font-style: italic;">
-            Datos extraídos del income statement de yfinance. Las filas en blanco
-            o con valor 0 indican que el dato no está reportado por la fuente
-            para ese periodo.
-        </p>
-    </details>
 </div>
+{% endif %}
 
 <div class="card memoria-card">
     <h2>Informe narrativo</h2>
@@ -273,6 +161,14 @@
         border-radius: 3px;
     }
     .metricas-table { min-width: 680px; margin: 0; }
+    .metricas-relevantes-table { width: 100%; margin: 0; }
+    .metricas-relevantes-table th, .metricas-relevantes-table td { padding: 8px 12px; }
+    .metricas-relevantes-table th { background: var(--gray-bg); }
+    .metricas-relevantes-table th:not(:first-child), .metricas-relevantes-table td:not(:first-child) { text-align: right; white-space: nowrap; }
+    .metricas-relevantes-table .pct { color: var(--gray-10); font-size: 0.78rem; margin-left: 4px; }
+    .metricas-relevantes-table .var-positivo { color: #2E7D32; font-weight: 600; }
+    .metricas-relevantes-table .var-negativo { color: #C62828; font-weight: 600; }
+    .metricas-relevantes-table .var-neutro { color: var(--gray-9); }
     .pyg-detallada {
         margin-top: 1.1rem;
         border-top: 1px solid var(--gray-border);
