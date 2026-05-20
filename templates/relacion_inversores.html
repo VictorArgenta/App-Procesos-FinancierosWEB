@@ -342,6 +342,21 @@
         </div>
 
         <div class="ir-col ir-col-respuesta">
+            {% if correo._enviado %}
+            <div class="ir-col-label">Respuesta enviada</div>
+            <div class="ir-status enviado" style="margin-bottom: 0.6rem;">
+                ✓ Correo <strong>enviado</strong> a <strong>{{ correo._enviado.destinatario_nombre }}</strong>
+                &lt;{{ correo._enviado.destinatario_email }}&gt; · {{ correo._enviado.timestamp }}
+            </div>
+            <div class="field">
+                <label>Asunto</label>
+                <input type="text" value="{{ correo._enviado.asunto }}" disabled>
+            </div>
+            <div class="field field-cuerpo">
+                <label>Cuerpo del correo enviado</label>
+                <textarea disabled>{{ correo._enviado.cuerpo }}</textarea>
+            </div>
+            {% else %}
             <div class="ir-col-label">Respuesta del equipo de IR</div>
 
             <div class="ir-vacio">
@@ -376,6 +391,7 @@
                 <div class="ir-status enviado" hidden></div>
                 <div class="ir-status error" hidden></div>
             </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -533,10 +549,12 @@
 
     document.querySelectorAll('.ir-card').forEach(card => {
         const correoId = card.dataset.correoId;
+        const btnResolver = $(card, '.btn-resolver');
+        // Si el correo ya está enviado, no hay UI interactiva en esta card.
+        if (!btnResolver) return;
         const colVacio = $(card, '.ir-vacio');
         const thinking = $(card, '.ir-thinking');
         const respuesta = $(card, '.ir-respuesta');
-        const btnResolver = $(card, '.btn-resolver');
 
         const stResoluble = $(card, '.ir-status.resoluble');
         const stParcial = $(card, '.ir-status.parcial');
