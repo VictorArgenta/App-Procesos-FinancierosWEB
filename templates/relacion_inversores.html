@@ -4,17 +4,21 @@
 
 {% block content %}
 <style>
-    .ir-card { border-left: 4px solid var(--gray-border); margin-bottom: 1rem; }
-    .ir-card.minorista { border-left-color: #1976D2; }
-    .ir-card.mayorista { border-left-color: #6A1B9A; }
-    .ir-header {
+    [hidden] { display: none !important; }
+
+    .ir-card { padding: 0; overflow: hidden; }
+    .ir-card-head {
         display: flex;
         justify-content: space-between;
         gap: 1rem;
         align-items: flex-start;
         flex-wrap: wrap;
-        margin-bottom: 0.4rem;
+        padding: 0.9rem 1.2rem;
+        border-bottom: 1px solid var(--gray-border);
+        background: #fff;
     }
+    .ir-card.minorista .ir-card-head { border-top: 3px solid #1976D2; }
+    .ir-card.mayorista .ir-card-head { border-top: 3px solid #6A1B9A; }
     .ir-from { font-size: 0.9rem; color: var(--gray-11); }
     .ir-from strong { color: var(--black); }
     .ir-from .email { color: var(--gray-10); font-weight: 400; }
@@ -31,39 +35,85 @@
     }
     .ir-cat.minorista { background: #E3F2FD; color: #0D47A1; }
     .ir-cat.mayorista { background: #F3E5F5; color: #4A148C; }
-    .ir-asunto { font-weight: 700; margin: 0.4rem 0; color: var(--black); }
+
+    .ir-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+        align-items: stretch;
+    }
+    @media (max-width: 900px) {
+        .ir-grid { grid-template-columns: 1fr; }
+    }
+
+    .ir-col {
+        padding: 1rem 1.2rem;
+        display: flex;
+        flex-direction: column;
+        min-height: 240px;
+    }
+    .ir-col-entrada {
+        background: #F8F9FA;
+        border-right: 1px solid var(--gray-border);
+    }
+    .ir-col-respuesta {
+        background: #F1F8E9;
+    }
+    @media (max-width: 900px) {
+        .ir-col-entrada { border-right: none; border-bottom: 1px solid var(--gray-border); }
+    }
+
+    .ir-col-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+        color: var(--gray-10);
+        margin-bottom: 0.5rem;
+    }
+    .ir-col-entrada .ir-col-label { color: #5D6368; }
+    .ir-col-respuesta .ir-col-label { color: #33691E; }
+
+    .ir-asunto {
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--black);
+        margin: 0 0 0.6rem;
+    }
     .ir-cuerpo {
-        background: #FAFAFA;
+        background: #fff;
         border: 1px solid var(--gray-border);
         border-radius: 3px;
         padding: 0.8rem 1rem;
-        font-family: 'Inter', system-ui, sans-serif;
         white-space: pre-wrap;
-        font-size: 0.88rem;
+        font-size: 0.86rem;
         line-height: 1.55;
-        margin-bottom: 0.8rem;
+        color: var(--black);
+        flex-grow: 1;
     }
-    .ir-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-    .ir-respuesta {
-        margin-top: 1rem;
-        padding-top: 1rem;
-        border-top: 1px dashed var(--gray-border);
+
+    .ir-vacio {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 0.6rem;
+        flex-grow: 1;
+        padding: 1rem 0;
     }
-    .ir-respuesta[hidden] { display: none; }
-    .ir-status {
+    .ir-vacio small { color: var(--gray-10); font-size: 0.82rem; }
+
+    .ir-thinking {
         display: flex;
         align-items: center;
         gap: 0.6rem;
         padding: 0.6rem 0.9rem;
+        background: #FFF8E1;
+        color: #5D4037;
+        border: 1px solid #FFE082;
         border-radius: 3px;
         font-size: 0.85rem;
-        margin-bottom: 0.7rem;
     }
-    .ir-status.thinking { background: #FFF8E1; color: #5D4037; border: 1px solid #FFE082; }
-    .ir-status.resoluble { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
-    .ir-status.no-resoluble { background: #FFF3E0; color: #BF360C; border: 1px solid #FFCC80; }
-    .ir-status.enviado { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
-    .ir-status.error { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
     .ir-spinner {
         width: 14px; height: 14px;
         border: 2px solid rgba(0,0,0,0.15);
@@ -72,27 +122,54 @@
         animation: ir-spin 0.7s linear infinite;
     }
     @keyframes ir-spin { to { transform: rotate(360deg); } }
-    .ir-respuesta label { font-weight: 600; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-11); }
-    .ir-respuesta input[type="text"], .ir-respuesta textarea {
+
+    .ir-status {
+        padding: 0.55rem 0.85rem;
+        border-radius: 3px;
+        font-size: 0.84rem;
+        margin-bottom: 0.7rem;
+        line-height: 1.45;
+    }
+    .ir-status.resoluble    { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
+    .ir-status.parcial      { background: #FFF3E0; color: #BF360C; border: 1px solid #FFCC80; }
+    .ir-status.no-resoluble { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
+    .ir-status.enviado      { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; margin-top: 0.7rem; margin-bottom: 0; }
+    .ir-status.error        { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
+
+    .ir-respuesta label {
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--gray-11);
+        display: block;
+    }
+    .ir-respuesta .field { margin-bottom: 0.7rem; }
+    .ir-respuesta input[type="text"],
+    .ir-respuesta textarea {
         width: 100%;
         font-family: inherit;
         font-size: 0.88rem;
-        border: 1px solid var(--gray-border);
+        border: 1px solid #C5E1A5;
         border-radius: 3px;
         padding: 0.6rem 0.8rem;
-        margin: 0.3rem 0 0.8rem;
+        margin-top: 0.3rem;
         background: #fff;
+        box-sizing: border-box;
     }
-    .ir-respuesta textarea { min-height: 240px; line-height: 1.5; }
-    .ir-nota-interna {
+    .ir-respuesta textarea { min-height: 240px; line-height: 1.5; resize: vertical; }
+    .ir-respuesta input:focus, .ir-respuesta textarea:focus {
+        outline: none;
+        border-color: #689F38;
+        box-shadow: 0 0 0 3px rgba(104,159,56,0.15);
+    }
+    .ir-respuesta input:disabled, .ir-respuesta textarea:disabled {
         background: #F5F5F5;
-        border-left: 3px solid var(--gray-border);
-        padding: 0.5rem 0.8rem;
-        font-size: 0.82rem;
         color: var(--gray-11);
-        margin-bottom: 0.8rem;
-        font-style: italic;
+        cursor: not-allowed;
     }
+    .ir-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 </style>
 
 <div class="breadcrumbs">
@@ -104,14 +181,33 @@
     <div>
         <span class="eyebrow">Módulo · Atención al inversor</span>
         <h1>Relación con Inversores</h1>
-        <p class="lead">Bandeja de entrada simulada con consultas reales que recibe el equipo de IR de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}. Pulsa <strong>Resolver con IA</strong> en cada correo y la asistente valorará si puede contestar con datos públicos; si no, dejará el borrador para que lo completes manualmente.</p>
+        <p class="lead">Bandeja de entrada con consultas reales del equipo de IR de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}. Pulsa <strong>Resolver con IA</strong> en cada correo: la asistente analizará si puede responder, y prepará un borrador editable para que lo revises antes de enviar.</p>
     </div>
+</div>
+
+<div class="card" style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+    <label for="ir-modelo" style="font-weight:600; font-size:0.82rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--gray-11); margin:0;">Modelo de IA</label>
+    {% set sel = modelo_actual or 'claude-sonnet-4-6' %}
+    <select id="ir-modelo" style="max-width: 360px;">
+        <optgroup label="Anthropic Claude (de pago)">
+            <option value="claude-opus-4-6" {% if sel == 'claude-opus-4-6' %}selected{% endif %}>claude-opus-4-6 — Máxima calidad</option>
+            <option value="claude-sonnet-4-6" {% if sel == 'claude-sonnet-4-6' %}selected{% endif %}>claude-sonnet-4-6 — Recomendado</option>
+            <option value="claude-haiku-4-5-20251001" {% if sel == 'claude-haiku-4-5-20251001' %}selected{% endif %}>claude-haiku-4-5-20251001 — Más económico</option>
+        </optgroup>
+        <optgroup label="Google Gemini (gratuito)">
+            <option value="gemini-2.5-flash" {% if sel == 'gemini-2.5-flash' %}selected{% endif %}>gemini-2.5-flash — Recomendado gratuito</option>
+            <option value="gemini-2.5-flash-lite" {% if sel == 'gemini-2.5-flash-lite' %}selected{% endif %}>gemini-2.5-flash-lite — Ligero gratuito</option>
+        </optgroup>
+    </select>
+    <span style="color: var(--gray-10); font-size: 0.82rem;">Se aplica a todos los correos. Puedes cambiarlo y volver a generar la respuesta.</span>
 </div>
 
 {% for correo in correos %}
 {% set tipo = 'mayorista' if 'Mayorista' in correo.categoria else 'minorista' %}
-<div class="card ir-card {{ tipo }}" data-correo-id="{{ correo.id }}">
-    <div class="ir-header">
+<div class="card ir-card {{ tipo }}" data-correo-id="{{ correo.id }}"
+     data-destinatario-nombre="{{ correo.remitente_nombre }}"
+     data-destinatario-email="{{ correo.remitente_email }}">
+    <div class="ir-card-head">
         <div>
             <div class="ir-from"><strong>{{ correo.remitente_nombre }}</strong> <span class="email">&lt;{{ correo.remitente_email }}&gt;</span></div>
             <div class="ir-perfil">{{ correo.remitente_perfil }}</div>
@@ -119,32 +215,47 @@
         <span class="ir-cat {{ tipo }}">{{ correo.categoria }}</span>
     </div>
 
-    <div class="ir-asunto">{{ correo.asunto }}</div>
-    <div class="ir-cuerpo">{{ correo.cuerpo }}</div>
+    <div class="ir-grid">
+        <div class="ir-col ir-col-entrada">
+            <div class="ir-col-label">Correo entrante</div>
+            <div class="ir-asunto">{{ correo.asunto }}</div>
+            <div class="ir-cuerpo">{{ correo.cuerpo }}</div>
+        </div>
 
-    <div class="ir-actions">
-        <button type="button" class="btn btn-primary btn-resolver">Resolver con IA</button>
-        <span class="ir-status thinking" hidden>
-            <span class="ir-spinner"></span> La IA está analizando el correo y los datos disponibles…
-        </span>
-    </div>
+        <div class="ir-col ir-col-respuesta">
+            <div class="ir-col-label">Respuesta del equipo de IR</div>
 
-    <div class="ir-respuesta" hidden>
-        <div class="ir-nota-interna"></div>
+            <div class="ir-vacio">
+                <button type="button" class="btn btn-primary btn-resolver">Resolver con IA</button>
+                <small>Aún no se ha generado un borrador para este correo.</small>
+            </div>
 
-        <div class="ir-status resoluble" hidden></div>
-        <div class="ir-status no-resoluble" hidden></div>
+            <div class="ir-thinking" hidden>
+                <span class="ir-spinner"></span>
+                <span>La IA está analizando el correo y los datos disponibles…</span>
+            </div>
 
-        <label>Asunto</label>
-        <input type="text" class="ir-input-asunto">
+            <div class="ir-respuesta" hidden>
+                <div class="ir-status resoluble"    hidden>Borrador redactado <strong>íntegramente</strong> con la información disponible. Revisa y edita si quieres antes de enviar.</div>
+                <div class="ir-status parcial"      hidden>Borrador <strong>parcial</strong>: parte de la información solicitada no está disponible. Completa los huecos marcados antes de enviar.</div>
+                <div class="ir-status no-resoluble" hidden>No ha sido posible redactar la respuesta con la información disponible. Tienes un borrador base; complétalo manualmente antes de enviar.</div>
 
-        <label>Cuerpo del correo de respuesta</label>
-        <textarea class="ir-input-cuerpo"></textarea>
+                <div class="field">
+                    <label>Asunto</label>
+                    <input type="text" class="ir-input-asunto">
+                </div>
+                <div class="field">
+                    <label>Cuerpo del correo de respuesta</label>
+                    <textarea class="ir-input-cuerpo"></textarea>
+                </div>
 
-        <div class="ir-actions">
-            <button type="button" class="btn btn-primary btn-enviar">Enviar respuesta</button>
-            <button type="button" class="btn btn-secondary btn-descartar">Descartar borrador</button>
-            <span class="ir-status enviado" hidden></span>
+                <div class="ir-actions">
+                    <button type="button" class="btn btn-primary btn-enviar">Enviar respuesta</button>
+                    <button type="button" class="btn btn-secondary btn-descartar">Descartar borrador</button>
+                </div>
+                <div class="ir-status enviado" hidden></div>
+                <div class="ir-status error" hidden></div>
+            </div>
         </div>
     </div>
 </div>
@@ -154,61 +265,87 @@
 (function() {
     const RESOLVER_URL = '/relacion-inversores/resolver';
     const ENVIAR_URL = '/relacion-inversores/enviar';
+    const selectModelo = document.getElementById('ir-modelo');
+
+    function modeloElegido() {
+        return selectModelo ? selectModelo.value : '';
+    }
 
     function $(el, sel) { return el.querySelector(sel); }
 
     document.querySelectorAll('.ir-card').forEach(card => {
         const correoId = card.dataset.correoId;
-        const btnResolver = $(card, '.btn-resolver');
-        const statusThinking = card.querySelectorAll('.ir-status.thinking')[0];
+        const colVacio = $(card, '.ir-vacio');
+        const thinking = $(card, '.ir-thinking');
         const respuesta = $(card, '.ir-respuesta');
-        const nota = $(card, '.ir-nota-interna');
+        const btnResolver = $(card, '.btn-resolver');
+
         const stResoluble = $(card, '.ir-status.resoluble');
+        const stParcial = $(card, '.ir-status.parcial');
         const stNoResoluble = $(card, '.ir-status.no-resoluble');
+        const stEnviado = $(card, '.ir-status.enviado');
+        const stError = $(card, '.ir-status.error');
+
         const inputAsunto = $(card, '.ir-input-asunto');
         const inputCuerpo = $(card, '.ir-input-cuerpo');
         const btnEnviar = $(card, '.btn-enviar');
         const btnDescartar = $(card, '.btn-descartar');
-        const stEnviado = $(card, '.ir-status.enviado');
+
+        function ocultarStatus() {
+            stResoluble.hidden = true;
+            stParcial.hidden = true;
+            stNoResoluble.hidden = true;
+            stEnviado.hidden = true;
+            stError.hidden = true;
+        }
+
+        function clasificar(puedeResolver, cuerpo) {
+            // Detecta marcadores [PENDIENTE: ...] para distinguir parcial vs no resoluble.
+            const tienePendientes = /\[PENDIENTE[:\s]/i.test(cuerpo || '');
+            if (puedeResolver && !tienePendientes) return 'resoluble';
+            if (tienePendientes && (cuerpo || '').length > 200) return 'parcial';
+            return 'no-resoluble';
+        }
 
         btnResolver.addEventListener('click', async () => {
-            statusThinking.hidden = false;
-            btnResolver.disabled = true;
+            ocultarStatus();
+            colVacio.hidden = true;
             respuesta.hidden = true;
-            stEnviado.hidden = true;
-            stResoluble.hidden = true;
-            stNoResoluble.hidden = true;
+            thinking.hidden = false;
+            btnResolver.disabled = true;
 
             try {
                 const r = await fetch(RESOLVER_URL, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({correo_id: correoId})
+                    body: JSON.stringify({correo_id: correoId, modelo: modeloElegido()})
                 });
                 const j = await r.json();
-                statusThinking.hidden = true;
-                btnResolver.disabled = false;
+                thinking.hidden = true;
                 if (!j.ok) {
+                    colVacio.hidden = false;
+                    btnResolver.disabled = false;
                     alert('Error: ' + (j.error || 'fallo desconocido'));
                     return;
                 }
-                card.dataset.destinatarioNombre = j.destinatario_nombre || '';
-                card.dataset.destinatarioEmail = j.destinatario_email || '';
                 inputAsunto.value = j.asunto_respuesta || '';
                 inputCuerpo.value = j.cuerpo_respuesta || '';
-                nota.textContent = j.nota_interna || '';
-                nota.hidden = !j.nota_interna;
-                if (j.puede_resolver) {
-                    stResoluble.textContent = '✓ La IA pudo resolver la consulta con datos públicos. Revisa el borrador, edítalo si lo necesitas y pulsa Enviar.';
-                    stResoluble.hidden = false;
-                } else {
-                    stNoResoluble.textContent = '⚠ La IA no dispone de toda la información solicitada. Ha dejado un borrador parcial con [PENDIENTE: …] marcando lo que debes completar antes de enviar.';
-                    stNoResoluble.hidden = false;
-                }
+                inputAsunto.disabled = false;
+                inputCuerpo.disabled = false;
+                btnEnviar.disabled = false;
+                btnDescartar.disabled = false;
+
+                const clase = clasificar(j.puede_resolver, j.cuerpo_respuesta);
+                if (clase === 'resoluble') stResoluble.hidden = false;
+                else if (clase === 'parcial') stParcial.hidden = false;
+                else stNoResoluble.hidden = false;
+
                 respuesta.hidden = false;
+                btnResolver.disabled = false;
                 btnResolver.textContent = 'Volver a generar';
             } catch (err) {
-                statusThinking.hidden = true;
+                thinking.hidden = true;
+                colVacio.hidden = false;
                 btnResolver.disabled = false;
                 alert('Error de red: ' + err.message);
             }
@@ -216,12 +353,15 @@
 
         btnDescartar.addEventListener('click', () => {
             respuesta.hidden = true;
-            stEnviado.hidden = true;
+            ocultarStatus();
+            colVacio.hidden = false;
             btnResolver.textContent = 'Resolver con IA';
+            btnResolver.disabled = false;
         });
 
         btnEnviar.addEventListener('click', async () => {
             btnEnviar.disabled = true;
+            btnDescartar.disabled = true;
             try {
                 const r = await fetch(ENVIAR_URL, {
                     method: 'POST',
@@ -236,22 +376,24 @@
                 });
                 const j = await r.json();
                 if (j.ok) {
-                    stEnviado.className = 'ir-status enviado';
-                    stEnviado.textContent = `✓ Respuesta enviada a ${j.destinatario_nombre} <${j.destinatario_email}> · ${j.timestamp}`;
+                    stEnviado.innerHTML = `✓ Respuesta enviada a <strong>${j.destinatario_nombre}</strong> &lt;${j.destinatario_email}&gt; · ${j.timestamp}`;
                     stEnviado.hidden = false;
-                    btnEnviar.disabled = true;
-                    btnDescartar.disabled = true;
+                    // Tras enviar: bloquear toda interacción con este correo
                     inputAsunto.disabled = true;
                     inputCuerpo.disabled = true;
+                    btnEnviar.disabled = true;
+                    btnDescartar.disabled = true;
                     btnResolver.disabled = true;
+                    btnResolver.textContent = 'Respuesta enviada';
                 } else {
-                    stEnviado.className = 'ir-status error';
-                    stEnviado.textContent = 'Error al enviar: ' + (j.error || '');
-                    stEnviado.hidden = false;
+                    stError.textContent = 'Error al enviar: ' + (j.error || '');
+                    stError.hidden = false;
                     btnEnviar.disabled = false;
+                    btnDescartar.disabled = false;
                 }
             } catch (err) {
                 btnEnviar.disabled = false;
+                btnDescartar.disabled = false;
                 alert('Error de red: ' + err.message);
             }
         });
