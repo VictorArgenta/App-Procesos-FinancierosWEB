@@ -492,15 +492,24 @@
             dlgThinking.hidden = true;
             if (!j.ok) {
                 conversaciones[correoId].push({role: 'assistant', content: 'Error: ' + (j.error || 'fallo desconocido')});
-            } else {
-                if (j.respuesta_chat) {
-                    conversaciones[correoId].push({role: 'assistant', content: j.respuesta_chat});
-                }
-                if (j.modificado) {
-                    inputAsunto.value = j.asunto_respuesta || inputAsunto.value;
-                    inputCuerpo.value = j.cuerpo_respuesta || inputCuerpo.value;
-                    conversaciones[correoId].push({role: 'assistant', content: 'Borrador actualizado ✓', tag: true});
-                }
+                pintarHistorial(correoId);
+                dlgInput.disabled = false;
+                dlgEnviar.disabled = false;
+                return;
+            }
+            if (j.respuesta_chat) {
+                conversaciones[correoId].push({role: 'assistant', content: j.respuesta_chat});
+            }
+            if (j.modificado) {
+                inputAsunto.value = j.asunto_respuesta || inputAsunto.value;
+                inputCuerpo.value = j.cuerpo_respuesta || inputCuerpo.value;
+                conversaciones[correoId].push({role: 'assistant', content: 'Borrador actualizado ✓', tag: true});
+                pintarHistorial(correoId);
+                // Cierra el modal para que el usuario vea el borrador
+                // actualizado en la pantalla principal. Pequeño delay para
+                // que se perciba el "✓" antes de cerrar.
+                setTimeout(cerrarModal, 450);
+                return;
             }
             pintarHistorial(correoId);
             dlgInput.disabled = false;
