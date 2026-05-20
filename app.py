@@ -30,7 +30,15 @@ from matplotlib.ticker import FuncFormatter
 
 load_dotenv()
 
+import sys as _sys
+
+# Ticker fijado al arrancar la aplicación. Uso: `python app.py META`. Si se
+# pasa, el flujo de análisis individual salta el paso de selección de ticker
+# y trabaja siempre con esa compañía durante toda la sesión.
+TICKER_FIJO = (_sys.argv[1].strip().upper() if len(_sys.argv) > 1 and _sys.argv[1].strip() else None)
+
 app = Flask(__name__)
+app.jinja_env.globals["TICKER_FIJO"] = TICKER_FIJO
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -302,17 +310,8 @@ def llamar_ia_con_reintentos(prompt, max_tokens, modelo, permitir_busqueda=False
 
 
 def _append_fuentes_consultadas(texto_md, citas):
-    """Añade una sección ## Fuentes consultadas al final de la memoria."""
-    if not citas:
-        return texto_md
-    lineas = ["", "## Fuentes consultadas"]
-    for c in citas[:12]:
-        titulo = (c.get("title") or c.get("url") or "").strip()
-        url = (c.get("url") or "").strip()
-        if not url:
-            continue
-        lineas.append(f"- **{titulo}** — {url}")
-    return texto_md.rstrip() + "\n" + "\n".join(lineas) + "\n"
+    """No-op: la sección 'Fuentes consultadas' se ha retirado del informe."""
+    return texto_md
 
 
 def _limpiar_respuesta_ia(texto):
@@ -324,6 +323,15 @@ def _limpiar_respuesta_ia(texto):
     """
     if not texto:
         return texto
+
+    # Si el modelo introdujo una sección final de fuentes / enlaces pese a
+    # las instrucciones, la eliminamos antes de seguir saneando.
+    texto = re.sub(
+        r"\n#{1,6}\s*(Fuentes consultadas|Fuentes|Referencias|Enlaces consultados|Bibliograf[íi]a)[^\n]*\n.*\Z",
+        "",
+        texto,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
 
     texto = re.sub(r"```[^\n`]*\n?", "", texto)
     texto = texto.replace("```", "")
@@ -1011,7 +1019,8 @@ RESPONDE ESTRICTAMENTE con este formato exacto (sin texto adicional fuera de las
 [MEMORIA]
 (la MEMORIA COMPLETA ACTUALIZADA en markdown, respetando las reglas de formato.
 Si el usuario no pide cambios en la memoria, repite la memoria actual tal cual.
-Si usaste búsqueda web, incluye al final una sección `## Fuentes consultadas`.)"""
+NO añadas una sección de fuentes / enlaces al final: el informe debe terminar
+en la conclusión narrativa, sin listado de URLs ni "Fuentes consultadas".)"""
 
     texto, citas = llamar_ia_con_reintentos(
         prompt, max_tokens=4500, modelo=modelo,
@@ -1020,10 +1029,6 @@ Si usaste búsqueda web, incluye al final una sección `## Fuentes consultadas`.
     respuesta, memoria_nueva = _parsear_respuesta_chat(texto)
     if not respuesta:
         respuesta = "Memoria actualizada."
-    if memoria_nueva and citas:
-        # La IA no siempre respeta "## Fuentes consultadas"; lo anexamos si falta.
-        if "## Fuentes consultadas" not in memoria_nueva:
-            memoria_nueva = _append_fuentes_consultadas(memoria_nueva, citas)
     return respuesta, memoria_nueva, citas
 
 
@@ -2448,9 +2453,71 @@ def _render_secciones_para_resultado(nota):
     return secciones_html, pendientes
 
 
+# Cache (a nivel proceso) de los datos de Yahoo del TICKER_FIJO, para evitar
+# pegar a yfinance en cada navegación dentro de la misma sesión.
+_TICKER_FIJO_DATOS = {"ticker": None, "datos": None}
+
+
+def _cargar_datos_ticker_fijo():
+    if not TICKER_FIJO:
+        return None
+    if _TICKER_FIJO_DATOS.get("ticker") == TICKER_FIJO and _TICKER_FIJO_DATOS.get("datos"):
+        return _TICKER_FIJO_DATOS["datos"]
+    datos = obtener_datos_financieros(TICKER_FIJO)
+    _TICKER_FIJO_DATOS["ticker"] = TICKER_FIJO
+    _TICKER_FIJO_DATOS["datos"] = datos
+    return datos
+
+
+def _render_datos_yahoo(datos, modelo, error=None):
+    cache_id = str(uuid.uuid4())
+    _download_cache[cache_id] = {
+        "datos": datos,
+        "nota": None,
+        "modelo": modelo,
+        "instrucciones": "",
+        "chat_historial": [],
+    }
+    return render_template(
+        "datos_yahoo.html",
+        datos=datos,
+        cache_id=cache_id,
+        modelo_actual=modelo,
+        formatear=formatear_numero,
+        escala_para_estado=escala_para_estado,
+        formatear_celda_estado=formatear_celda_estado,
+        error=error,
+    )
+
+
 @app.route("/analisis", methods=["GET", "POST"])
 def analisis():
-    """Paso 1: usuario introduce ticker, devolvemos los 3 estados de Yahoo."""
+    """Si hay TICKER_FIJO, salta directamente al paso 2 con esa compañía.
+
+    En caso contrario mantiene el flujo en dos pasos: el GET muestra el form
+    de selección de ticker y el POST procesa el ticker introducido.
+    """
+    modelo_default = MODELO_POR_DEFECTO
+
+    if TICKER_FIJO:
+        try:
+            datos = _cargar_datos_ticker_fijo()
+            if datos is None:
+                return render_template(
+                    "analisis.html",
+                    error=(f"No se encontraron datos financieros para el ticker "
+                           f"fijado '{TICKER_FIJO}'. Revisa el símbolo bursátil "
+                           f"con el que arrancaste la app."),
+                    modelo_seleccionado=modelo_default,
+                )
+            return _render_datos_yahoo(datos, modelo_default)
+        except Exception as e:
+            return render_template(
+                "analisis.html",
+                error=f"Error al cargar datos de {TICKER_FIJO}: {e}",
+                modelo_seleccionado=modelo_default,
+            )
+
     if request.method == "POST":
         ticker_symbol = request.form.get("ticker", "").strip().upper()
         modelo = _normalizar_modelo(request.form.get("modelo", MODELO_POR_DEFECTO))
@@ -2469,25 +2536,7 @@ def analisis():
                     error=f"No se encontraron datos financieros para '{ticker_symbol}'.",
                     modelo_seleccionado=modelo,
                 )
-
-            cache_id = str(uuid.uuid4())
-            _download_cache[cache_id] = {
-                "datos": datos,
-                "nota": None,
-                "modelo": modelo,
-                "instrucciones": "",
-                "chat_historial": [],
-            }
-
-            return render_template(
-                "datos_yahoo.html",
-                datos=datos,
-                cache_id=cache_id,
-                modelo_actual=modelo,
-                formatear=formatear_numero,
-                escala_para_estado=escala_para_estado,
-                formatear_celda_estado=formatear_celda_estado,
-            )
+            return _render_datos_yahoo(datos, modelo)
         except Exception as e:
             return render_template(
                 "analisis.html",
