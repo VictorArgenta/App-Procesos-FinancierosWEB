@@ -2500,9 +2500,10 @@ _IR_PENDIENTES_CACHE = {"ts": 0.0, "count": None}
 def _contar_pendientes_ir(ttl_segundos=30):
     """Devuelve cuántos correos están pendientes ahora mismo.
 
-    Usa una caché muy corta (TTL 30 s por defecto) para no martillear IMAP
-    desde la home en cada navegación. Si Gmail no está configurado, devuelve
-    None; si la consulta falla, devuelve también None (no rompe la home).
+    Usa la misma función `_leer_bandeja_gmail()` que la vista, para que el
+    contador de la home y la bandeja real coincidan SIEMPRE (mismo filtro
+    estricto: asunto que EMPIEZA por `{TICKER}-Inversores-` y recibido en
+    las últimas 2 horas exactas). Caché TTL 30 s para no martillear IMAP.
     """
     import time
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
@@ -2511,21 +2512,10 @@ def _contar_pendientes_ir(ttl_segundos=30):
     if ahora - _IR_PENDIENTES_CACHE["ts"] < ttl_segundos and _IR_PENDIENTES_CACHE["count"] is not None:
         return _IR_PENDIENTES_CACHE["count"]
     try:
-        import imaplib
-        from datetime import datetime as _dt, timezone as _tz, timedelta as _td
-        desde = _dt.now(_tz.utc) - _td(hours=2)
-        desde_dia = desde.strftime("%d-%b-%Y")
-        prefijo = _prefijo_asunto_actual()
-        with imaplib.IMAP4_SSL("imap.gmail.com", 993) as M:
-            M.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-            M.select("INBOX")
-            status, data = M.search(None, f'(SUBJECT "{prefijo}" SINCE "{desde_dia}")')
-            if status != "OK" or not data or not data[0]:
-                _IR_PENDIENTES_CACHE.update({"ts": ahora, "count": 0})
-                return 0
-            ids = data[0].split()
-        _IR_PENDIENTES_CACHE.update({"ts": ahora, "count": len(ids)})
-        return len(ids)
+        correos = _leer_bandeja_gmail(_prefijo_asunto_actual(), horas_max=2)
+        n = len(correos)
+        _IR_PENDIENTES_CACHE.update({"ts": ahora, "count": n})
+        return n
     except Exception:
         return None
 
