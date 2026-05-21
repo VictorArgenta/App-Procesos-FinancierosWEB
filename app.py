@@ -35,10 +35,26 @@ import logging as _logging
 from pathlib import Path as _Path
 import rag as _rag
 
-# Logging: append continuo a `auditoria/sesion.txt`. Crea la carpeta si no existe.
+# Ticker fijado al arrancar la aplicación. Uso: `python app.py META`. Si se
+# pasa, el flujo de análisis individual salta el paso de selección de ticker
+# y trabaja siempre con esa compañía durante toda la sesión.
+# `--recrawl` fuerza la re-indexación del corpus RAG aunque el caché esté
+# fresco.
+_argv = [a for a in _sys.argv[1:] if a.strip()]
+RECRAWL_AL_ARRANCAR = "--recrawl" in _argv
+_argv_sin_flags = [a for a in _argv if not a.startswith("--")]
+TICKER_FIJO = _argv_sin_flags[0].strip().upper() if _argv_sin_flags else None
+
+# Logging: append continuo a `Empresas/{TICKER}/auditoria/sesion.txt` para que
+# cada compañía tenga su propio histórico aislado. Si arrancas sin TICKER_FIJO
+# (modo libre), cae al fallback `auditoria/` en la raíz.
 # Si quieres más detalle, define LOG_LEVEL=DEBUG en .env.
-_AUDITORIA_DIR = _Path(__file__).resolve().parent / "auditoria"
-_AUDITORIA_DIR.mkdir(exist_ok=True)
+_ROOT_DIR_LOG = _Path(__file__).resolve().parent
+if TICKER_FIJO:
+    _AUDITORIA_DIR = _ROOT_DIR_LOG / "Empresas" / TICKER_FIJO / "auditoria"
+else:
+    _AUDITORIA_DIR = _ROOT_DIR_LOG / "auditoria"
+_AUDITORIA_DIR.mkdir(parents=True, exist_ok=True)
 _LOG_FILE = _AUDITORIA_DIR / "sesion.txt"
 _LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
@@ -61,17 +77,10 @@ for _ruidoso in ("urllib3", "yfinance", "google", "anthropic", "httpx", "httpcor
 
 logger = _logging.getLogger("dfin")
 logger.info("=" * 70)
-logger.info("Módulo cargado · LOG_LEVEL=%s · fichero=%s", _LOG_LEVEL, _LOG_FILE)
-
-# Ticker fijado al arrancar la aplicación. Uso: `python app.py META`. Si se
-# pasa, el flujo de análisis individual salta el paso de selección de ticker
-# y trabaja siempre con esa compañía durante toda la sesión.
-# `--recrawl` fuerza la re-indexación del corpus RAG aunque el caché esté
-# fresco.
-_argv = [a for a in _sys.argv[1:] if a.strip()]
-RECRAWL_AL_ARRANCAR = "--recrawl" in _argv
-_argv_sin_flags = [a for a in _argv if not a.startswith("--")]
-TICKER_FIJO = _argv_sin_flags[0].strip().upper() if _argv_sin_flags else None
+logger.info(
+    "Módulo cargado · TICKER=%s · LOG_LEVEL=%s · fichero=%s",
+    TICKER_FIJO or "(ninguno)", _LOG_LEVEL, _LOG_FILE,
+)
 
 app = Flask(__name__)
 
