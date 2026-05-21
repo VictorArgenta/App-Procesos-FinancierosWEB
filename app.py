@@ -118,8 +118,35 @@ _TEMA_CLAVES_VALIDAS = {
 _HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 
 
+def _color_texto_sobre(hex_color):
+    """Devuelve '#FFFFFF' o '#000000' según el contraste óptimo con `hex_color`.
+
+    Usa la luminancia relativa W3C (perceptiva), no el promedio RGB.
+    Threshold L < 0.5 → texto blanco; en otro caso → negro.
+    """
+    if not hex_color or not _HEX_RE.match(hex_color):
+        return "#FFFFFF"
+    h = hex_color.lstrip("#")
+    if len(h) == 3:
+        h = "".join(c * 2 for c in h)
+    try:
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    except ValueError:
+        return "#FFFFFF"
+    def lin(c):
+        c = c / 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    return "#FFFFFF" if L < 0.5 else "#000000"
+
+
 def _cargar_tema_empresa():
-    """Lee Empresas/{TICKER}/tema.txt si existe y devuelve dict sanitizado."""
+    """Lee Empresas/{TICKER}/tema.txt si existe y devuelve dict sanitizado.
+
+    Añade automáticamente colores de texto con contraste correcto para que
+    los botones primarios y badges sean legibles independientemente del
+    color de fondo elegido.
+    """
     if not TICKER_FIJO:
         return {}
     ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "tema.txt"
@@ -141,11 +168,65 @@ def _cargar_tema_empresa():
             )
             continue
         tema[clave] = valor
+
+    # Texto auto-calculado para mantener contraste sobre los fondos primarios.
+    if tema.get("color_primario"):
+        tema["color_texto_primario"] = _color_texto_sobre(tema["color_primario"])
+    if tema.get("color_primario_oscuro"):
+        tema["color_texto_primario_oscuro"] = _color_texto_sobre(tema["color_primario_oscuro"])
+
     if tema:
         _logging.getLogger("dfin.tema").info(
             "Tema cargado para %s: %s", TICKER_FIJO, ", ".join(f"{k}={v}" for k, v in tema.items()),
         )
     return tema
+
+
+# --- Líneas maestras del equipo de IR --------------------------------------
+#
+# Fichero `Empresas/{TICKER}/lineas_maestras.txt` (texto libre) con las
+# normas, criterios o comentarios de la dirección sobre cómo responder a
+# los correos de inversores. Tiene PRIORIDAD ABSOLUTA sobre cualquier otra
+# fuente: PDFs, web, Yahoo o búsqueda. La IA debe seguirlas siempre y
+# alinear cualquier respuesta con su contenido.
+# La app permite crearlo y editarlo desde la propia UI del módulo IR.
+
+_LINEAS_MAESTRAS_MAX_BYTES = 100_000   # límite defensivo
+
+
+def _ruta_lineas_maestras():
+    if not TICKER_FIJO:
+        return None
+    return _ROOT_DIR / "Empresas" / TICKER_FIJO / "lineas_maestras.txt"
+
+
+def _cargar_lineas_maestras():
+    """Devuelve el contenido del fichero o '' si no existe / no hay ticker."""
+    ruta = _ruta_lineas_maestras()
+    if not ruta or not ruta.exists():
+        return ""
+    try:
+        return ruta.read_text(encoding="utf-8").strip()
+    except OSError as e:
+        _logging.getLogger("dfin.ir.lineas").warning("No se pudo leer %s: %s", ruta, e)
+        return ""
+
+
+def _guardar_lineas_maestras(contenido):
+    """Escribe (o crea) el fichero. Devuelve True si éxito."""
+    ruta = _ruta_lineas_maestras()
+    if not ruta:
+        raise RuntimeError("No hay TICKER_FIJO definido.")
+    if contenido and len(contenido.encode("utf-8")) > _LINEAS_MAESTRAS_MAX_BYTES:
+        raise ValueError(
+            f"El contenido supera el límite de {_LINEAS_MAESTRAS_MAX_BYTES // 1000} KB."
+        )
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    ruta.write_text((contenido or "").strip() + "\n", encoding="utf-8")
+    _logging.getLogger("dfin.ir.lineas").info(
+        "Líneas maestras actualizadas para %s (%d caracteres)", TICKER_FIJO, len(contenido or ""),
+    )
+    return True
 
 
 def _ruta_logo_empresa():
@@ -156,19 +237,46 @@ def _ruta_logo_empresa():
 
 
 def _ruta_logo_deloitte():
-    ruta = _ROOT_DIR / "static" / "img" / "deloitte_logo.png"
-    return ruta if ruta.exists() else None
+    """Busca el logo de Deloitte en varias ubicaciones razonables.
+
+    Devuelve la primera que exista o None. Probamos nombres comunes
+    (`deloitte.png`, `logo.png`, `deloitte_logo.png`) en `static/` y
+    `static/img/` para no obligar a un nombre exacto.
+    """
+    candidatos = [
+        _ROOT_DIR / "static" / "deloitte_logo.png",
+        _ROOT_DIR / "static" / "deloitte.png",
+        _ROOT_DIR / "static" / "logo_deloitte.png",
+        _ROOT_DIR / "static" / "img" / "deloitte_logo.png",
+        _ROOT_DIR / "static" / "img" / "deloitte.png",
+        _ROOT_DIR / "static" / "img" / "logo_deloitte.png",
+    ]
+    for ruta in candidatos:
+        if ruta.exists():
+            return ruta
+    return None
 
 
 @app.context_processor
 def _inyectar_branding():
+    ruta_del = _ruta_logo_deloitte()
+    if ruta_del:
+        # `url_for('static', ...)` requiere la ruta relativa a la carpeta static/
+        try:
+            rel = ruta_del.relative_to(_ROOT_DIR / "static")
+            deloitte_url = "/static/" + str(rel).replace("\\", "/")
+        except ValueError:
+            deloitte_url = "/deloitte-logo"
+    else:
+        deloitte_url = None
     return {
         "TICKER_FIJO": TICKER_FIJO,
         "EMPRESA_NOMBRE": _BRANDING["empresa"],
         "TENANT_NOMBRE": _BRANDING["tenant_sufijo"],
         "EMPRESA_LOGO_DISPONIBLE": _ruta_logo_empresa() is not None,
         "EMPRESA_LOGO_URL": "/empresa-logo" if _ruta_logo_empresa() else None,
-        "DELOITTE_LOGO_DISPONIBLE": _ruta_logo_deloitte() is not None,
+        "DELOITTE_LOGO_DISPONIBLE": ruta_del is not None,
+        "DELOITTE_LOGO_URL": deloitte_url,
         "TEMA_EMPRESA": _cargar_tema_empresa(),
     }
 
@@ -3321,14 +3429,17 @@ Cuerpo:
 REGLAS DE OPERACIÓN (críticas, NO te desvíes):
 
 PRIORIDAD ESTRICTA DE FUENTES (de mayor a menor confianza):
-  A. FRAGMENTOS DE DOCUMENTACIÓN CORPORATIVA (se inyectan justo encima
-     de los datos de Yahoo si están disponibles): son extractos literales
-     de informes anuales, política de dividendos, presentaciones a
-     inversores y la propia web de IR de la compañía. Si la respuesta
-     está aquí, úsala CON PREFERENCIA sobre cualquier otra fuente.
-  B. Datos de Yahoo Finance (cuenta de resultados, balance, cashflow).
-  C. Búsqueda web abierta (solo para datos prospectivos/coyunturales que
-     no estén en A ni B, o para confirmar lo encontrado).
+  A. LÍNEAS MAESTRAS DEL EQUIPO DE IR (si aparecen al inicio del prompt):
+     son directrices internas no negociables sobre cómo responder. Tienen
+     PRIORIDAD ABSOLUTA: si entran en conflicto con cualquier otra fuente,
+     gana la línea maestra. Toda respuesta debe estar alineada con ellas.
+  B. FRAGMENTOS DE DOCUMENTACIÓN CORPORATIVA (PDFs locales + crawl de la
+     web corporativa): extractos literales de informes anuales, política
+     de dividendos, presentaciones a inversores. Si la respuesta está
+     aquí, úsala con preferencia sobre Yahoo y la web abierta.
+  C. Datos de Yahoo Finance (cuenta de resultados, balance, cashflow).
+  D. Búsqueda web abierta (solo para datos prospectivos/coyunturales que
+     no estén en A, B ni C, o para confirmar lo encontrado).
 La cita de fuentes va EN `nota_interna`, NUNCA en `cuerpo_respuesta`.
 
 0. Si el cuerpo del correo termina con un separador de guiones, asteriscos o
@@ -3428,6 +3539,9 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
 }}
 """
 
+    # Líneas maestras del equipo de IR: prioridad absoluta.
+    lineas_maestras = _cargar_lineas_maestras()
+
     # Recuperación de fragmentos del corpus RAG (PDFs locales + web crawl).
     # Si no hay índice o no hay matches, esta sección queda vacía.
     rag_chunks_texto = ""
@@ -3444,6 +3558,12 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
                 correo.get("id", "?"), len(hits), hits[0][0],
             )
 
+    if lineas_maestras:
+        prompt += (
+            "\nLÍNEAS MAESTRAS DEL EQUIPO DE IR (PRIORIDAD ABSOLUTA — debes "
+            "seguirlas siempre; si chocan con otra fuente, gana esto):\n"
+            f"---\n{lineas_maestras}\n---\n"
+        )
     if rag_chunks_texto:
         prompt += f"\n{rag_chunks_texto}\n"
     if datos:
@@ -3716,6 +3836,12 @@ válido, sin comentarios ni acentos graves:
 }}
 """
 
+    lineas_maestras = _cargar_lineas_maestras()
+    if lineas_maestras:
+        prompt += (
+            "\nLÍNEAS MAESTRAS DEL EQUIPO DE IR (PRIORIDAD ABSOLUTA):\n"
+            f"---\n{lineas_maestras}\n---\n"
+        )
     if datos:
         prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
 
@@ -3781,6 +3907,37 @@ válido, sin comentarios ni acentos graves:
         correo.get("id", "?"), parsed.get("modificado"), modelo, _lat,
     )
     return parsed
+
+
+@app.route("/relacion-inversores/lineas-maestras", methods=["GET", "POST"])
+def relacion_inversores_lineas_maestras():
+    """GET → devuelve el contenido actual. POST → guarda el contenido."""
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "Hace falta arrancar la app con un ticker."}), 400
+    if request.method == "POST":
+        data = request.get_json(silent=True) or {}
+        contenido = data.get("contenido", "")
+        if not isinstance(contenido, str):
+            return jsonify({"ok": False, "error": "Contenido inválido."}), 400
+        try:
+            _guardar_lineas_maestras(contenido)
+        except ValueError as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+        except Exception as e:
+            return jsonify({"ok": False, "error": f"Error al guardar: {e}"}), 500
+        return jsonify({
+            "ok": True,
+            "contenido": _cargar_lineas_maestras(),
+            "guardado_en": str(_ruta_lineas_maestras()),
+        })
+    # GET
+    return jsonify({
+        "ok": True,
+        "contenido": _cargar_lineas_maestras(),
+        "ruta": str(_ruta_lineas_maestras() or ""),
+        "existe": bool(_ruta_lineas_maestras() and _ruta_lineas_maestras().exists()),
+    })
 
 
 @app.route("/relacion-inversores/refinar", methods=["POST"])

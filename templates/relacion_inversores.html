@@ -342,6 +342,7 @@
         </optgroup>
     </select>
     <span style="color: var(--gray-10); font-size: 0.82rem;">Se aplica a todos los correos. Puedes cambiarlo y volver a generar la respuesta.</span>
+    <button type="button" class="btn btn-secondary btn-sm" id="btn-lineas-maestras" style="margin-left:auto;">📋 Líneas maestras</button>
 </div>
 
 {% for correo in correos %}
@@ -441,6 +442,28 @@
     <div class="modal-footer">
         <textarea id="refinar-input" rows="2" placeholder="Ej: hazlo más corto · añade el dato de deuda neta · sé más formal"></textarea>
         <button type="button" class="btn btn-primary" id="refinar-enviar">Enviar</button>
+    </div>
+</dialog>
+
+<dialog class="refinar-modal" id="lineas-dialog" aria-labelledby="lineas-titulo">
+    <div class="modal-header">
+        <div>
+            <h2 id="lineas-titulo">📋 Líneas maestras del equipo de IR</h2>
+            <p class="modal-sub">
+                Normas y criterios de la dirección sobre cómo responder a los inversores.
+                Tienen <strong>prioridad absoluta</strong> sobre cualquier otra fuente
+                (documentos, web, Yahoo, búsqueda). Edita el texto y pulsa Guardar.
+            </p>
+        </div>
+        <button type="button" class="modal-close" id="lineas-cerrar" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body">
+        <textarea id="lineas-textarea" placeholder="Ejemplo:&#10;- Saluda siempre con &quot;Estimado/a [Nombre]&quot;.&#10;- No comprometas la compañía con guidance no publicado.&#10;- Si la pregunta toca a regulación, deriva al departamento legal en lugar de responder.&#10;..." style="width:100%; min-height:320px; font-family:inherit; font-size:0.9rem; line-height:1.5; padding:0.7rem 0.9rem; border:1px solid var(--gray-border); border-radius:3px; resize:vertical;"></textarea>
+        <div id="lineas-status" style="margin-top:0.6rem; font-size:0.82rem; color:var(--gray-10);"></div>
+    </div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+        <button type="button" class="btn btn-secondary" id="lineas-cancelar">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="lineas-guardar">Guardar</button>
     </div>
 </dialog>
 
@@ -571,6 +594,84 @@
             enviarMensajeRefinar();
         }
     });
+
+    // --- Modal de líneas maestras ---
+    const LINEAS_URL = '/relacion-inversores/lineas-maestras';
+    const btnLineas = document.getElementById('btn-lineas-maestras');
+    const dlgLineas = document.getElementById('lineas-dialog');
+    const txtLineas = document.getElementById('lineas-textarea');
+    const stLineas = document.getElementById('lineas-status');
+    const btnGuardar = document.getElementById('lineas-guardar');
+    const btnCancelar = document.getElementById('lineas-cancelar');
+    const btnCerrarL = document.getElementById('lineas-cerrar');
+
+    function cerrarLineas() {
+        if (typeof dlgLineas.close === 'function') dlgLineas.close();
+        else dlgLineas.removeAttribute('open');
+    }
+
+    if (btnLineas && dlgLineas) {
+        btnLineas.addEventListener('click', async () => {
+            stLineas.textContent = 'Cargando…';
+            stLineas.style.color = '';
+            txtLineas.value = '';
+            txtLineas.disabled = true;
+            if (typeof dlgLineas.showModal === 'function') dlgLineas.showModal();
+            else dlgLineas.setAttribute('open', '');
+            try {
+                const r = await fetch(LINEAS_URL);
+                const j = await r.json();
+                if (!j.ok) {
+                    stLineas.textContent = 'Error: ' + (j.error || 'desconocido');
+                    stLineas.style.color = '#B71C1C';
+                    return;
+                }
+                txtLineas.value = j.contenido || '';
+                txtLineas.disabled = false;
+                stLineas.textContent = j.existe
+                    ? 'Fichero: ' + j.ruta
+                    : 'Se creará al guardar: ' + j.ruta;
+                txtLineas.focus();
+            } catch (err) {
+                stLineas.textContent = 'Error de red: ' + err.message;
+                stLineas.style.color = '#B71C1C';
+            }
+        });
+        btnCerrarL.addEventListener('click', cerrarLineas);
+        btnCancelar.addEventListener('click', cerrarLineas);
+        btnGuardar.addEventListener('click', async () => {
+            btnGuardar.disabled = true;
+            stLineas.textContent = 'Guardando…';
+            stLineas.style.color = '';
+            try {
+                const r = await fetch(LINEAS_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({contenido: txtLineas.value}),
+                });
+                const j = await r.json();
+                btnGuardar.disabled = false;
+                if (!j.ok) {
+                    stLineas.textContent = 'Error: ' + (j.error || 'desconocido');
+                    stLineas.style.color = '#B71C1C';
+                    return;
+                }
+                stLineas.textContent = '✓ Guardado en ' + j.guardado_en;
+                stLineas.style.color = '#1B5E20';
+                setTimeout(cerrarLineas, 800);
+            } catch (err) {
+                btnGuardar.disabled = false;
+                stLineas.textContent = 'Error de red: ' + err.message;
+                stLineas.style.color = '#B71C1C';
+            }
+        });
+        dlgLineas.addEventListener('click', (e) => {
+            const rect = dlgLineas.getBoundingClientRect();
+            const dentro = e.clientX >= rect.left && e.clientX <= rect.right
+                        && e.clientY >= rect.top  && e.clientY <= rect.bottom;
+            if (!dentro) cerrarLineas();
+        });
+    }
 
     document.querySelectorAll('.ir-card').forEach(card => {
         const correoId = card.dataset.correoId;
