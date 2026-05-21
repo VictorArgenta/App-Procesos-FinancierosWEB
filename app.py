@@ -311,8 +311,10 @@ def _ruta_logo_deloitte():
     """Busca el logo de Deloitte en varias ubicaciones razonables.
 
     Devuelve la primera que exista o None. Probamos nombres comunes
-    (`deloitte.png`, `logo.png`, `deloitte_logo.png`) en `static/` y
-    `static/img/` para no obligar a un nombre exacto.
+    (`deloitte.png`, `deloitte_logo.png`, `logo_deloitte.png` y como
+    último recurso `logo.png`) en `static/` y `static/img/` para no
+    obligar a un nombre exacto. Los nombres más explícitos tienen
+    prioridad sobre `logo.png` por si conviven con otro logo.
     """
     candidatos = [
         _ROOT_DIR / "static" / "deloitte_logo.png",
@@ -321,6 +323,8 @@ def _ruta_logo_deloitte():
         _ROOT_DIR / "static" / "img" / "deloitte_logo.png",
         _ROOT_DIR / "static" / "img" / "deloitte.png",
         _ROOT_DIR / "static" / "img" / "logo_deloitte.png",
+        _ROOT_DIR / "static" / "logo.png",
+        _ROOT_DIR / "static" / "img" / "logo.png",
     ]
     for ruta in candidatos:
         if ruta.exists():
