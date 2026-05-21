@@ -103,6 +103,54 @@
             .nav-logo-empresa .nav-logo-sep,
             .nav-logo-deloitte-inline .nav-logo-sep { height: 28px; }
         }
+
+        /* Pill de coste de tokens — siempre visible en el nav. */
+        .coste-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border: 1px solid #F5D4A3;
+            background: #FDF4E7;
+            color: #7A4500;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .coste-pill:hover {
+            background: #F9DEB7;
+            border-color: #ED8B00;
+            color: #5C3300;
+        }
+        .coste-pill.active {
+            background: #ED8B00;
+            color: #FFFFFF;
+            border-color: #ED8B00;
+        }
+        .coste-pill-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ED8B00;
+            color: #FFFFFF;
+            font-weight: 800;
+            font-size: 0.72rem;
+        }
+        .coste-pill.active .coste-pill-icon {
+            background: #FFFFFF;
+            color: #ED8B00;
+        }
+        .coste-pill-label {
+            opacity: 0.7;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
         .topbar-right a { color: var(--gray-3); text-decoration: none; transition: color .15s; }
         .topbar-right a:hover { color: var(--deloitte-green); }
         .topbar-right .sep { color: var(--gray-10); }
@@ -756,11 +804,13 @@
                 <li>
                     <a href="/admin" class="{% if request.path.startswith('/admin') %}active{% endif %}">Administración</a>
                 </li>
-                <li>
-                    <a href="/coste" class="{% if request.path == '/coste' %}active{% endif %}">Coste</a>
-                </li>
                 <li class="nav-cta">
                     <button class="icon-btn" title="Notificaciones" aria-label="Notificaciones">&#9873;</button>
+                    <a href="/coste" class="coste-pill {% if request.path == '/coste' %}active{% endif %}" title="Coste de tokens consumidos en esta sesión">
+                        <span class="coste-pill-icon" aria-hidden="true">$</span>
+                        <span class="coste-pill-amount">{{ '{:,.4f}'.format(COSTE_ACUMULADO_USD) }}</span>
+                        <span class="coste-pill-label">USD</span>
+                    </a>
                 </li>
             </ul>
         </div>

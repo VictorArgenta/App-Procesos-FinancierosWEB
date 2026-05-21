@@ -113,6 +113,78 @@ def _extraer_texto_pdf(ruta: Path) -> str:
         return ""
 
 
+def _extraer_texto_docx(ruta: Path) -> str:
+    """Extrae texto de un .docx (Word). Incluye párrafos y celdas de tablas."""
+    try:
+        from docx import Document
+    except ImportError:
+        log.error("python-docx no instalado; no se pueden leer DOCX.")
+        return ""
+    try:
+        doc = Document(str(ruta))
+        partes = []
+        for p in doc.paragraphs:
+            t = (p.text or "").strip()
+            if t:
+                partes.append(t)
+        for tabla in doc.tables:
+            for fila in tabla.rows:
+                celdas = [c.text.strip() for c in fila.cells if c.text and c.text.strip()]
+                if celdas:
+                    partes.append(" | ".join(celdas))
+        return "\n\n".join(partes).strip()
+    except Exception as e:
+        log.warning("No se pudo leer DOCX %s: %s", ruta, e)
+        return ""
+
+
+def _extraer_texto_html_local(ruta: Path) -> str:
+    """Extrae texto de un .html/.htm local reutilizando el limpiador del crawler."""
+    try:
+        html = ruta.read_text(encoding="utf-8", errors="replace")
+    except OSError as e:
+        log.warning("No se pudo leer HTML %s: %s", ruta, e)
+        return ""
+    return _html_a_texto(html)
+
+
+def _extraer_texto_plano(ruta: Path) -> str:
+    """Lee un fichero de texto plano (.txt, .md)."""
+    try:
+        return ruta.read_text(encoding="utf-8", errors="replace").strip()
+    except OSError as e:
+        log.warning("No se pudo leer fichero plano %s: %s", ruta, e)
+        return ""
+
+
+# Mapping extensión → extractor.
+_EXTRACTORES = {
+    ".pdf": _extraer_texto_pdf,
+    ".docx": _extraer_texto_docx,
+    ".html": _extraer_texto_html_local,
+    ".htm": _extraer_texto_html_local,
+    ".txt": _extraer_texto_plano,
+    ".md": _extraer_texto_plano,
+}
+
+EXTENSIONES_SOPORTADAS = tuple(_EXTRACTORES.keys())
+
+
+def extraer_texto_documento(ruta: Path) -> str:
+    """Despachador general: detecta extensión y llama al extractor adecuado.
+
+    Devuelve string vacío si el formato no está soportado o si la extracción
+    falla. No lanza excepciones para no romper la indexación cuando un único
+    documento es defectuoso.
+    """
+    ext = ruta.suffix.lower()
+    extractor = _EXTRACTORES.get(ext)
+    if not extractor:
+        log.warning("Formato no soportado, ignoro %s (extensión %s)", ruta.name, ext)
+        return ""
+    return extractor(ruta)
+
+
 def _html_a_texto(html: str) -> str:
     """Convierte HTML a texto limpio (sin scripts/estilos/navs/footers)."""
     try:
@@ -445,27 +517,34 @@ def indexar_ticker(ticker: str, root: Path | None = None, forzar: bool = False) 
     log.info("RAG ticker=%s: indexando corpus...", ticker)
     t0 = time.time()
     idx = BM25Index()
-    n_pdfs_locales = 0
+    n_docs_locales = 0
     n_chunks = 0
-    hashes_vistos: set[str] = set()  # para deduplicar PDFs
+    hashes_vistos: set[str] = set()  # para deduplicar documentos
 
-    # 1) PDFs locales
+    # 1) Documentos locales (PDF, DOCX, HTML, TXT, MD).
     if docs_dir.exists():
-        for pdf in sorted(docs_dir.glob("*.pdf")):
+        ficheros_locales = []
+        for ext in EXTENSIONES_SOPORTADAS:
+            ficheros_locales.extend(docs_dir.glob(f"*{ext}"))
+        for doc in sorted(ficheros_locales):
+            # Saltamos url_inversores.txt (no es contenido a indexar).
+            if doc.name == "url_inversores.txt":
+                continue
             try:
-                h = hashlib.md5(pdf.read_bytes()).hexdigest()
+                h = hashlib.md5(doc.read_bytes()).hexdigest()
             except OSError:
                 continue
             hashes_vistos.add(h)
-            texto = _extraer_texto_pdf(pdf)
+            texto = extraer_texto_documento(doc)
             if not texto:
                 continue
-            n_pdfs_locales += 1
+            n_docs_locales += 1
+            ext_lower = doc.suffix.lower().lstrip(".")
             for i, chunk in enumerate(_chunk_texto(texto)):
                 idx.añadir(chunk, {
-                    "fuente_tipo": "pdf_local",
-                    "fuente_nombre": pdf.name,
-                    "fuente_path": str(pdf),
+                    "fuente_tipo": f"{ext_lower}_local",
+                    "fuente_nombre": doc.name,
+                    "fuente_path": str(doc),
                     "fragmento": i,
                 })
                 n_chunks += 1
@@ -511,13 +590,34 @@ def indexar_ticker(ticker: str, root: Path | None = None, forzar: bool = False) 
         log.warning("No se pudo persistir caché RAG: %s", e)
 
     log.info(
-        "RAG ticker=%s indexado: %d PDFs locales, %d docs web, %d chunks (%.1fs)",
-        ticker, n_pdfs_locales, len(docs_web), n_chunks, time.time() - t0,
+        "RAG ticker=%s indexado: %d documentos locales, %d docs web, %d chunks (%.1fs)",
+        ticker, n_docs_locales, len(docs_web), n_chunks, time.time() - t0,
     )
     return idx
 
 
 # --- Helpers de presentación ----------------------------------------------
+
+
+_ETIQUETAS_LOCALES = {
+    "pdf_local":  "PDF local",
+    "docx_local": "Word local",
+    "html_local": "HTML local",
+    "txt_local":  "Texto local",
+    "md_local":   "Markdown local",
+}
+
+
+def _etiqueta_fuente(meta: dict) -> str:
+    tipo = meta.get("fuente_tipo", "")
+    nombre = meta.get("fuente_nombre", "")
+    if tipo in _ETIQUETAS_LOCALES:
+        return f"{_ETIQUETAS_LOCALES[tipo]} — {nombre}"
+    if tipo == "pdf_web":
+        return f"PDF descargado de web — {nombre} ({meta.get('fuente_url', '')})"
+    if tipo == "web":
+        return f"Web corporativa — {nombre} ({meta.get('fuente_url', '')})"
+    return f"{nombre} ({meta.get('fuente_url', '')})"
 
 
 def formatear_chunks_para_prompt(resultados: list[tuple[float, dict]]) -> str:
@@ -527,14 +627,7 @@ def formatear_chunks_para_prompt(resultados: list[tuple[float, dict]]) -> str:
     partes = ["FRAGMENTOS RELEVANTES DE DOCUMENTACIÓN CORPORATIVA",
               "(consulta esta fuente PRIMERO; tiene prioridad sobre Yahoo y web abierta):", ""]
     for score, ch in resultados:
-        meta = ch.get("meta", {})
-        if meta.get("fuente_tipo") == "pdf_local":
-            etiqueta = f"PDF local — {meta.get('fuente_nombre', '')}"
-        elif meta.get("fuente_tipo") == "pdf_web":
-            etiqueta = f"PDF descargado de web — {meta.get('fuente_nombre', '')} ({meta.get('fuente_url', '')})"
-        else:
-            etiqueta = f"Web corporativa — {meta.get('fuente_nombre', '')} ({meta.get('fuente_url', '')})"
-        partes.append(f"[Fuente: {etiqueta} · score={score:.2f}]")
+        partes.append(f"[Fuente: {_etiqueta_fuente(ch.get('meta', {}))} · score={score:.2f}]")
         partes.append(ch["texto"])
         partes.append("")
     return "\n".join(partes)
@@ -544,16 +637,22 @@ def resumen_fuentes_para_nota_interna(resultados: list[tuple[float, dict]]) -> s
     """Devuelve una línea por fuente usada, para mostrar al usuario en la UI."""
     if not resultados:
         return ""
+    iconos_locales = {
+        "pdf_local": "📄", "docx_local": "📝", "html_local": "🌐",
+        "txt_local": "📋", "md_local": "📋",
+    }
     vistas = []
     seen = set()
     for _, ch in resultados:
         meta = ch.get("meta", {})
-        if meta.get("fuente_tipo") == "pdf_local":
-            etiqueta = f"📄 {meta.get('fuente_nombre', '')} (PDF local)"
-        elif meta.get("fuente_tipo") == "pdf_web":
-            etiqueta = f"📄 {meta.get('fuente_nombre', '')} (PDF desde {meta.get('fuente_url', '')})"
+        tipo = meta.get("fuente_tipo", "")
+        nombre = meta.get("fuente_nombre", "")
+        if tipo in iconos_locales:
+            etiqueta = f"{iconos_locales[tipo]} {nombre} ({_ETIQUETAS_LOCALES.get(tipo, 'local')})"
+        elif tipo == "pdf_web":
+            etiqueta = f"📄 {nombre} (PDF desde {meta.get('fuente_url', '')})"
         else:
-            etiqueta = f"🌐 {meta.get('fuente_nombre', '')} ({meta.get('fuente_url', '')})"
+            etiqueta = f"🌐 {nombre} ({meta.get('fuente_url', '')})"
         if etiqueta in seen:
             continue
         seen.add(etiqueta)
