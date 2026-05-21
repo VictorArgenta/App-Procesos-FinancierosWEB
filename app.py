@@ -338,10 +338,6 @@ def _ruta_logo_deloitte():
 def _inyectar_branding():
     ruta_emp = _ruta_logo_empresa()
     if ruta_emp:
-        # Cache-buster basado en el mtime del fichero. Cambia cuando cambias
-        # el logo o cuando arrancas con otro ticker (cuyo logo tiene otro
-        # mtime/contenido). Así el navegador no reutiliza el PNG cacheado
-        # de la sesión anterior.
         try:
             v = int(ruta_emp.stat().st_mtime)
         except OSError:
@@ -368,6 +364,8 @@ def _inyectar_branding():
         "DELOITTE_LOGO_DISPONIBLE": ruta_del is not None,
         "DELOITTE_LOGO_URL": deloitte_url,
         "TEMA_EMPRESA": _cargar_tema_empresa(),
+        "COSTE_ACUMULADO_USD": _COSTE_ACUMULADO.get("usd", 0.0),
+        "COSTE_LLAMADAS": _COSTE_ACUMULADO.get("llamadas", 0),
     }
 
 

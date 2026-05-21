@@ -9,58 +9,43 @@
         <h1>¿Sobre qué empresa quieres trabajar?</h1>
         <p class="lead">
             La aplicación se dedicará a la compañía que selecciones durante toda esta sesión.
-            Puedes elegir una empresa ya configurada en <code>Empresas/</code> o introducir un
-            ticker nuevo manualmente (se creará la carpeta al primer uso).
+            Solo aparecen aquí las empresas que tienen su carpeta configurada en
+            <code>Empresas/{ticker}/</code>.
         </p>
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.2rem;">
-
-    <div class="card" style="border-top: 3px solid var(--deloitte-green);">
-        <h2>Empresas configuradas</h2>
-        {% if empresas %}
-        <p style="color: var(--gray-10); margin-bottom: 0.9rem;">
-            Carpetas detectadas en <code>Empresas/</code> con contenido (docs, logo o tema).
-            Selecciona una para arrancar.
-        </p>
-        <form method="POST" action="/seleccionar-empresa">
-            <div class="form-group">
-                <label for="ticker-select">Ticker</label>
-                <select id="ticker-select" name="ticker" required style="width:100%;">
-                    {% for t in empresas %}
-                    <option value="{{ t }}">{{ t }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary">Abrir esta empresa</button>
-        </form>
-        {% else %}
-        <p style="color: var(--gray-10);">
-            Aún no tienes ninguna empresa configurada. Crea una carpeta dentro de <code>Empresas/</code>
-            (por ejemplo <code>Empresas/META/</code>) con los PDFs, el logo y el <code>tema.txt</code>
-            que quieras, o introduce el ticker a la derecha y la carpeta se creará al primer uso.
-        </p>
-        {% endif %}
-    </div>
-
-    <div class="card">
-        <h2>Otro ticker</h2>
-        <p style="color: var(--gray-10); margin-bottom: 0.9rem;">
-            Si la empresa no está en la lista, introduce su ticker bursátil
-            (el mismo que usa Yahoo Finance: <code>META</code>, <code>AENA.MC</code>,
-            <code>SAN.MC</code>, <code>AAPL</code>, etc.).
-        </p>
-        <form method="POST" action="/seleccionar-empresa">
-            <div class="form-group">
-                <label for="ticker-manual">Ticker manual</label>
-                <input type="text" id="ticker-manual" name="ticker" required
-                       placeholder="Ej: MAP.MC"
-                       style="width:100%; text-transform: uppercase;">
-                <span class="hint">Símbolo bursátil exacto. Se creará la carpeta de la empresa al primer uso si no existe.</span>
-            </div>
-            <button type="submit" class="btn btn-secondary">Abrir con este ticker</button>
-        </form>
-    </div>
+<div class="card" style="max-width: 520px; margin: 0 auto;">
+    {% if empresas %}
+    <h2>Empresas configuradas</h2>
+    <p style="color: var(--gray-10); margin-bottom: 1rem;">
+        Selecciona la empresa con la que quieres trabajar.
+    </p>
+    <form method="POST" action="/seleccionar-empresa">
+        <div class="form-group">
+            <label for="ticker-select">Empresa</label>
+            <select id="ticker-select" name="ticker" required style="width:100%;" size="6">
+                {% for t in empresas %}
+                <option value="{{ t }}">{{ t }}</option>
+                {% endfor %}
+            </select>
+            <span class="hint">Clic en una empresa para seleccionarla y pulsa "Abrir".</span>
+        </div>
+        <button type="submit" class="btn btn-primary">Abrir esta empresa</button>
+    </form>
+    {% else %}
+    <h2>Sin empresas configuradas</h2>
+    <p style="color: var(--gray-10); margin-bottom: 0.8rem;">
+        No hay ninguna empresa en <code>Empresas/</code>. Para añadir una compañía:
+    </p>
+    <ol style="color: var(--gray-11); line-height: 1.8; font-size: 0.9rem; padding-left: 1.2rem;">
+        <li>Crea una carpeta dentro de <code>Empresas/</code> con el ticker bursátil exacto, p. ej. <code>Empresas/META/</code>.</li>
+        <li>Mete dentro al menos uno de estos: una subcarpeta <code>docs/</code> con PDFs, un fichero <code>tema.txt</code> con los colores de marca, o un fichero <code>lineas_maestras.txt</code> con las normas del equipo de IR.</li>
+        <li>Recarga esta página y la empresa aparecerá en el selector.</li>
+    </ol>
+    <p style="color: var(--gray-10); font-size: 0.82rem; margin-top: 1rem;">
+        Una vez recargada la página, vuelve a abrir <a href="/">la home</a>.
+    </p>
+    {% endif %}
 </div>
 {% endblock %}
