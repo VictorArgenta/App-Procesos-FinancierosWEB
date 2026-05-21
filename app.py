@@ -95,6 +95,59 @@ _BRANDING = {
 _ROOT_DIR = _Path(__file__).resolve().parent
 
 
+# --- Tema visual personalizable por empresa --------------------------------
+#
+# Carga `Empresas/{TICKER}/tema.txt` (formato clave=valor por línea, líneas
+# que empiezan por # se ignoran). Valores aceptados:
+#
+#   color_primario          color principal de botones, links activos, badges
+#   color_primario_oscuro   variante oscura (hover, contornos)
+#   color_secundario        color secundario (acentos, second-CTA)
+#   color_acento            color de detalle (línea borde top en cards, etc.)
+#   color_texto_topbar      color del texto del topbar (por defecto blanco)
+#   fondo_topbar            fondo del topbar (por defecto var(--black))
+#
+# Todos los valores deben ser colores hex válidos (#RGB o #RRGGBB).
+# Si el fichero no existe o un valor no es válido, se ignora y se mantiene
+# el default.
+
+_TEMA_CLAVES_VALIDAS = {
+    "color_primario", "color_primario_oscuro", "color_secundario",
+    "color_acento", "color_texto_topbar", "fondo_topbar",
+}
+_HEX_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
+
+
+def _cargar_tema_empresa():
+    """Lee Empresas/{TICKER}/tema.txt si existe y devuelve dict sanitizado."""
+    if not TICKER_FIJO:
+        return {}
+    ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "tema.txt"
+    if not ruta.exists():
+        return {}
+    tema = {}
+    for linea in ruta.read_text(encoding="utf-8").splitlines():
+        s = linea.strip()
+        if not s or s.startswith("#") or "=" not in s:
+            continue
+        clave, _, valor = s.partition("=")
+        clave = clave.strip().lower()
+        valor = valor.strip()
+        if clave not in _TEMA_CLAVES_VALIDAS:
+            continue
+        if not _HEX_RE.match(valor):
+            _logging.getLogger("dfin.tema").warning(
+                "tema.txt: valor inválido para %s: %r (ignorado)", clave, valor,
+            )
+            continue
+        tema[clave] = valor
+    if tema:
+        _logging.getLogger("dfin.tema").info(
+            "Tema cargado para %s: %s", TICKER_FIJO, ", ".join(f"{k}={v}" for k, v in tema.items()),
+        )
+    return tema
+
+
 def _ruta_logo_empresa():
     if not TICKER_FIJO:
         return None
@@ -116,6 +169,7 @@ def _inyectar_branding():
         "EMPRESA_LOGO_DISPONIBLE": _ruta_logo_empresa() is not None,
         "EMPRESA_LOGO_URL": "/empresa-logo" if _ruta_logo_empresa() else None,
         "DELOITTE_LOGO_DISPONIBLE": _ruta_logo_deloitte() is not None,
+        "TEMA_EMPRESA": _cargar_tema_empresa(),
     }
 
 
