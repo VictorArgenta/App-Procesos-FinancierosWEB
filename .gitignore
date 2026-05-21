@@ -10,7 +10,7 @@ dist/
 build/
 .DS_Store
 
-# Logs de sesión y caché derivado
-logs/
+# Auditoría de sesión y caché derivado
+auditoria/
 cache/
 Empresas/

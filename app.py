@@ -35,11 +35,11 @@ import logging as _logging
 from pathlib import Path as _Path
 import rag as _rag
 
-# Logging: append continuo a `logs/sesion.txt`. Crea la carpeta si no existe.
+# Logging: append continuo a `auditoria/sesion.txt`. Crea la carpeta si no existe.
 # Si quieres más detalle, define LOG_LEVEL=DEBUG en .env.
-_LOGS_DIR = _Path(__file__).resolve().parent / "logs"
-_LOGS_DIR.mkdir(exist_ok=True)
-_LOG_FILE = _LOGS_DIR / "sesion.txt"
+_AUDITORIA_DIR = _Path(__file__).resolve().parent / "auditoria"
+_AUDITORIA_DIR.mkdir(exist_ok=True)
+_LOG_FILE = _AUDITORIA_DIR / "sesion.txt"
 _LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
 _log_formatter = _logging.Formatter(
