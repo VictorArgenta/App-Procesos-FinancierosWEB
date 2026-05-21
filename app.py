@@ -1184,7 +1184,20 @@ def _texto_datos_para_prompt(datos):
 # Bloque compartido con el ALCANCE del documento. Fija la perspectiva
 # (memoria explicativa de la PyG para accionistas) y veta contenido de tesis
 # de inversión.
-_ALCANCE_MEMORIA = """ALCANCE Y PÚBLICO DEL DOCUMENTO (fundamental, no te desvíes):
+_IDIOMA_SALIDA = """IDIOMA DE SALIDA (no negociable):
+- Toda tu respuesta debe estar redactada ÍNTEGRAMENTE en ESPAÑOL DE
+  ESPAÑA (castellano). Esto vale aunque los documentos fuente, las
+  páginas web crawleadas, las búsquedas web o los datos de Yahoo Finance
+  estén en inglés u otro idioma: tu trabajo es traducir y redactar en
+  castellano.
+- Nombres propios (de productos, segmentos, ejecutivos, etc.) se dejan
+  como en el original. El resto del texto SIEMPRE en español.
+- Cifras en formato europeo: separador de miles ".", decimales ",".
+"""
+
+
+_ALCANCE_MEMORIA = _IDIOMA_SALIDA + """
+ALCANCE Y PÚBLICO DEL DOCUMENTO (fundamental, no te desvíes):
 - Eres un analista financiero que redacta la NOTA EXPLICATIVA de la cuenta
   de Pérdidas y Ganancias (PyG) que forma parte de las cuentas anuales que
   la compañía publica para sus accionistas.
@@ -2979,6 +2992,28 @@ def seleccionar_empresa():
     return redirect("/")
 
 
+@app.route("/cambiar-empresa", methods=["POST", "GET"])
+def cambiar_empresa():
+    """Resetea el TICKER_FIJO activo y vuelve al selector inicial."""
+    from flask import redirect
+    global TICKER_FIJO
+    if TICKER_FIJO:
+        logger.info("Cambio de empresa: liberando ticker activo %s", TICKER_FIJO)
+    TICKER_FIJO = None
+    # Reset cachés en memoria para que la siguiente empresa empiece limpia.
+    _BRANDING["empresa"] = "DFin AI"
+    _BRANDING["tenant_sufijo"] = "DFin AI"
+    _TICKER_FIJO_DATOS["ticker"] = None
+    _TICKER_FIJO_DATOS["datos"] = None
+    _RAG_INDEX["ticker"] = None
+    _RAG_INDEX["index"] = None
+    _IR_PENDIENTES_CACHE.update({"ts": 0.0, "count": None})
+    _IR_ENVIADOS.clear()
+    _IR_CONVERSACIONES.clear()
+    _GMAIL_CACHE.clear()
+    return redirect("/")
+
+
 @app.route("/")
 def index():
     # Si no hay ticker activo, mostramos el selector inicial.
@@ -3720,12 +3755,23 @@ def _enviar_correo_smtp(destinatario_email, destinatario_nombre, asunto,
 
 
 
-def _resolver_correo_ir(correo, datos, modelo=None):
+def _resolver_correo_ir(correo, datos, modelo=None, fuentes_activas=None):
     """Pide al modelo un borrador de respuesta para un correo de IR.
 
-    Devuelve un dict con `puede_resolver`, `asunto_respuesta`, `cuerpo_respuesta`
-    y `nota_interna`.
+    `fuentes_activas` controla qué fuentes se inyectan al prompt. Estructura:
+        {
+            "lineas": bool,
+            "docs": bool,
+            "docs_ficheros": [str, ...]  # nombres de fichero permitidos
+            "web": bool,
+            "yahoo": bool,
+            "websearch": bool,
+        }
+    Si es None, se asume "todas activas".
     """
+    if fuentes_activas is None:
+        fuentes_activas = {"lineas": True, "docs": True, "web": True,
+                            "yahoo": True, "websearch": True, "docs_ficheros": None}
     modelo = _normalizar_modelo(modelo or MODELO_POR_DEFECTO)
     empresa = _BRANDING.get("empresa") or TICKER_FIJO or "la compañía"
     ticker = TICKER_FIJO or ""
@@ -3742,6 +3788,16 @@ Asunto: {correo['asunto']}
 Cuerpo:
 {correo['cuerpo']}
 [FIN DEL CORREO]
+
+IDIOMA DE SALIDA (no negociable):
+- Todo el JSON que devuelvas, incluidos `cuerpo_respuesta`, `respuesta_chat`,
+  `nota_interna` y `perfil_estimado`, debe estar en ESPAÑOL DE ESPAÑA
+  (castellano). Aplica aunque los documentos corporativos, las páginas web
+  crawleadas, las búsquedas web o los datos de Yahoo Finance estén en
+  inglés u otro idioma: tu trabajo es traducir y redactar en castellano.
+  Nombres propios (productos, segmentos, ejecutivos) se mantienen en el
+  original; el resto en español. Cifras siempre en formato europeo
+  (separador de miles ".", decimales ",").
 
 REGLAS DE OPERACIÓN (críticas, NO te desvíes):
 
@@ -3856,23 +3912,48 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
 }}
 """
 
-    # Líneas maestras del equipo de IR: prioridad absoluta.
-    lineas_maestras = _cargar_lineas_maestras()
+    # Líneas maestras del equipo de IR: prioridad absoluta. Sólo si el
+    # usuario las ha marcado como activas.
+    lineas_maestras = _cargar_lineas_maestras() if fuentes_activas.get("lineas", True) else ""
 
     # Recuperación de fragmentos del corpus RAG (PDFs locales + web crawl).
-    # Si no hay índice o no hay matches, esta sección queda vacía.
+    # Las clases de fuente se filtran según los ticks del usuario:
+    #   - docs  → fuentes locales (pdf_local, docx_local, etc.)
+    #   - web   → fuentes del crawl (web, pdf_web)
+    # Además, dentro de "docs" puede filtrarse por nombre de fichero.
     rag_chunks_texto = ""
     rag_resumen_fuentes = ""
     rag_idx = _RAG_INDEX.get("index")
-    if rag_idx is not None and rag_idx.chunks:
+    if rag_idx is not None and rag_idx.chunks and (
+        fuentes_activas.get("docs", True) or fuentes_activas.get("web", True)
+    ):
         consulta_rag = f"{correo.get('asunto', '')} {correo.get('cuerpo', '')}"
-        hits = rag_idx.buscar(consulta_rag, top_k=_rag.TOP_K_DEFECTO)
-        if hits:
-            rag_chunks_texto = _rag.formatear_chunks_para_prompt(hits)
-            rag_resumen_fuentes = _rag.resumen_fuentes_para_nota_interna(hits)
+        # Pedimos más resultados de los típicos para tener margen al filtrar.
+        hits_brutos = rag_idx.buscar(consulta_rag, top_k=_rag.TOP_K_DEFECTO * 3)
+        docs_ficheros = fuentes_activas.get("docs_ficheros")
+        hits_filtrados = []
+        for score, ch in hits_brutos:
+            tipo = (ch.get("meta") or {}).get("fuente_tipo", "")
+            es_local = tipo in ("pdf_local", "docx_local", "html_local",
+                                 "txt_local", "md_local")
+            es_web = tipo in ("web", "pdf_web")
+            if es_local and not fuentes_activas.get("docs", True):
+                continue
+            if es_web and not fuentes_activas.get("web", True):
+                continue
+            if es_local and docs_ficheros is not None:
+                nombre = (ch.get("meta") or {}).get("fuente_nombre", "")
+                if nombre not in docs_ficheros:
+                    continue
+            hits_filtrados.append((score, ch))
+            if len(hits_filtrados) >= _rag.TOP_K_DEFECTO:
+                break
+        if hits_filtrados:
+            rag_chunks_texto = _rag.formatear_chunks_para_prompt(hits_filtrados)
+            rag_resumen_fuentes = _rag.resumen_fuentes_para_nota_interna(hits_filtrados)
             _logging.getLogger("dfin.rag").info(
-                "RAG correo id=%s: %d chunks recuperados (top score=%.2f)",
-                correo.get("id", "?"), len(hits), hits[0][0],
+                "RAG correo id=%s: %d chunks (top score=%.2f) tras filtrar por ticks",
+                correo.get("id", "?"), len(hits_filtrados), hits_filtrados[0][0],
             )
 
     if lineas_maestras:
@@ -3883,8 +3964,11 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
         )
     if rag_chunks_texto:
         prompt += f"\n{rag_chunks_texto}\n"
-    if datos:
+    incluir_yahoo = bool(datos) and fuentes_activas.get("yahoo", True)
+    if incluir_yahoo:
         prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
+    elif datos and not fuentes_activas.get("yahoo", True):
+        prompt += "\n(El usuario ha desactivado los datos de Yahoo Finance para esta consulta.)\n"
 
     log_res = _logging.getLogger("dfin.ir.resolver")
     import time as _t
@@ -3894,9 +3978,11 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
         correo.get("id", "?"), correo.get("remitente_email", "?"), modelo,
     )
 
+    permitir_websearch = bool(fuentes_activas.get("websearch", True))
     try:
         texto, _citas = llamar_ia_con_reintentos(
-            prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+            prompt, max_tokens=2500, modelo=modelo,
+            permitir_busqueda=permitir_websearch,
             modulo="ir.resolver",
         )
     except Exception as e:
@@ -4064,7 +4150,60 @@ def relacion_inversores():
         fuente="gmail",
         prefijo=_prefijo_asunto_actual(),
         gmail_user=GMAIL_USER,
+        fuentes=_info_fuentes_disponibles(),
     )
+
+
+def _info_fuentes_disponibles():
+    """Devuelve qué fuentes están disponibles para el ticker activo.
+
+    Estructura serializable para el frontend:
+    {
+        "lineas":   bool,           # hay lineas_maestras.txt
+        "docs":     {available, ficheros: [str, ...]},
+        "web":      {available, paginas: int},
+        "yahoo":    bool,           # hay TICKER_FIJO y datos cargables
+        "websearch":bool,           # siempre disponible si hay API key
+    }
+    """
+    # Líneas maestras.
+    lineas = bool(_cargar_lineas_maestras())
+
+    # RAG: docs locales y web indexadas.
+    docs_ficheros = []
+    paginas_web = 0
+    idx = _RAG_INDEX.get("index")
+    if idx is not None and idx.chunks:
+        nombres_local = set()
+        for c in idx.chunks:
+            meta = c.get("meta") or {}
+            tipo = meta.get("fuente_tipo", "")
+            if tipo in ("pdf_local", "docx_local", "html_local",
+                        "txt_local", "md_local"):
+                nombres_local.add(meta.get("fuente_nombre", ""))
+            elif tipo in ("web", "pdf_web"):
+                paginas_web += 1
+        docs_ficheros = sorted(n for n in nombres_local if n)
+
+    return {
+        "lineas": lineas,
+        "docs": {
+            "available": bool(docs_ficheros),
+            "ficheros": docs_ficheros,
+        },
+        "web": {
+            "available": paginas_web > 0,
+            "paginas": paginas_web,
+        },
+        "yahoo": bool(TICKER_FIJO),
+        "websearch": bool(ANTHROPIC_API_KEY or GOOGLE_API_KEY),
+    }
+
+
+@app.route("/relacion-inversores/fuentes")
+def relacion_inversores_fuentes():
+    from flask import jsonify
+    return jsonify({"ok": True, **_info_fuentes_disponibles()})
 
 
 @app.route("/relacion-inversores/resolver", methods=["POST"])
@@ -4073,6 +4212,15 @@ def relacion_inversores_resolver():
     data = request.get_json(silent=True) or {}
     correo_id = (data.get("correo_id") or "").strip()
     modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
+    fuentes_in = data.get("fuentes") or {}
+    fuentes_activas = {
+        "lineas":   bool(fuentes_in.get("lineas",    True)),
+        "docs":     bool(fuentes_in.get("docs",      True)),
+        "web":      bool(fuentes_in.get("web",       True)),
+        "yahoo":    bool(fuentes_in.get("yahoo",     True)),
+        "websearch":bool(fuentes_in.get("websearch", True)),
+        "docs_ficheros": fuentes_in.get("docs_ficheros"),
+    }
 
     correo = _GMAIL_CACHE.get(correo_id)
     if not correo:
@@ -4080,7 +4228,8 @@ def relacion_inversores_resolver():
 
     datos = _cargar_datos_ticker_fijo() if TICKER_FIJO else None
     try:
-        resultado = _resolver_correo_ir(correo, datos, modelo=modelo)
+        resultado = _resolver_correo_ir(correo, datos, modelo=modelo,
+                                         fuentes_activas=fuentes_activas)
     except Exception as e:
         return jsonify({"ok": False, "error": f"Error al resolver: {e}"}), 500
 
@@ -4131,6 +4280,11 @@ Cuerpo:
 
 NUEVO MENSAJE DEL USUARIO:
 {mensaje_usuario}
+
+IDIOMA DE SALIDA (no negociable):
+- Todo el JSON, incluidos `respuesta_chat` y `cuerpo_respuesta`, debe estar
+  en ESPAÑOL DE ESPAÑA (castellano), aunque las fuentes consultadas
+  estén en otro idioma. Cifras en formato europeo.
 
 Reglas:
 - Si el usuario te pide CAMBIOS, devuelve el borrador con los cambios
@@ -4702,7 +4856,12 @@ def noticias():
 
 @app.route("/admin")
 def admin():
-    return render_template("admin.html")
+    return render_template(
+        "admin.html",
+        info_coste=_parsear_lineas_coste(limite_lineas=50),
+        fichero_coste=str(_COSTE_FILE),
+        fichero_coste_existe=_COSTE_FILE.exists(),
+    )
 
 
 if __name__ == "__main__":

@@ -250,6 +250,66 @@
     }
     .ir-vacio small { color: var(--gray-10); font-size: 0.82rem; }
 
+    /* Panel de selección de fuentes (orden de prioridad 1-5). */
+    .ir-fuentes {
+        width: 100%;
+        background: #fff;
+        border: 1px solid var(--gray-border);
+        border-radius: 4px;
+        padding: 0.7rem 0.85rem;
+        margin-bottom: 0.6rem;
+        font-size: 0.84rem;
+    }
+    .ir-fuentes-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px dashed var(--gray-border);
+    }
+    .ir-fuentes-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.78rem;
+        color: var(--gray-11);
+        cursor: pointer;
+        user-select: none;
+    }
+    .ir-fuentes-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+    .ir-fuente-item label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+        line-height: 1.4;
+    }
+    .ir-fuente-item.deshab label { color: var(--gray-9); cursor: not-allowed; }
+    .ir-fuente-num { color: var(--gray-10); font-weight: 600; min-width: 18px; }
+    .ir-fuente-txt small { color: var(--gray-10); font-size: 0.78rem; margin-left: 4px; }
+    .ir-fuente-docs {
+        list-style: none;
+        margin: 0.3rem 0 0.2rem 1.6rem;
+        padding: 0;
+        font-size: 0.78rem;
+    }
+    .ir-fuente-docs li { padding: 1px 0; }
+    .ir-fuente-docs label {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+        color: var(--gray-11);
+    }
+
     .ir-thinking {
         display: flex;
         align-items: center;
@@ -385,7 +445,81 @@
             <div class="ir-col-label">Respuesta del equipo de IR</div>
 
             <div class="ir-vacio">
-                <button type="button" class="btn btn-primary btn-resolver">Resolver con IA</button>
+                <div class="ir-fuentes">
+                    <div class="ir-fuentes-head">
+                        <strong>Fuentes a utilizar</strong>
+                        <label class="ir-fuentes-toggle">
+                            <input type="checkbox" class="chk-fuente-todas" checked>
+                            <span>Marcar / desmarcar todo</span>
+                        </label>
+                    </div>
+                    <ol class="ir-fuentes-list">
+                        <li class="ir-fuente-item {% if not fuentes.lineas %}deshab{% endif %}">
+                            <label>
+                                <input type="checkbox" class="chk-fuente" data-fuente="lineas"
+                                       {% if fuentes.lineas %}checked{% else %}disabled{% endif %}>
+                                <span class="ir-fuente-num">1.</span>
+                                <span class="ir-fuente-txt"><strong>Líneas maestras</strong>
+                                    {% if not fuentes.lineas %}<small>(no definidas)</small>{% endif %}
+                                </span>
+                            </label>
+                        </li>
+                        <li class="ir-fuente-item {% if not fuentes.docs.available %}deshab{% endif %}">
+                            <label>
+                                <input type="checkbox" class="chk-fuente" data-fuente="docs"
+                                       {% if fuentes.docs.available %}checked{% else %}disabled{% endif %}>
+                                <span class="ir-fuente-num">2.</span>
+                                <span class="ir-fuente-txt"><strong>Documentos en carpeta</strong>
+                                    {% if fuentes.docs.available %}
+                                    <small>({{ fuentes.docs.ficheros|length }} fichero{{ '' if fuentes.docs.ficheros|length == 1 else 's' }})</small>
+                                    {% else %}<small>(sin documentos)</small>{% endif %}
+                                </span>
+                            </label>
+                            {% if fuentes.docs.available %}
+                            <ul class="ir-fuente-docs">
+                                {% for fich in fuentes.docs.ficheros %}
+                                <li>
+                                    <label>
+                                        <input type="checkbox" class="chk-fuente-doc"
+                                               data-fichero="{{ fich }}" checked>
+                                        <span>{{ fich }}</span>
+                                    </label>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% endif %}
+                        </li>
+                        <li class="ir-fuente-item {% if not fuentes.web.available %}deshab{% endif %}">
+                            <label>
+                                <input type="checkbox" class="chk-fuente" data-fuente="web"
+                                       {% if fuentes.web.available %}checked{% else %}disabled{% endif %}>
+                                <span class="ir-fuente-num">3.</span>
+                                <span class="ir-fuente-txt"><strong>Web corporativa</strong>
+                                    {% if fuentes.web.available %}
+                                    <small>({{ fuentes.web.paginas }} fragmento{{ '' if fuentes.web.paginas == 1 else 's' }} indexado{{ '' if fuentes.web.paginas == 1 else 's' }})</small>
+                                    {% else %}<small>(sin crawl previo)</small>{% endif %}
+                                </span>
+                            </label>
+                        </li>
+                        <li class="ir-fuente-item {% if not fuentes.yahoo %}deshab{% endif %}">
+                            <label>
+                                <input type="checkbox" class="chk-fuente" data-fuente="yahoo"
+                                       {% if fuentes.yahoo %}checked{% else %}disabled{% endif %}>
+                                <span class="ir-fuente-num">4.</span>
+                                <span class="ir-fuente-txt"><strong>Datos de Yahoo Finance</strong></span>
+                            </label>
+                        </li>
+                        <li class="ir-fuente-item {% if not fuentes.websearch %}deshab{% endif %}">
+                            <label>
+                                <input type="checkbox" class="chk-fuente" data-fuente="websearch"
+                                       {% if fuentes.websearch %}checked{% else %}disabled{% endif %}>
+                                <span class="ir-fuente-num">5.</span>
+                                <span class="ir-fuente-txt"><strong>Búsqueda web abierta</strong></span>
+                            </label>
+                        </li>
+                    </ol>
+                </div>
+                <button type="button" class="btn btn-primary btn-resolver" style="align-self: flex-start;">Resolver con IA</button>
                 <small>Aún no se ha generado un borrador para este correo.</small>
             </div>
 
@@ -710,6 +844,49 @@
             return 'no-resoluble';
         }
 
+        // Setup del panel de fuentes: tick "marcar/desmarcar todo" maestro
+        // + sub-ticks por fichero del RAG. Se aplica una sola vez por card.
+        const chkTodas = $(card, '.chk-fuente-todas');
+        const chksFuente = card.querySelectorAll('.chk-fuente:not(:disabled)');
+        const chksDoc = card.querySelectorAll('.chk-fuente-doc:not(:disabled)');
+        const chkDocs = $(card, '.chk-fuente[data-fuente="docs"]');
+        if (chkTodas) {
+            chkTodas.addEventListener('change', () => {
+                const v = chkTodas.checked;
+                chksFuente.forEach(c => { c.checked = v; });
+                chksDoc.forEach(c => { c.checked = v; });
+            });
+        }
+        // Si desmarcas "docs" maestro, desmarca los sub-ficheros y viceversa.
+        if (chkDocs) {
+            chkDocs.addEventListener('change', () => {
+                chksDoc.forEach(c => { c.checked = chkDocs.checked; });
+            });
+            chksDoc.forEach(c => c.addEventListener('change', () => {
+                const algunoMarcado = Array.from(chksDoc).some(x => x.checked);
+                chkDocs.checked = algunoMarcado;
+            }));
+        }
+
+        function recogerFuentes() {
+            const out = {
+                lineas: false, docs: false, web: false, yahoo: false, websearch: false,
+                docs_ficheros: null,
+            };
+            card.querySelectorAll('.chk-fuente').forEach(c => {
+                if (c.disabled) return;
+                const f = c.dataset.fuente;
+                if (f in out) out[f] = c.checked;
+            });
+            if (out.docs) {
+                const marcados = [];
+                chksDoc.forEach(c => { if (c.checked) marcados.push(c.dataset.fichero); });
+                out.docs_ficheros = marcados.length ? marcados : null;  // null = todos
+                if (!marcados.length) out.docs = false;  // ninguno marcado = como si docs off
+            }
+            return out;
+        }
+
         btnResolver.addEventListener('click', async () => {
             ocultarStatus();
             colVacio.hidden = true;
@@ -721,7 +898,11 @@
                 const r = await fetch(RESOLVER_URL, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({correo_id: correoId, modelo: modeloElegido()})
+                    body: JSON.stringify({
+                        correo_id: correoId,
+                        modelo: modeloElegido(),
+                        fuentes: recogerFuentes(),
+                    })
                 });
                 const j = await r.json();
                 thinking.hidden = true;

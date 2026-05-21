@@ -806,11 +806,6 @@
                 </li>
                 <li class="nav-cta">
                     <button class="icon-btn" title="Notificaciones" aria-label="Notificaciones">&#9873;</button>
-                    <a href="/coste" class="coste-pill {% if request.path == '/coste' %}active{% endif %}" title="Coste de tokens consumidos en esta sesión">
-                        <span class="coste-pill-icon" aria-hidden="true">$</span>
-                        <span class="coste-pill-amount">{{ '{:,.4f}'.format(COSTE_ACUMULADO_USD) }}</span>
-                        <span class="coste-pill-label">USD</span>
-                    </a>
                 </li>
             </ul>
         </div>
