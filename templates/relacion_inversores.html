@@ -284,6 +284,21 @@
     .ir-status.error        { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
 
     .ir-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    /* Nota interna (no se envía al correo, solo visible para el usuario). */
+    .ir-nota-interna {
+        margin-top: 0.8rem;
+        padding: 0.6rem 0.85rem;
+        background: #FFFDE7;
+        border: 1px solid #FFF59D;
+        border-left: 3px solid #F9A825;
+        border-radius: 3px;
+        font-size: 0.8rem;
+        color: #5D4037;
+        line-height: 1.5;
+        white-space: pre-wrap;
+    }
+    .ir-nota-interna strong { color: #BF360C; }
     .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 </style>
 
@@ -397,6 +412,7 @@
                     <button type="button" class="btn btn-secondary btn-refinar">Refinar con IA</button>
                     <button type="button" class="btn btn-secondary btn-descartar">Descartar borrador</button>
                 </div>
+                <div class="ir-nota-interna" hidden></div>
                 <div class="ir-status enviado" hidden></div>
                 <div class="ir-status error" hidden></div>
             </div>
@@ -570,6 +586,7 @@
         const stNoResoluble = $(card, '.ir-status.no-resoluble');
         const stEnviado = $(card, '.ir-status.enviado');
         const stError = $(card, '.ir-status.error');
+        const notaInterna = $(card, '.ir-nota-interna');
 
         const inputAsunto = $(card, '.ir-input-asunto');
         const inputCuerpo = $(card, '.ir-input-cuerpo');
@@ -620,6 +637,18 @@
                 btnEnviar.disabled = false;
                 btnRefinar.disabled = false;
                 btnDescartar.disabled = false;
+
+                // Nota interna (visible solo en la UI, no en el correo)
+                if (notaInterna) {
+                    if (j.nota_interna && j.nota_interna.trim()) {
+                        notaInterna.innerHTML = '<strong>Nota interna · no se envía al inversor:</strong>\n'
+                            + j.nota_interna;
+                        notaInterna.hidden = false;
+                    } else {
+                        notaInterna.hidden = true;
+                        notaInterna.textContent = '';
+                    }
+                }
 
                 const tipoIA = (j.tipo_inversor || '').toLowerCase();
                 if (tipoIA === 'minorista' || tipoIA === 'mayorista') {

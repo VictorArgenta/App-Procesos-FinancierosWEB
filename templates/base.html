@@ -59,8 +59,21 @@
             justify-content: space-between;
             gap: 1rem;
         }
+        .topbar-left { display: flex; align-items: center; gap: 0.7rem; }
         .topbar-left span { color: var(--gray-6); letter-spacing: 0.3px; }
         .topbar-right { display: flex; align-items: center; gap: 1.2rem; }
+        .topbar-logo {
+            height: 22px;
+            width: auto;
+            display: inline-block;
+            vertical-align: middle;
+            background: #fff;
+            padding: 2px 4px;
+            border-radius: 3px;
+            object-fit: contain;
+        }
+        .topbar-logo-empresa { max-width: 140px; }
+        .topbar-logo-deloitte { max-width: 90px; }
         .topbar-right a { color: var(--gray-3); text-decoration: none; transition: color .15s; }
         .topbar-right a:hover { color: var(--deloitte-green); }
         .topbar-right .sep { color: var(--gray-10); }
@@ -642,6 +655,9 @@
     <div class="topbar">
         <div class="topbar-inner">
             <div class="topbar-left">
+                {% if EMPRESA_LOGO_DISPONIBLE %}
+                <img src="{{ EMPRESA_LOGO_URL }}" alt="{{ EMPRESA_NOMBRE }}" class="topbar-logo topbar-logo-empresa">
+                {% endif %}
                 <span>DFin AI &middot; Financial Intelligence Platform &middot; <strong style="color:#86BC25;">{{ TENANT_NOMBRE }}</strong></span>
             </div>
             <div class="topbar-right">
@@ -652,6 +668,10 @@
                 <a href="#">ES / EN</a>
                 <span class="sep">|</span>
                 <span class="user-chip">{{ TENANT_NOMBRE }}{% if TICKER_FIJO %} · {{ TICKER_FIJO }}{% else %} · Tenant ES-01{% endif %}</span>
+                {% if DELOITTE_LOGO_DISPONIBLE %}
+                <span class="sep">|</span>
+                <img src="{{ url_for('static', filename='img/deloitte_logo.png') }}" alt="Deloitte" class="topbar-logo topbar-logo-deloitte">
+                {% endif %}
             </div>
         </div>
     </div>

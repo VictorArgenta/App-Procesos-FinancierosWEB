@@ -31,11 +31,56 @@ from matplotlib.ticker import FuncFormatter
 load_dotenv()
 
 import sys as _sys
+import logging as _logging
+from pathlib import Path as _Path
+import rag as _rag
 
 # Ticker fijado al arrancar la aplicación. Uso: `python app.py META`. Si se
 # pasa, el flujo de análisis individual salta el paso de selección de ticker
 # y trabaja siempre con esa compañía durante toda la sesión.
-TICKER_FIJO = (_sys.argv[1].strip().upper() if len(_sys.argv) > 1 and _sys.argv[1].strip() else None)
+# `--recrawl` fuerza la re-indexación del corpus RAG aunque el caché esté
+# fresco.
+_argv = [a for a in _sys.argv[1:] if a.strip()]
+RECRAWL_AL_ARRANCAR = "--recrawl" in _argv
+_argv_sin_flags = [a for a in _argv if not a.startswith("--")]
+TICKER_FIJO = _argv_sin_flags[0].strip().upper() if _argv_sin_flags else None
+
+# Logging: append continuo a `Empresas/{TICKER}/auditoria/sesion.txt` para que
+# cada compañía tenga su propio histórico aislado. Si arrancas sin TICKER_FIJO
+# (modo libre), cae al fallback `auditoria/` en la raíz.
+# Si quieres más detalle, define LOG_LEVEL=DEBUG en .env.
+_ROOT_DIR_LOG = _Path(__file__).resolve().parent
+if TICKER_FIJO:
+    _AUDITORIA_DIR = _ROOT_DIR_LOG / "Empresas" / TICKER_FIJO / "auditoria"
+else:
+    _AUDITORIA_DIR = _ROOT_DIR_LOG / "auditoria"
+_AUDITORIA_DIR.mkdir(parents=True, exist_ok=True)
+_LOG_FILE = _AUDITORIA_DIR / "sesion.txt"
+_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+_log_formatter = _logging.Formatter(
+    fmt="[%(asctime)s.%(msecs)03d] %(levelname)-5s %(name)-18s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+_file_handler = _logging.FileHandler(_LOG_FILE, mode="a", encoding="utf-8")
+_file_handler.setFormatter(_log_formatter)
+_stream_handler = _logging.StreamHandler()
+_stream_handler.setFormatter(_log_formatter)
+_logging.basicConfig(
+    level=getattr(_logging, _LOG_LEVEL, _logging.INFO),
+    handlers=[_file_handler, _stream_handler],
+    force=True,
+)
+# Silenciamos ruido de librerías de terceros (peticiones HTTP, yfinance, etc.).
+for _ruidoso in ("urllib3", "yfinance", "google", "anthropic", "httpx", "httpcore"):
+    _logging.getLogger(_ruidoso).setLevel(_logging.WARNING)
+
+logger = _logging.getLogger("dfin")
+logger.info("=" * 70)
+logger.info(
+    "Módulo cargado · TICKER=%s · LOG_LEVEL=%s · fichero=%s",
+    TICKER_FIJO or "(ninguno)", _LOG_LEVEL, _LOG_FILE,
+)
 
 app = Flask(__name__)
 
@@ -47,13 +92,40 @@ _BRANDING = {
 }
 
 
+_ROOT_DIR = _Path(__file__).resolve().parent
+
+
+def _ruta_logo_empresa():
+    if not TICKER_FIJO:
+        return None
+    ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "logo" / "logo.png"
+    return ruta if ruta.exists() else None
+
+
+def _ruta_logo_deloitte():
+    ruta = _ROOT_DIR / "static" / "img" / "deloitte_logo.png"
+    return ruta if ruta.exists() else None
+
+
 @app.context_processor
 def _inyectar_branding():
     return {
         "TICKER_FIJO": TICKER_FIJO,
         "EMPRESA_NOMBRE": _BRANDING["empresa"],
         "TENANT_NOMBRE": _BRANDING["tenant_sufijo"],
+        "EMPRESA_LOGO_DISPONIBLE": _ruta_logo_empresa() is not None,
+        "EMPRESA_LOGO_URL": "/empresa-logo" if _ruta_logo_empresa() else None,
+        "DELOITTE_LOGO_DISPONIBLE": _ruta_logo_deloitte() is not None,
     }
+
+
+@app.route("/empresa-logo")
+def empresa_logo():
+    from flask import send_file, abort
+    ruta = _ruta_logo_empresa()
+    if not ruta:
+        abort(404)
+    return send_file(str(ruta), mimetype="image/png", max_age=300)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -989,11 +1061,26 @@ def generar_nota_memoria(datos, modelo, instrucciones_usuario=None,
 Datos financieros sobre los que elaborar el informe:
 {tabla_texto}"""
 
-    texto, citas = llamar_ia_con_reintentos(
-        prompt, max_tokens=max_tokens, modelo=modelo,
-        permitir_busqueda=permitir_busqueda,
+    log_inf = _logging.getLogger("dfin.informe")
+    import time as _t
+    _t0 = _t.time()
+    log_inf.info(
+        "Generando informe: ticker=%s tipo=%s extension=%s modelo=%s busqueda=%s",
+        (datos or {}).get("ticker", "?"), tipo_informe, extension, modelo, permitir_busqueda,
     )
+    try:
+        texto, citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=max_tokens, modelo=modelo,
+            permitir_busqueda=permitir_busqueda,
+        )
+    except Exception as e:
+        log_inf.exception("Fallo generando informe: %s", e)
+        raise
     memoria = _limpiar_respuesta_ia(texto)
+    log_inf.info(
+        "Informe generado: %d palabras, lat=%.2fs",
+        len((memoria or "").split()), _t.time() - _t0,
+    )
     return _append_fuentes_consultadas(memoria, citas)
 
 
@@ -2556,6 +2643,28 @@ def _render_secciones_para_resultado(nota):
 # pegar a yfinance en cada navegación dentro de la misma sesión.
 _TICKER_FIJO_DATOS = {"ticker": None, "datos": None}
 
+# Índice RAG global por ticker (en proceso). Se construye al arrancar la app
+# y al refrescar el ticker fijado. Si el ticker no tiene corpus, el índice
+# está vacío y _resolver_correo_ir simplemente no inyecta fragmentos.
+_RAG_INDEX = {"ticker": None, "index": None}
+
+
+def _construir_rag_si_procede(forzar: bool = False):
+    """Construye el índice RAG para TICKER_FIJO si hay corpus disponible."""
+    if not TICKER_FIJO:
+        return None
+    if (not forzar and _RAG_INDEX["ticker"] == TICKER_FIJO
+            and _RAG_INDEX["index"] is not None):
+        return _RAG_INDEX["index"]
+    try:
+        idx = _rag.indexar_ticker(TICKER_FIJO, forzar=forzar)
+        _RAG_INDEX["ticker"] = TICKER_FIJO
+        _RAG_INDEX["index"] = idx
+        return idx
+    except Exception as e:
+        _logging.getLogger("dfin.rag").exception("Fallo construyendo RAG: %s", e)
+        return None
+
 
 def _cargar_datos_ticker_fijo():
     if not TICKER_FIJO:
@@ -2991,7 +3100,9 @@ def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
       precisión real; IMAP solo permite filtrar por día, por lo que el
       filtro fino se aplica después).
     """
+    log_bandeja = _logging.getLogger("dfin.ir.bandeja")
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        log_bandeja.warning("Lectura Gmail abortada: faltan credenciales")
         raise RuntimeError(
             "Faltan GMAIL_USER y/o GMAIL_APP_PASSWORD en el archivo .env"
         )
@@ -3000,9 +3111,11 @@ def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
     import email as _emaillib
     from email.utils import parseaddr, parsedate_to_datetime
     from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    import time as _time
 
     desde = _dt.now(_tz.utc) - _td(hours=horas_max)
     desde_imap_dia = desde.strftime("%d-%b-%Y")
+    _t0 = _time.time()
 
     correos = []
     with imaplib.IMAP4_SSL("imap.gmail.com", 993) as M:
@@ -3079,6 +3192,10 @@ def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
                 "_message_id": msg.get("Message-ID", ""),
                 "_fecha": fecha.strftime("%d/%m/%Y %H:%M") if fecha else "",
             })
+    log_bandeja.info(
+        "Gmail leído: %d correos coincidentes (prefijo='%s', %dh, %.2fs)",
+        len(correos), prefijo, horas_max, _time.time() - _t0,
+    )
     return correos
 
 
@@ -3104,9 +3221,23 @@ def _enviar_correo_smtp(destinatario_email, destinatario_nombre, asunto,
         msg["In-Reply-To"] = in_reply_to
         msg["References"] = in_reply_to
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-        server.send_message(msg)
+    log_smtp = _logging.getLogger("dfin.ir.enviar")
+    import time as _t
+    _t0 = _t.time()
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            server.send_message(msg)
+    except Exception as e:
+        log_smtp.exception(
+            "Fallo enviando a %s (asunto=%r): %s",
+            destinatario_email, asunto, e,
+        )
+        raise
+    log_smtp.info(
+        "Correo enviado a %s (asunto=%r, %.2fs)",
+        destinatario_email, (asunto or "")[:80], _t.time() - _t0,
+    )
 
 
 
@@ -3134,6 +3265,17 @@ Cuerpo:
 [FIN DEL CORREO]
 
 REGLAS DE OPERACIÓN (críticas, NO te desvíes):
+
+PRIORIDAD ESTRICTA DE FUENTES (de mayor a menor confianza):
+  A. FRAGMENTOS DE DOCUMENTACIÓN CORPORATIVA (se inyectan justo encima
+     de los datos de Yahoo si están disponibles): son extractos literales
+     de informes anuales, política de dividendos, presentaciones a
+     inversores y la propia web de IR de la compañía. Si la respuesta
+     está aquí, úsala CON PREFERENCIA sobre cualquier otra fuente.
+  B. Datos de Yahoo Finance (cuenta de resultados, balance, cashflow).
+  C. Búsqueda web abierta (solo para datos prospectivos/coyunturales que
+     no estén en A ni B, o para confirmar lo encontrado).
+La cita de fuentes va EN `nota_interna`, NUNCA en `cuerpo_respuesta`.
 
 0. Si el cuerpo del correo termina con un separador de guiones, asteriscos o
    subrayados largos seguido de un aviso legal (frases tipo "Este mensaje va
@@ -3232,16 +3374,51 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
 }}
 """
 
+    # Recuperación de fragmentos del corpus RAG (PDFs locales + web crawl).
+    # Si no hay índice o no hay matches, esta sección queda vacía.
+    rag_chunks_texto = ""
+    rag_resumen_fuentes = ""
+    rag_idx = _RAG_INDEX.get("index")
+    if rag_idx is not None and rag_idx.chunks:
+        consulta_rag = f"{correo.get('asunto', '')} {correo.get('cuerpo', '')}"
+        hits = rag_idx.buscar(consulta_rag, top_k=_rag.TOP_K_DEFECTO)
+        if hits:
+            rag_chunks_texto = _rag.formatear_chunks_para_prompt(hits)
+            rag_resumen_fuentes = _rag.resumen_fuentes_para_nota_interna(hits)
+            _logging.getLogger("dfin.rag").info(
+                "RAG correo id=%s: %d chunks recuperados (top score=%.2f)",
+                correo.get("id", "?"), len(hits), hits[0][0],
+            )
+
+    if rag_chunks_texto:
+        prompt += f"\n{rag_chunks_texto}\n"
     if datos:
         prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
 
-    texto, _citas = llamar_ia_con_reintentos(
-        prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+    log_res = _logging.getLogger("dfin.ir.resolver")
+    import time as _t
+    _t0 = _t.time()
+    log_res.info(
+        "Resolviendo correo id=%s remitente=%s modelo=%s",
+        correo.get("id", "?"), correo.get("remitente_email", "?"), modelo,
     )
 
+    try:
+        texto, _citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+        )
+    except Exception as e:
+        log_res.exception("Fallo en LLM al resolver id=%s: %s", correo.get("id", "?"), e)
+        raise
+
+    _latencia = _t.time() - _t0
     import json as _json
     bloque = re.search(r"\{.*\}", texto or "", re.DOTALL)
     if not bloque:
+        log_res.warning(
+            "Sin JSON válido para id=%s (modelo=%s, %.2fs)",
+            correo.get("id", "?"), modelo, _latencia,
+        )
         return {
             "puede_resolver": False,
             "asunto_respuesta": f"Re: {correo['asunto']}",
@@ -3268,6 +3445,22 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
     parsed["tipo_inversor"] = tipo
     parsed.setdefault("perfil_estimado", "")
     parsed = _validar_borrador_ir(parsed, correo)
+
+    # Anexamos las fuentes RAG a la nota interna (solo se muestran al
+    # usuario en la UI, NUNCA viajan al correo de respuesta).
+    if rag_resumen_fuentes:
+        nota_previa = (parsed.get("nota_interna") or "").strip()
+        bloque_fuentes = "Fuentes consultadas (documentación corporativa):\n" + rag_resumen_fuentes
+        parsed["nota_interna"] = (nota_previa + "\n\n" + bloque_fuentes).strip() if nota_previa else bloque_fuentes
+
+    log_res.info(
+        "Correo id=%s resuelto: puede_resolver=%s tipo=%s modelo=%s lat=%.2fs rag_chunks=%d",
+        correo.get("id", "?"),
+        parsed.get("puede_resolver"),
+        parsed.get("tipo_inversor"),
+        modelo, _latencia,
+        len(rag_resumen_fuentes.splitlines()) if rag_resumen_fuentes else 0,
+    )
     return parsed
 
 
@@ -3317,6 +3510,11 @@ def _validar_borrador_ir(parsed, correo):
             break
 
     if razones or not parsed.get("puede_resolver"):
+        if razones:
+            _logging.getLogger("dfin.ir.validador").warning(
+                "Borrador descartado para id=%s: %s",
+                correo.get("id", "?"), "; ".join(razones),
+            )
         parsed["puede_resolver"] = False
         parsed["cuerpo_respuesta"] = ""
         if not parsed.get("asunto_respuesta"):
@@ -3467,13 +3665,27 @@ válido, sin comentarios ni acentos graves:
     if datos:
         prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
 
-    texto, _citas = llamar_ia_con_reintentos(
-        prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+    log_ref = _logging.getLogger("dfin.ir.refinar")
+    import time as _t
+    _t0 = _t.time()
+    log_ref.info(
+        "Refinando correo id=%s modelo=%s msg=%r",
+        correo.get("id", "?"), modelo, (mensaje_usuario or "")[:120],
     )
 
+    try:
+        texto, _citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+        )
+    except Exception as e:
+        log_ref.exception("Fallo en LLM al refinar id=%s: %s", correo.get("id", "?"), e)
+        raise
+
+    _lat = _t.time() - _t0
     import json as _json
     bloque = re.search(r"\{.*\}", texto or "", re.DOTALL)
     if not bloque:
+        log_ref.warning("Sin JSON válido refinando id=%s (lat=%.2fs)", correo.get("id", "?"), _lat)
         return {
             "respuesta_chat": (texto or "").strip()[:600] or "(sin respuesta)",
             "asunto_respuesta": borrador_actual.get("asunto", ""),
@@ -3510,6 +3722,10 @@ válido, sin comentarios ni acentos graves:
             "pendiente para revisión manual."
         )
         parsed["modificado"] = True
+    log_ref.info(
+        "Refinado id=%s modificado=%s modelo=%s lat=%.2fs",
+        correo.get("id", "?"), parsed.get("modificado"), modelo, _lat,
+    )
     return parsed
 
 
@@ -3800,12 +4016,34 @@ def contacto():
 
 
 if __name__ == "__main__":
+    _arranque_logger = _logging.getLogger("dfin.app")
+    _arranque_logger.info(
+        "ARRANQUE python app.py TICKER_FIJO=%s GMAIL=%s LOG_LEVEL=%s",
+        TICKER_FIJO or "(ninguno)",
+        "configurado" if (GMAIL_USER and GMAIL_APP_PASSWORD) else "no_configurado",
+        _LOG_LEVEL,
+    )
     if TICKER_FIJO:
         print(f"\n[DFin AI] Precargando datos de Yahoo Finance para {TICKER_FIJO}…")
         try:
             _cargar_datos_ticker_fijo()
             nombre = _BRANDING["empresa"]
             print(f"[DFin AI] Aplicación dedicada a: {nombre} ({TICKER_FIJO})\n")
+            _arranque_logger.info("Datos de Yahoo precargados: %s (%s)", nombre, TICKER_FIJO)
         except Exception as _e:
             print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}\n")
+            _arranque_logger.exception("Fallo al precargar Yahoo para %s", TICKER_FIJO)
+
+        # Indexación del corpus RAG (PDFs locales + URLs corporativas).
+        # Si la carpeta `Empresas/{TICKER}/docs/` no existe, no pasa nada:
+        # el índice queda vacío y el módulo IR funcionará solo con Yahoo + web.
+        print(f"[DFin AI] Indexando corpus RAG de {TICKER_FIJO}"
+              f"{' (--recrawl forzado)' if RECRAWL_AL_ARRANCAR else ''}…")
+        try:
+            idx = _construir_rag_si_procede(forzar=RECRAWL_AL_ARRANCAR)
+            n = len(idx.chunks) if idx else 0
+            print(f"[DFin AI] RAG: {n} fragmentos indexados.\n")
+        except Exception as _e:
+            print(f"[DFin AI] AVISO: fallo indexando corpus RAG: {_e}\n")
+            _arranque_logger.exception("Fallo en RAG para %s", TICKER_FIJO)
     app.run(debug=True, host="0.0.0.0", port=5000)

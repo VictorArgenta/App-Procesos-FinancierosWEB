@@ -9,3 +9,8 @@ env/
 dist/
 build/
 .DS_Store
+
+# Auditoría de sesión y caché derivado
+auditoria/
+cache/
+Empresas/
