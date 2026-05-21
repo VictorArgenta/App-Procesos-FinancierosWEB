@@ -82,6 +82,77 @@ logger.info(
     TICKER_FIJO or "(ninguno)", _LOG_LEVEL, _LOG_FILE,
 )
 
+
+# --- Coste de llamadas a la IA --------------------------------------------
+#
+# Tarifa pública por millón de tokens (USD). Actualizar si los proveedores
+# cambian precios. Si un modelo no está mapeado, se usa el default Sonnet.
+
+_PRECIOS_TOKENS_USD_M = {
+    "claude-opus-4-7":              {"input": 15.00, "output": 75.00},
+    "claude-opus-4-6":              {"input": 15.00, "output": 75.00},
+    "claude-sonnet-4-6":            {"input":  3.00, "output": 15.00},
+    "claude-haiku-4-5-20251001":    {"input":  0.80, "output":  4.00},
+    "gemini-2.5-flash":             {"input":  0.30, "output":  2.50},
+    "gemini-2.5-flash-lite":        {"input":  0.10, "output":  0.40},
+}
+_PRECIO_DEFECTO = {"input": 3.00, "output": 15.00}
+_COSTE_FILE = _AUDITORIA_DIR / "coste_tokens.txt"
+
+# Acumulado en memoria para no leer/parsear el fichero en cada llamada.
+_COSTE_ACUMULADO = {"usd": 0.0, "llamadas": 0}
+
+
+def _coste_usd(modelo, in_toks, out_toks):
+    tarifa = _PRECIOS_TOKENS_USD_M.get(modelo, _PRECIO_DEFECTO)
+    return (in_toks * tarifa["input"] + out_toks * tarifa["output"]) / 1_000_000
+
+
+def _registrar_coste(modelo, modulo, usage):
+    """Calcula el coste de una llamada y lo añade a coste_tokens.txt (append)."""
+    in_toks = int(usage.get("input_tokens", 0) or 0)
+    out_toks = int(usage.get("output_tokens", 0) or 0)
+    if in_toks == 0 and out_toks == 0:
+        return  # nada que registrar
+    coste = _coste_usd(modelo, in_toks, out_toks)
+    _COSTE_ACUMULADO["usd"] += coste
+    _COSTE_ACUMULADO["llamadas"] += 1
+    from datetime import datetime as _dt
+    ts = _dt.now().strftime("%Y-%m-%d %H:%M:%S")
+    linea = (
+        f"[{ts}] modulo={modulo} modelo={modelo} "
+        f"input_tokens={in_toks} output_tokens={out_toks} "
+        f"coste_usd={coste:.6f} acumulado_usd={_COSTE_ACUMULADO['usd']:.6f} "
+        f"llamada_n={_COSTE_ACUMULADO['llamadas']}\n"
+    )
+    _AUDITORIA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(_COSTE_FILE, "a", encoding="utf-8") as f:
+        f.write(linea)
+    _logging.getLogger("dfin.coste").info(
+        "Coste %s · %s · in=%d out=%d → $%.6f (acumulado $%.4f)",
+        modulo, modelo, in_toks, out_toks, coste, _COSTE_ACUMULADO["usd"],
+    )
+
+
+def _cargar_acumulado_coste():
+    """Al arrancar, recupera el acumulado leyendo la última línea de coste_tokens.txt."""
+    if not _COSTE_FILE.exists():
+        return
+    try:
+        contenido = _COSTE_FILE.read_text(encoding="utf-8").splitlines()
+        for linea in reversed(contenido):
+            if "acumulado_usd=" not in linea:
+                continue
+            partes = dict(p.split("=", 1) for p in linea.split() if "=" in p)
+            _COSTE_ACUMULADO["usd"] = float(partes.get("acumulado_usd", 0.0))
+            _COSTE_ACUMULADO["llamadas"] = int(partes.get("llamada_n", 0))
+            return
+    except Exception as e:
+        _logging.getLogger("dfin.coste").warning("No se pudo cargar acumulado de coste: %s", e)
+
+
+_cargar_acumulado_coste()
+
 app = Flask(__name__)
 
 # Branding mutable: arranca con el ticker (o el genérico) y se rellena con el
@@ -339,7 +410,7 @@ def _normalizar_modelo(modelo):
 
 
 def _extraer_respuesta_claude(message):
-    """Extrae el texto concatenado y las citas (si web_search) de Claude."""
+    """Extrae texto + citas + uso de tokens de una respuesta Claude."""
     partes = []
     citas = []
     for block in getattr(message, "content", []) or []:
@@ -355,7 +426,12 @@ def _extraer_respuesta_claude(message):
                     entrada = {"url": url, "title": title}
                     if entrada not in citas:
                         citas.append(entrada)
-    return "".join(partes).strip(), citas
+    usage_obj = getattr(message, "usage", None)
+    usage = {
+        "input_tokens": int(getattr(usage_obj, "input_tokens", 0) or 0),
+        "output_tokens": int(getattr(usage_obj, "output_tokens", 0) or 0),
+    }
+    return "".join(partes).strip(), citas, usage
 
 
 def llamar_claude_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4,
@@ -391,7 +467,7 @@ def llamar_claude_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4,
                 messages=[{"role": "user", "content": prompt}],
                 **extra_kwargs,
             )
-            return _extraer_respuesta_claude(message)
+            return _extraer_respuesta_claude(message)  # (texto, citas, usage)
         except errores_reintentables as e:
             ultimo_error = e
             status = getattr(e, "status_code", None)
@@ -545,7 +621,12 @@ def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4,
                     raise
             texto = _extraer_texto_gemini(respuesta)
             citas = _extraer_citas_gemini(respuesta) if permitir_busqueda else []
-            return texto, citas
+            meta = getattr(respuesta, "usage_metadata", None)
+            usage = {
+                "input_tokens": int(getattr(meta, "prompt_token_count", 0) or 0),
+                "output_tokens": int(getattr(meta, "candidates_token_count", 0) or 0),
+            }
+            return texto, citas, usage
         except errores_reintentables as e:
             ultimo_error = e
             if intento < max_reintentos - 1:
@@ -569,20 +650,27 @@ def llamar_gemini_con_reintentos(prompt, max_tokens, modelo, max_reintentos=4,
     )
 
 
-def llamar_ia_con_reintentos(prompt, max_tokens, modelo, permitir_busqueda=False):
+def llamar_ia_con_reintentos(prompt, max_tokens, modelo, permitir_busqueda=False, modulo=None):
     """Despacha la llamada al proveedor de IA y devuelve (texto, citas).
 
-    `citas` es una lista de `{'url', 'title'}`. Si `permitir_busqueda` es False
-    (por defecto) la lista siempre vendrá vacía.
+    `modulo` (str opcional) etiqueta la llamada en el registro de coste
+    (`auditoria/coste_tokens.txt`). Si se omite, el coste se registra pero
+    sin discriminar el origen.
     """
     modelo = _normalizar_modelo(modelo)
     if modelo in MODELOS_ANTHROPIC:
-        return llamar_claude_con_reintentos(
+        texto, citas, usage = llamar_claude_con_reintentos(
             prompt, max_tokens, modelo, permitir_busqueda=permitir_busqueda,
         )
-    return llamar_gemini_con_reintentos(
-        prompt, max_tokens, modelo, permitir_busqueda=permitir_busqueda,
-    )
+    else:
+        texto, citas, usage = llamar_gemini_con_reintentos(
+            prompt, max_tokens, modelo, permitir_busqueda=permitir_busqueda,
+        )
+    try:
+        _registrar_coste(modelo, modulo or "(sin-modulo)", usage)
+    except Exception as _e:
+        _logging.getLogger("dfin.coste").warning("No se pudo registrar coste: %s", _e)
+    return texto, citas
 
 
 def _append_fuentes_consultadas(texto_md, citas):
@@ -1233,7 +1321,7 @@ Datos financieros sobre los que elaborar el informe:
     try:
         texto, citas = llamar_ia_con_reintentos(
             prompt, max_tokens=max_tokens, modelo=modelo,
-            permitir_busqueda=permitir_busqueda,
+            permitir_busqueda=permitir_busqueda, modulo="informe.generar",
         )
     except Exception as e:
         log_inf.exception("Fallo generando informe: %s", e)
@@ -1336,7 +1424,7 @@ en la conclusión narrativa, sin listado de URLs ni "Fuentes consultadas".)"""
 
     texto, citas = llamar_ia_con_reintentos(
         prompt, max_tokens=4500, modelo=modelo,
-        permitir_busqueda=permitir_busqueda,
+        permitir_busqueda=permitir_busqueda, modulo="informe.chat",
     )
     respuesta, memoria_nueva = _parsear_respuesta_chat(texto)
     if not respuesta:
@@ -1476,6 +1564,7 @@ VERSIÓN IA (íntegra):
 
     texto, _citas = llamar_ia_con_reintentos(
         prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=False,
+        modulo="informe.incoherencias",
     )
     return _extraer_json_incoherencias(texto)
 
@@ -1513,7 +1602,9 @@ Reglas de formato OBLIGATORIAS (bajo ningún concepto las infrinjas):
 Datos financieros comparativos:
 {texto}"""
 
-    texto, _citas = llamar_ia_con_reintentos(prompt, max_tokens=5000, modelo=modelo)
+    texto, _citas = llamar_ia_con_reintentos(
+        prompt, max_tokens=5000, modelo=modelo, modulo="comparador",
+    )
     return _limpiar_respuesta_ia(texto)
 
 
@@ -3246,11 +3337,89 @@ _GMAIL_CACHE = {}
 # se cae al id de IMAP. Se pierde al reiniciar la app, que es exactamente
 # la semántica que pide el usuario ("memoria por sesión").
 _IR_ENVIADOS = {}  # {clave: {timestamp, destinatario_nombre, destinatario_email, asunto, cuerpo}}
+_IR_CONVERSACIONES = {}  # {clave: [{role, content, ts}, ...]}
 
 
 def _clave_envio(correo):
     """Devuelve la clave estable para registrar un correo enviado."""
     return (correo.get("_message_id") or "").strip() or correo.get("id", "")
+
+
+# --- Persistencia de memoria IR (capa 1 enviados + capa 2 conversaciones) -
+
+def _dir_memoria_ir():
+    if not TICKER_FIJO:
+        return None
+    d = _ROOT_DIR / "Empresas" / TICKER_FIJO / "memoria"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _ruta_memoria_enviados():
+    d = _dir_memoria_ir()
+    return d / "enviados.json" if d else None
+
+
+def _ruta_memoria_conversaciones():
+    d = _dir_memoria_ir()
+    return d / "conversaciones.json" if d else None
+
+
+def _escribir_json_atomico(ruta, data):
+    """Escribe JSON con un swap atómico (.tmp → rename) para evitar corrupciones."""
+    import json as _json
+    tmp = ruta.with_suffix(ruta.suffix + ".tmp")
+    tmp.write_text(_json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(ruta)
+
+
+def _cargar_memoria_ir():
+    """Carga enviados.json y conversaciones.json (si existen) a memoria."""
+    import json as _json
+    ruta_env = _ruta_memoria_enviados()
+    if ruta_env and ruta_env.exists():
+        try:
+            data = _json.loads(ruta_env.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                _IR_ENVIADOS.clear()
+                _IR_ENVIADOS.update(data)
+                _logging.getLogger("dfin.ir.memoria").info(
+                    "Memoria de enviados cargada: %d correos", len(_IR_ENVIADOS),
+                )
+        except Exception as e:
+            _logging.getLogger("dfin.ir.memoria").warning("enviados.json ilegible: %s", e)
+    ruta_conv = _ruta_memoria_conversaciones()
+    if ruta_conv and ruta_conv.exists():
+        try:
+            data = _json.loads(ruta_conv.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                _IR_CONVERSACIONES.clear()
+                _IR_CONVERSACIONES.update(data)
+                _logging.getLogger("dfin.ir.memoria").info(
+                    "Memoria de conversaciones cargada: %d hilos", len(_IR_CONVERSACIONES),
+                )
+        except Exception as e:
+            _logging.getLogger("dfin.ir.memoria").warning("conversaciones.json ilegible: %s", e)
+
+
+def _persistir_enviados():
+    ruta = _ruta_memoria_enviados()
+    if not ruta:
+        return
+    try:
+        _escribir_json_atomico(ruta, _IR_ENVIADOS)
+    except Exception as e:
+        _logging.getLogger("dfin.ir.memoria").warning("No se pudo persistir enviados.json: %s", e)
+
+
+def _persistir_conversaciones():
+    ruta = _ruta_memoria_conversaciones()
+    if not ruta:
+        return
+    try:
+        _escribir_json_atomico(ruta, _IR_CONVERSACIONES)
+    except Exception as e:
+        _logging.getLogger("dfin.ir.memoria").warning("No se pudo persistir conversaciones.json: %s", e)
 
 
 def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
@@ -3580,6 +3749,7 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
     try:
         texto, _citas = llamar_ia_con_reintentos(
             prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+            modulo="ir.resolver",
         )
     except Exception as e:
         log_res.exception("Fallo en LLM al resolver id=%s: %s", correo.get("id", "?"), e)
@@ -3856,6 +4026,7 @@ válido, sin comentarios ni acentos graves:
     try:
         texto, _citas = llamar_ia_con_reintentos(
             prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+            modulo="ir.refinar",
         )
     except Exception as e:
         log_ref.exception("Fallo en LLM al refinar id=%s: %s", correo.get("id", "?"), e)
@@ -3965,7 +4136,33 @@ def relacion_inversores_refinar():
     except Exception as e:
         return jsonify({"ok": False, "error": f"Error al refinar: {e}"}), 500
 
+    # Persistir conversación (capa 2 de memoria).
+    from datetime import datetime as _dt
+    clave_conv = _clave_envio(correo)
+    if clave_conv:
+        ts = _dt.now().strftime("%Y-%m-%d %H:%M:%S")
+        hilo = list(historial) + [
+            {"role": "user", "content": mensaje, "ts": ts},
+            {"role": "assistant", "content": res.get("respuesta_chat", ""), "ts": ts,
+             "modificado": bool(res.get("modificado"))},
+        ]
+        _IR_CONVERSACIONES[clave_conv] = hilo
+        _persistir_conversaciones()
+
     return jsonify({"ok": True, **res})
+
+
+@app.route("/relacion-inversores/conversaciones", methods=["GET"])
+def relacion_inversores_conversaciones():
+    """Devuelve el historial de refinamiento persistido para un correo."""
+    from flask import jsonify
+    correo_id = (request.args.get("correo_id") or "").strip()
+    if not correo_id:
+        return jsonify({"ok": True, "historial": []})
+    correo = _GMAIL_CACHE.get(correo_id) or {}
+    clave = _clave_envio(correo) or correo_id
+    hilo = _IR_CONVERSACIONES.get(clave) or []
+    return jsonify({"ok": True, "historial": hilo})
 
 
 @app.route("/relacion-inversores/enviar", methods=["POST"])
@@ -4000,6 +4197,7 @@ def relacion_inversores_enviar():
             "asunto": asunto,
             "cuerpo": cuerpo,
         }
+        _persistir_enviados()
         # Invalidamos el cache del contador para que la home se entere ya.
         _IR_PENDIENTES_CACHE.update({"ts": 0.0, "count": None})
 
@@ -4010,6 +4208,39 @@ def relacion_inversores_enviar():
         "destinatario_email": destinatario_email,
         "asunto": asunto,
     })
+
+
+def _dir_descargas_ticker():
+    if not TICKER_FIJO:
+        return None
+    d = _ROOT_DIR / "Empresas" / TICKER_FIJO / "descargas"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _guardar_descarga_en_empresa(buffer, datos, extension):
+    """Guarda una copia del documento generado en Empresas/{TICKER}/descargas/.
+
+    Devuelve la ruta absoluta del fichero guardado (o None si no hay
+    TICKER_FIJO o falla la escritura). El buffer se rebobina al final.
+    """
+    dst = _dir_descargas_ticker()
+    if not dst:
+        return None
+    from datetime import datetime as _dt
+    ticker = (datos or {}).get("ticker") or TICKER_FIJO or "informe"
+    ts = _dt.now().strftime("%Y-%m-%d_%H-%M-%S")
+    nombre = f"{ts}_{ticker}_informe.{extension}"
+    ruta = dst / nombre
+    try:
+        buffer.seek(0)
+        ruta.write_bytes(buffer.read())
+        buffer.seek(0)
+        _logging.getLogger("dfin.informe").info("Copia guardada en %s", ruta)
+        return ruta
+    except Exception as e:
+        _logging.getLogger("dfin.informe").warning("No se pudo guardar copia local: %s", e)
+        return None
 
 
 @app.route("/descargar_word", methods=["POST"])
@@ -4023,6 +4254,7 @@ def descargar_word():
     nota = cached["nota"]
     try:
         buffer = crear_documento_word(datos, nota)
+        _guardar_descarga_en_empresa(buffer, datos, "docx")
         return send_file(
             buffer,
             as_attachment=True,
@@ -4066,6 +4298,7 @@ def descargar_pdf():
     nota = cached["nota"]
     try:
         buffer = crear_documento_pdf(datos, nota)
+        _guardar_descarga_en_empresa(buffer, datos, "pdf")
         return send_file(
             buffer,
             as_attachment=True,
@@ -4074,6 +4307,45 @@ def descargar_pdf():
         )
     except Exception as e:
         return f"Error generando documento: {str(e)}", 500
+
+
+@app.route("/informes-generados")
+def informes_generados():
+    """Lista los informes Word/PDF guardados en Empresas/{TICKER}/descargas/."""
+    from datetime import datetime as _dt
+    import urllib.parse as _up
+    d = _dir_descargas_ticker()
+    items = []
+    if d and d.exists():
+        for ruta in sorted(d.iterdir(), reverse=True):
+            if ruta.suffix.lower() not in (".docx", ".pdf"):
+                continue
+            try:
+                stat = ruta.stat()
+            except OSError:
+                continue
+            items.append({
+                "nombre": ruta.name,
+                "tamano_kb": round(stat.st_size / 1024, 1),
+                "fecha": _dt.fromtimestamp(stat.st_mtime).strftime("%d/%m/%Y %H:%M"),
+                "url": "/descargar-archivado/" + _up.quote(ruta.name),
+                "extension": ruta.suffix.lstrip(".").upper(),
+            })
+    return render_template("informes_generados.html", items=items, carpeta=str(d) if d else "")
+
+
+@app.route("/descargar-archivado/<nombre>")
+def descargar_archivado(nombre):
+    """Sirve un fichero ya generado y archivado en la carpeta del ticker."""
+    from flask import send_from_directory, abort
+    import re as _re
+    d = _dir_descargas_ticker()
+    if not d or not _re.match(r"^[\w.\-]+$", nombre):
+        abort(404)
+    ruta = d / nombre
+    if not ruta.exists() or not ruta.is_file():
+        abort(404)
+    return send_from_directory(str(d), nombre, as_attachment=True)
 
 
 # --- Funcionalidades mock (navegación completa, sin lógica productiva) ---
@@ -4257,4 +4529,8 @@ if __name__ == "__main__":
         except Exception as _e:
             print(f"[DFin AI] AVISO: fallo indexando corpus RAG: {_e}\n")
             _arranque_logger.exception("Fallo en RAG para %s", TICKER_FIJO)
+
+        # Cargar memoria persistida (correos respondidos + conversaciones).
+        _cargar_memoria_ir()
+
     app.run(debug=True, host="0.0.0.0", port=5000)

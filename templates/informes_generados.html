@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Informes generados — {{ EMPRESA_NOMBRE }}{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span class="current">Informes generados</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Módulo · Memoria de informes</span>
+        <h1>Informes generados</h1>
+        <p class="lead">Histórico de informes narrativos en Word y PDF que has generado para <strong>{{ EMPRESA_NOMBRE }}</strong>. Cada vez que pulsas "Descargar Word" o "Descargar PDF" en un informe, se guarda automáticamente una copia aquí.</p>
+        {% if carpeta %}
+        <p style="color: var(--gray-10); font-size: 0.82rem; margin-top: 0.4rem;">
+            Carpeta local: <code>{{ carpeta }}</code>
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+{% if items %}
+<div class="card">
+    <table class="data-table" style="width:100%; font-size:0.92rem;">
+        <thead>
+            <tr>
+                <th>Fichero</th>
+                <th style="width:80px;">Formato</th>
+                <th style="width:100px; text-align:right;">Tamaño</th>
+                <th style="width:160px;">Generado</th>
+                <th style="width:140px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for it in items %}
+            <tr>
+                <td>{{ it.nombre }}</td>
+                <td><span class="tag {% if it.extension == 'PDF' %}tag-red{% else %}tag-blue{% endif %}">{{ it.extension }}</span></td>
+                <td style="text-align:right;">{{ it.tamano_kb }} KB</td>
+                <td>{{ it.fecha }}</td>
+                <td><a href="{{ it.url }}" class="btn btn-secondary btn-sm">Descargar</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card">
+    <p style="color: var(--gray-10); font-size: 0.92rem;">
+        Aún no hay informes generados para <strong>{{ EMPRESA_NOMBRE }}</strong>.
+        Ve a <a href="/analisis">Generar Informe Narrativo</a>, configura uno, descárgalo en Word o PDF y volverá a aparecer aquí.
+    </p>
+</div>
+{% endif %}
+{% endblock %}

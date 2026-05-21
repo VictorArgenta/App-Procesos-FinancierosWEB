@@ -790,10 +790,25 @@
             }
         });
 
-        btnRefinar.addEventListener('click', () => {
+        btnRefinar.addEventListener('click', async () => {
             cardActiva = card;
             const destNombre = card.dataset.destinatarioNombre || '';
             dlgSub.textContent = `Conversación con la IA sobre el borrador a ${destNombre}.`;
+            // Si no tenemos historial en memoria de esta sesión, intentamos
+            // recuperar el persistido en disco (conversaciones.json).
+            if (!conversaciones[correoId] || conversaciones[correoId].length === 0) {
+                try {
+                    const r = await fetch(`/relacion-inversores/conversaciones?correo_id=${encodeURIComponent(correoId)}`);
+                    const j = await r.json();
+                    if (j.ok && j.historial && j.historial.length) {
+                        conversaciones[correoId] = j.historial.map(m => ({
+                            role: m.role,
+                            content: m.content,
+                            tag: m.modificado === true ? false : undefined,
+                        }));
+                    }
+                } catch (e) { /* ignoramos: hilo vacío */ }
+            }
             pintarHistorial(correoId);
             dlgInput.value = '';
             dlgInput.disabled = false;
