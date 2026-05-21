@@ -33,6 +33,7 @@ load_dotenv()
 import sys as _sys
 import logging as _logging
 from pathlib import Path as _Path
+import rag as _rag
 
 # Logging: append continuo a `logs/sesion.txt`. Crea la carpeta si no existe.
 # Si quieres más detalle, define LOG_LEVEL=DEBUG en .env.
@@ -65,7 +66,12 @@ logger.info("Módulo cargado · LOG_LEVEL=%s · fichero=%s", _LOG_LEVEL, _LOG_FI
 # Ticker fijado al arrancar la aplicación. Uso: `python app.py META`. Si se
 # pasa, el flujo de análisis individual salta el paso de selección de ticker
 # y trabaja siempre con esa compañía durante toda la sesión.
-TICKER_FIJO = (_sys.argv[1].strip().upper() if len(_sys.argv) > 1 and _sys.argv[1].strip() else None)
+# `--recrawl` fuerza la re-indexación del corpus RAG aunque el caché esté
+# fresco.
+_argv = [a for a in _sys.argv[1:] if a.strip()]
+RECRAWL_AL_ARRANCAR = "--recrawl" in _argv
+_argv_sin_flags = [a for a in _argv if not a.startswith("--")]
+TICKER_FIJO = _argv_sin_flags[0].strip().upper() if _argv_sin_flags else None
 
 app = Flask(__name__)
 
@@ -2601,6 +2607,28 @@ def _render_secciones_para_resultado(nota):
 # pegar a yfinance en cada navegación dentro de la misma sesión.
 _TICKER_FIJO_DATOS = {"ticker": None, "datos": None}
 
+# Índice RAG global por ticker (en proceso). Se construye al arrancar la app
+# y al refrescar el ticker fijado. Si el ticker no tiene corpus, el índice
+# está vacío y _resolver_correo_ir simplemente no inyecta fragmentos.
+_RAG_INDEX = {"ticker": None, "index": None}
+
+
+def _construir_rag_si_procede(forzar: bool = False):
+    """Construye el índice RAG para TICKER_FIJO si hay corpus disponible."""
+    if not TICKER_FIJO:
+        return None
+    if (not forzar and _RAG_INDEX["ticker"] == TICKER_FIJO
+            and _RAG_INDEX["index"] is not None):
+        return _RAG_INDEX["index"]
+    try:
+        idx = _rag.indexar_ticker(TICKER_FIJO, forzar=forzar)
+        _RAG_INDEX["ticker"] = TICKER_FIJO
+        _RAG_INDEX["index"] = idx
+        return idx
+    except Exception as e:
+        _logging.getLogger("dfin.rag").exception("Fallo construyendo RAG: %s", e)
+        return None
+
 
 def _cargar_datos_ticker_fijo():
     if not TICKER_FIJO:
@@ -3202,6 +3230,17 @@ Cuerpo:
 
 REGLAS DE OPERACIÓN (críticas, NO te desvíes):
 
+PRIORIDAD ESTRICTA DE FUENTES (de mayor a menor confianza):
+  A. FRAGMENTOS DE DOCUMENTACIÓN CORPORATIVA (se inyectan justo encima
+     de los datos de Yahoo si están disponibles): son extractos literales
+     de informes anuales, política de dividendos, presentaciones a
+     inversores y la propia web de IR de la compañía. Si la respuesta
+     está aquí, úsala CON PREFERENCIA sobre cualquier otra fuente.
+  B. Datos de Yahoo Finance (cuenta de resultados, balance, cashflow).
+  C. Búsqueda web abierta (solo para datos prospectivos/coyunturales que
+     no estén en A ni B, o para confirmar lo encontrado).
+La cita de fuentes va EN `nota_interna`, NUNCA en `cuerpo_respuesta`.
+
 0. Si el cuerpo del correo termina con un separador de guiones, asteriscos o
    subrayados largos seguido de un aviso legal (frases tipo "Este mensaje va
    dirigido…", "AVISO LEGAL", "CONFIDENCIAL", "DISCLAIMER", "This message is
@@ -3299,6 +3338,24 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
 }}
 """
 
+    # Recuperación de fragmentos del corpus RAG (PDFs locales + web crawl).
+    # Si no hay índice o no hay matches, esta sección queda vacía.
+    rag_chunks_texto = ""
+    rag_resumen_fuentes = ""
+    rag_idx = _RAG_INDEX.get("index")
+    if rag_idx is not None and rag_idx.chunks:
+        consulta_rag = f"{correo.get('asunto', '')} {correo.get('cuerpo', '')}"
+        hits = rag_idx.buscar(consulta_rag, top_k=_rag.TOP_K_DEFECTO)
+        if hits:
+            rag_chunks_texto = _rag.formatear_chunks_para_prompt(hits)
+            rag_resumen_fuentes = _rag.resumen_fuentes_para_nota_interna(hits)
+            _logging.getLogger("dfin.rag").info(
+                "RAG correo id=%s: %d chunks recuperados (top score=%.2f)",
+                correo.get("id", "?"), len(hits), hits[0][0],
+            )
+
+    if rag_chunks_texto:
+        prompt += f"\n{rag_chunks_texto}\n"
     if datos:
         prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
 
@@ -3352,12 +3409,21 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
     parsed["tipo_inversor"] = tipo
     parsed.setdefault("perfil_estimado", "")
     parsed = _validar_borrador_ir(parsed, correo)
+
+    # Anexamos las fuentes RAG a la nota interna (solo se muestran al
+    # usuario en la UI, NUNCA viajan al correo de respuesta).
+    if rag_resumen_fuentes:
+        nota_previa = (parsed.get("nota_interna") or "").strip()
+        bloque_fuentes = "Fuentes consultadas (documentación corporativa):\n" + rag_resumen_fuentes
+        parsed["nota_interna"] = (nota_previa + "\n\n" + bloque_fuentes).strip() if nota_previa else bloque_fuentes
+
     log_res.info(
-        "Correo id=%s resuelto: puede_resolver=%s tipo=%s modelo=%s lat=%.2fs",
+        "Correo id=%s resuelto: puede_resolver=%s tipo=%s modelo=%s lat=%.2fs rag_chunks=%d",
         correo.get("id", "?"),
         parsed.get("puede_resolver"),
         parsed.get("tipo_inversor"),
         modelo, _latencia,
+        len(rag_resumen_fuentes.splitlines()) if rag_resumen_fuentes else 0,
     )
     return parsed
 
@@ -3931,4 +3997,17 @@ if __name__ == "__main__":
         except Exception as _e:
             print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}\n")
             _arranque_logger.exception("Fallo al precargar Yahoo para %s", TICKER_FIJO)
+
+        # Indexación del corpus RAG (PDFs locales + URLs corporativas).
+        # Si la carpeta `Empresas/{TICKER}/docs/` no existe, no pasa nada:
+        # el índice queda vacío y el módulo IR funcionará solo con Yahoo + web.
+        print(f"[DFin AI] Indexando corpus RAG de {TICKER_FIJO}"
+              f"{' (--recrawl forzado)' if RECRAWL_AL_ARRANCAR else ''}…")
+        try:
+            idx = _construir_rag_si_procede(forzar=RECRAWL_AL_ARRANCAR)
+            n = len(idx.chunks) if idx else 0
+            print(f"[DFin AI] RAG: {n} fragmentos indexados.\n")
+        except Exception as _e:
+            print(f"[DFin AI] AVISO: fallo indexando corpus RAG: {_e}\n")
+            _arranque_logger.exception("Fallo en RAG para %s", TICKER_FIJO)
     app.run(debug=True, host="0.0.0.0", port=5000)
