@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Seleccionar empresa — DFin AI{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Inicio · Elige la compañía</span>
+        <h1>¿Sobre qué empresa quieres trabajar?</h1>
+        <p class="lead">
+            La aplicación se dedicará a la compañía que selecciones durante toda esta sesión.
+            Puedes elegir una empresa ya configurada en <code>Empresas/</code> o introducir un
+            ticker nuevo manualmente (se creará la carpeta al primer uso).
+        </p>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.2rem;">
+
+    <div class="card" style="border-top: 3px solid var(--deloitte-green);">
+        <h2>Empresas configuradas</h2>
+        {% if empresas %}
+        <p style="color: var(--gray-10); margin-bottom: 0.9rem;">
+            Carpetas detectadas en <code>Empresas/</code> con contenido (docs, logo o tema).
+            Selecciona una para arrancar.
+        </p>
+        <form method="POST" action="/seleccionar-empresa">
+            <div class="form-group">
+                <label for="ticker-select">Ticker</label>
+                <select id="ticker-select" name="ticker" required style="width:100%;">
+                    {% for t in empresas %}
+                    <option value="{{ t }}">{{ t }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Abrir esta empresa</button>
+        </form>
+        {% else %}
+        <p style="color: var(--gray-10);">
+            Aún no tienes ninguna empresa configurada. Crea una carpeta dentro de <code>Empresas/</code>
+            (por ejemplo <code>Empresas/META/</code>) con los PDFs, el logo y el <code>tema.txt</code>
+            que quieras, o introduce el ticker a la derecha y la carpeta se creará al primer uso.
+        </p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <h2>Otro ticker</h2>
+        <p style="color: var(--gray-10); margin-bottom: 0.9rem;">
+            Si la empresa no está en la lista, introduce su ticker bursátil
+            (el mismo que usa Yahoo Finance: <code>META</code>, <code>AENA.MC</code>,
+            <code>SAN.MC</code>, <code>AAPL</code>, etc.).
+        </p>
+        <form method="POST" action="/seleccionar-empresa">
+            <div class="form-group">
+                <label for="ticker-manual">Ticker manual</label>
+                <input type="text" id="ticker-manual" name="ticker" required
+                       placeholder="Ej: MAP.MC"
+                       style="width:100%; text-transform: uppercase;">
+                <span class="hint">Símbolo bursátil exacto. Se creará la carpeta de la empresa al primer uso si no existe.</span>
+            </div>
+            <button type="submit" class="btn btn-secondary">Abrir con este ticker</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

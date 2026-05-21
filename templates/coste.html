@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Coste de tokens — {{ EMPRESA_NOMBRE }}{% endblock %}
+
+{% block content %}
+<div class="breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span class="current">Coste de tokens</span>
+</div>
+
+<div class="page-header">
+    <div>
+        <span class="eyebrow">Auditoría · Consumo de IA</span>
+        <h1>Coste de las llamadas a la IA</h1>
+        <p class="lead">
+            Histórico acumulado de tokens consumidos por las llamadas al LLM (Claude, Gemini) en esta instancia
+            de la aplicación dedicada a <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}.
+            Cifras siempre en USD.
+        </p>
+    </div>
+</div>
+
+{% if not fichero_existe %}
+<div class="alert alert-info">
+    Aún no se ha registrado ninguna llamada a la IA. Cuando generes un informe narrativo o resuelvas un correo
+    con IA, las llamadas se registrarán en <code>{{ fichero }}</code> y aparecerán aquí.
+</div>
+{% else %}
+
+<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="card" style="border-top: 3px solid var(--deloitte-green);">
+        <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-10);">Coste total</div>
+        <div style="font-size: 2.4rem; font-weight: 800; color: var(--black); margin-top: 0.3rem;">
+            ${{ '{:,.4f}'.format(info.total_usd) }}
+        </div>
+        <div style="font-size: 0.82rem; color: var(--gray-10); margin-top: 0.2rem;">
+            {{ info.total_llamadas }} llamada{{ '' if info.total_llamadas == 1 else 's' }} al LLM
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-10);">Tokens entrada</div>
+        <div style="font-size: 1.6rem; font-weight: 700; color: var(--black); margin-top: 0.3rem;">
+            {{ '{:,}'.format(info.por_modulo.values()|sum(attribute='in') if info.por_modulo else 0) }}
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-10);">Tokens salida</div>
+        <div style="font-size: 1.6rem; font-weight: 700; color: var(--black); margin-top: 0.3rem;">
+            {{ '{:,}'.format(info.por_modulo.values()|sum(attribute='out') if info.por_modulo else 0) }}
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--gray-10);">Fichero</div>
+        <div style="font-size: 0.82rem; word-break: break-all; margin-top: 0.4rem;"><code>{{ fichero }}</code></div>
+        <div style="margin-top: 0.6rem;">
+            <a href="/coste/descargar" class="btn btn-secondary btn-sm">Descargar .txt</a>
+        </div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+    <div class="card">
+        <h2 style="margin-bottom: 0.6rem;">Desglose por módulo</h2>
+        <table class="data-table" style="width:100%; font-size: 0.86rem;">
+            <thead>
+                <tr>
+                    <th>Módulo</th>
+                    <th style="text-align:right;">Llamadas</th>
+                    <th style="text-align:right;">Coste USD</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m, v in (info.por_modulo.items()|list)|sort(attribute='1.usd', reverse=true) %}
+                <tr>
+                    <td>{{ m }}</td>
+                    <td style="text-align:right;">{{ v.llamadas }}</td>
+                    <td style="text-align:right;">${{ '{:,.4f}'.format(v.usd) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <h2 style="margin-bottom: 0.6rem;">Desglose por modelo</h2>
+        <table class="data-table" style="width:100%; font-size: 0.86rem;">
+            <thead>
+                <tr>
+                    <th>Modelo</th>
+                    <th style="text-align:right;">Llamadas</th>
+                    <th style="text-align:right;">Coste USD</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m, v in (info.por_modelo.items()|list)|sort(attribute='1.usd', reverse=true) %}
+                <tr>
+                    <td>{{ m }}</td>
+                    <td style="text-align:right;">{{ v.llamadas }}</td>
+                    <td style="text-align:right;">${{ '{:,.4f}'.format(v.usd) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <h2 style="margin-bottom: 0.6rem;">Últimas llamadas</h2>
+    <p style="color: var(--gray-10); font-size: 0.82rem; margin-bottom: 0.7rem;">
+        Mostrando las {{ info.llamadas|length }} más recientes. El histórico completo está en el fichero
+        <code>{{ fichero }}</code> (descargable arriba).
+    </p>
+    <div class="table-scroll">
+        <table class="data-table" style="width:100%; font-size: 0.82rem;">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Módulo</th>
+                    <th>Modelo</th>
+                    <th style="text-align:right;">Tok. in</th>
+                    <th style="text-align:right;">Tok. out</th>
+                    <th style="text-align:right;">Coste USD</th>
+                    <th style="text-align:right;">Acumulado</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for x in info.llamadas %}
+                <tr>
+                    <td style="white-space:nowrap;">{{ x.timestamp }}</td>
+                    <td>{{ x.modulo }}</td>
+                    <td>{{ x.modelo }}</td>
+                    <td style="text-align:right;">{{ '{:,}'.format(x.input_tokens) }}</td>
+                    <td style="text-align:right;">{{ '{:,}'.format(x.output_tokens) }}</td>
+                    <td style="text-align:right;">${{ '{:,.6f}'.format(x.coste_usd) }}</td>
+                    <td style="text-align:right; color: var(--gray-10);">${{ '{:,.4f}'.format(x.acumulado_usd) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
