@@ -1184,7 +1184,20 @@ def _texto_datos_para_prompt(datos):
 # Bloque compartido con el ALCANCE del documento. Fija la perspectiva
 # (memoria explicativa de la PyG para accionistas) y veta contenido de tesis
 # de inversión.
-_ALCANCE_MEMORIA = """ALCANCE Y PÚBLICO DEL DOCUMENTO (fundamental, no te desvíes):
+_IDIOMA_SALIDA = """IDIOMA DE SALIDA (no negociable):
+- Toda tu respuesta debe estar redactada ÍNTEGRAMENTE en ESPAÑOL DE
+  ESPAÑA (castellano). Esto vale aunque los documentos fuente, las
+  páginas web crawleadas, las búsquedas web o los datos de Yahoo Finance
+  estén en inglés u otro idioma: tu trabajo es traducir y redactar en
+  castellano.
+- Nombres propios (de productos, segmentos, ejecutivos, etc.) se dejan
+  como en el original. El resto del texto SIEMPRE en español.
+- Cifras en formato europeo: separador de miles ".", decimales ",".
+"""
+
+
+_ALCANCE_MEMORIA = _IDIOMA_SALIDA + """
+ALCANCE Y PÚBLICO DEL DOCUMENTO (fundamental, no te desvíes):
 - Eres un analista financiero que redacta la NOTA EXPLICATIVA de la cuenta
   de Pérdidas y Ganancias (PyG) que forma parte de las cuentas anuales que
   la compañía publica para sus accionistas.
@@ -2979,6 +2992,28 @@ def seleccionar_empresa():
     return redirect("/")
 
 
+@app.route("/cambiar-empresa", methods=["POST", "GET"])
+def cambiar_empresa():
+    """Resetea el TICKER_FIJO activo y vuelve al selector inicial."""
+    from flask import redirect
+    global TICKER_FIJO
+    if TICKER_FIJO:
+        logger.info("Cambio de empresa: liberando ticker activo %s", TICKER_FIJO)
+    TICKER_FIJO = None
+    # Reset cachés en memoria para que la siguiente empresa empiece limpia.
+    _BRANDING["empresa"] = "DFin AI"
+    _BRANDING["tenant_sufijo"] = "DFin AI"
+    _TICKER_FIJO_DATOS["ticker"] = None
+    _TICKER_FIJO_DATOS["datos"] = None
+    _RAG_INDEX["ticker"] = None
+    _RAG_INDEX["index"] = None
+    _IR_PENDIENTES_CACHE.update({"ts": 0.0, "count": None})
+    _IR_ENVIADOS.clear()
+    _IR_CONVERSACIONES.clear()
+    _GMAIL_CACHE.clear()
+    return redirect("/")
+
+
 @app.route("/")
 def index():
     # Si no hay ticker activo, mostramos el selector inicial.
@@ -3743,6 +3778,16 @@ Cuerpo:
 {correo['cuerpo']}
 [FIN DEL CORREO]
 
+IDIOMA DE SALIDA (no negociable):
+- Todo el JSON que devuelvas, incluidos `cuerpo_respuesta`, `respuesta_chat`,
+  `nota_interna` y `perfil_estimado`, debe estar en ESPAÑOL DE ESPAÑA
+  (castellano). Aplica aunque los documentos corporativos, las páginas web
+  crawleadas, las búsquedas web o los datos de Yahoo Finance estén en
+  inglés u otro idioma: tu trabajo es traducir y redactar en castellano.
+  Nombres propios (productos, segmentos, ejecutivos) se mantienen en el
+  original; el resto en español. Cifras siempre en formato europeo
+  (separador de miles ".", decimales ",").
+
 REGLAS DE OPERACIÓN (críticas, NO te desvíes):
 
 PRIORIDAD ESTRICTA DE FUENTES (de mayor a menor confianza):
@@ -4131,6 +4176,11 @@ Cuerpo:
 
 NUEVO MENSAJE DEL USUARIO:
 {mensaje_usuario}
+
+IDIOMA DE SALIDA (no negociable):
+- Todo el JSON, incluidos `respuesta_chat` y `cuerpo_respuesta`, debe estar
+  en ESPAÑOL DE ESPAÑA (castellano), aunque las fuentes consultadas
+  estén en otro idioma. Cifras en formato europeo.
 
 Reglas:
 - Si el usuario te pide CAMBIOS, devuelve el borrador con los cambios
@@ -4702,7 +4752,12 @@ def noticias():
 
 @app.route("/admin")
 def admin():
-    return render_template("admin.html")
+    return render_template(
+        "admin.html",
+        info_coste=_parsear_lineas_coste(limite_lineas=50),
+        fichero_coste=str(_COSTE_FILE),
+        fichero_coste_existe=_COSTE_FILE.exists(),
+    )
 
 
 if __name__ == "__main__":
