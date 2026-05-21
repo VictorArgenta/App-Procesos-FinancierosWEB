@@ -83,13 +83,40 @@ _BRANDING = {
 }
 
 
+_ROOT_DIR = _Path(__file__).resolve().parent
+
+
+def _ruta_logo_empresa():
+    if not TICKER_FIJO:
+        return None
+    ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "logo" / "logo.png"
+    return ruta if ruta.exists() else None
+
+
+def _ruta_logo_deloitte():
+    ruta = _ROOT_DIR / "static" / "img" / "deloitte_logo.png"
+    return ruta if ruta.exists() else None
+
+
 @app.context_processor
 def _inyectar_branding():
     return {
         "TICKER_FIJO": TICKER_FIJO,
         "EMPRESA_NOMBRE": _BRANDING["empresa"],
         "TENANT_NOMBRE": _BRANDING["tenant_sufijo"],
+        "EMPRESA_LOGO_DISPONIBLE": _ruta_logo_empresa() is not None,
+        "EMPRESA_LOGO_URL": "/empresa-logo" if _ruta_logo_empresa() else None,
+        "DELOITTE_LOGO_DISPONIBLE": _ruta_logo_deloitte() is not None,
     }
+
+
+@app.route("/empresa-logo")
+def empresa_logo():
+    from flask import send_file, abort
+    ruta = _ruta_logo_empresa()
+    if not ruta:
+        abort(404)
+    return send_file(str(ruta), mimetype="image/png", max_age=300)
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
