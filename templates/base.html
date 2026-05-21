@@ -59,21 +59,46 @@
             justify-content: space-between;
             gap: 1rem;
         }
-        .topbar-left { display: flex; align-items: center; gap: 0.7rem; }
         .topbar-left span { color: var(--gray-6); letter-spacing: 0.3px; }
         .topbar-right { display: flex; align-items: center; gap: 1.2rem; }
-        .topbar-logo {
-            height: 22px;
-            width: auto;
-            display: inline-block;
-            vertical-align: middle;
-            background: #fff;
-            padding: 2px 4px;
-            border-radius: 3px;
-            object-fit: contain;
+
+        /* Logos en el nav principal: tamaño prominente. */
+        .nav-logo-empresa {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+            margin-left: 0.7rem;
         }
-        .topbar-logo-empresa { max-width: 140px; }
-        .topbar-logo-deloitte { max-width: 90px; }
+        .nav-logo-empresa .nav-logo-sep {
+            display: inline-block;
+            width: 1px;
+            height: 36px;
+            background: var(--gray-border, #d6d6d6);
+        }
+        .nav-logo-empresa img {
+            height: 46px;
+            max-width: 220px;
+            width: auto;
+            object-fit: contain;
+            display: block;
+        }
+        .nav-logo-deloitte {
+            display: flex;
+            align-items: center;
+            margin-right: 0.4rem;
+        }
+        .nav-logo-deloitte img {
+            height: 38px;
+            max-width: 140px;
+            width: auto;
+            object-fit: contain;
+            display: block;
+        }
+        @media (max-width: 900px) {
+            .nav-logo-empresa img { height: 36px; max-width: 160px; }
+            .nav-logo-deloitte img { height: 30px; max-width: 110px; }
+            .nav-logo-empresa .nav-logo-sep { height: 28px; }
+        }
         .topbar-right a { color: var(--gray-3); text-decoration: none; transition: color .15s; }
         .topbar-right a:hover { color: var(--deloitte-green); }
         .topbar-right .sep { color: var(--gray-10); }
@@ -650,15 +675,29 @@
             .data-table th, .data-table td { padding: 8px 10px; font-size: 0.78rem; }
         }
     </style>
+
+    {# Tema visual personalizable por empresa. Sobrescribe variables CSS si
+       Empresas/{TICKER}/tema.txt existe. Los valores ya fueron validados
+       como hex en _cargar_tema_empresa(). #}
+    {% if TEMA_EMPRESA %}
+    <style>
+        :root {
+            {% if TEMA_EMPRESA.color_primario %}--deloitte-green: {{ TEMA_EMPRESA.color_primario }};
+            --brand-primary: {{ TEMA_EMPRESA.color_primario }};{% endif %}
+            {% if TEMA_EMPRESA.color_primario_oscuro %}--deloitte-green-dark: {{ TEMA_EMPRESA.color_primario_oscuro }};{% endif %}
+            {% if TEMA_EMPRESA.color_secundario %}--brand-secondary: {{ TEMA_EMPRESA.color_secundario }};{% endif %}
+            {% if TEMA_EMPRESA.color_acento %}--brand-accent: {{ TEMA_EMPRESA.color_acento }};{% endif %}
+        }
+        {% if TEMA_EMPRESA.fondo_topbar %}.topbar { background: {{ TEMA_EMPRESA.fondo_topbar }} !important; }{% endif %}
+        {% if TEMA_EMPRESA.color_texto_topbar %}.topbar, .topbar-left span, .topbar-right, .topbar-right a { color: {{ TEMA_EMPRESA.color_texto_topbar }} !important; }{% endif %}
+    </style>
+    {% endif %}
 </head>
 <body>
     <div class="topbar">
         <div class="topbar-inner">
             <div class="topbar-left">
-                {% if EMPRESA_LOGO_DISPONIBLE %}
-                <img src="{{ EMPRESA_LOGO_URL }}" alt="{{ EMPRESA_NOMBRE }}" class="topbar-logo topbar-logo-empresa">
-                {% endif %}
-                <span>DFin AI &middot; Financial Intelligence Platform &middot; <strong style="color:#86BC25;">{{ TENANT_NOMBRE }}</strong></span>
+                <span>DFin AI &middot; Financial Intelligence Platform &middot; <strong style="color: var(--brand-primary, #86BC25);">{{ TENANT_NOMBRE }}</strong></span>
             </div>
             <div class="topbar-right">
                 <a href="/admin">Panel</a>
@@ -668,10 +707,6 @@
                 <a href="#">ES / EN</a>
                 <span class="sep">|</span>
                 <span class="user-chip">{{ TENANT_NOMBRE }}{% if TICKER_FIJO %} · {{ TICKER_FIJO }}{% else %} · Tenant ES-01{% endif %}</span>
-                {% if DELOITTE_LOGO_DISPONIBLE %}
-                <span class="sep">|</span>
-                <img src="{{ url_for('static', filename='img/deloitte_logo.png') }}" alt="Deloitte" class="topbar-logo topbar-logo-deloitte">
-                {% endif %}
             </div>
         </div>
     </div>
@@ -681,6 +716,12 @@
             <a href="/" class="nav-brand" aria-label="Inicio DFin AI">
                 <img src="{{ url_for('static', filename='logo.svg') }}" alt="DFin AI">
             </a>
+            {% if EMPRESA_LOGO_DISPONIBLE %}
+            <div class="nav-logo-empresa" title="{{ EMPRESA_NOMBRE }}">
+                <span class="nav-logo-sep" aria-hidden="true"></span>
+                <img src="{{ EMPRESA_LOGO_URL }}" alt="{{ EMPRESA_NOMBRE }}">
+            </div>
+            {% endif %}
             <ul class="nav-links">
                 <li>
                     <a href="/" class="{% if request.path == '/' %}active{% endif %}">Inicio</a>
@@ -707,6 +748,11 @@
                 <li>
                     <a href="/contacto" class="{% if request.path == '/contacto' %}active{% endif %}">Contacto</a>
                 </li>
+                {% if DELOITTE_LOGO_DISPONIBLE %}
+                <li class="nav-logo-deloitte" title="Powered by Deloitte">
+                    <img src="{{ url_for('static', filename='img/deloitte_logo.png') }}" alt="Deloitte">
+                </li>
+                {% endif %}
                 <li class="nav-cta">
                     <button class="icon-btn" title="Notificaciones" aria-label="Notificaciones">&#9873;</button>
                     <a href="/analisis" class="btn btn-primary btn-sm">Nuevo análisis</a>
