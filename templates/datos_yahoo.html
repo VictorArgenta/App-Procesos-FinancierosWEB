@@ -326,6 +326,41 @@
     </form>
 </dialog>
 
+{% if informes_previos %}
+<div class="card" style="margin-top: 1.4rem;">
+    <h2 style="margin-bottom: 0.4rem;">Informes generados anteriormente</h2>
+    <p style="color: var(--gray-10); font-size: 0.88rem; margin-bottom: 0.9rem;">
+        Histórico de los informes que has descargado de <strong>{{ datos.nombre }}</strong> ({{ datos.ticker }}).
+        Cada vez que pulsas "Descargar Word" o "Descargar PDF" en un informe nuevo,
+        se guarda una copia aquí automáticamente.
+    </p>
+    <div class="table-scroll">
+        <table class="data-table" style="width:100%; font-size:0.88rem;">
+            <thead>
+                <tr>
+                    <th>Fichero</th>
+                    <th style="width:80px;">Formato</th>
+                    <th style="width:100px; text-align:right;">Tamaño</th>
+                    <th style="width:160px;">Generado</th>
+                    <th style="width:140px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in informes_previos %}
+                <tr>
+                    <td>{{ it.nombre }}</td>
+                    <td><span class="tag {% if it.extension == 'PDF' %}tag-red{% else %}tag-blue{% endif %}">{{ it.extension }}</span></td>
+                    <td style="text-align:right;">{{ it.tamano_kb }} KB</td>
+                    <td>{{ it.fecha }}</td>
+                    <td><a href="{{ it.url }}" class="btn btn-secondary btn-sm">Descargar</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <script>
     document.querySelectorAll('.yh-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
