@@ -35,9 +35,11 @@ import logging as _logging
 from pathlib import Path as _Path
 import rag as _rag
 
-# Ticker fijado al arrancar la aplicación. Uso: `python app.py META`. Si se
-# pasa, el flujo de análisis individual salta el paso de selección de ticker
-# y trabaja siempre con esa compañía durante toda la sesión.
+# Ticker activo durante la sesión de la app. Se arranca sin ticker
+# (`python app.py`) y el usuario selecciona la empresa al entrar en la
+# home a través de un selector que lista las carpetas existentes bajo
+# `Empresas/`. Compatibilidad: si se pasa `python app.py META`, se usa
+# directamente y se salta el selector.
 # `--recrawl` fuerza la re-indexación del corpus RAG aunque el caché esté
 # fresco.
 _argv = [a for a in _sys.argv[1:] if a.strip()]
@@ -158,8 +160,8 @@ app = Flask(__name__)
 # Branding mutable: arranca con el ticker (o el genérico) y se rellena con el
 # nombre real de la compañía cuando se cargan datos de Yahoo por primera vez.
 _BRANDING = {
-    "empresa": TICKER_FIJO or "Vainilla Corp",
-    "tenant_sufijo": TICKER_FIJO or "Vainilla Corp",
+    "empresa": TICKER_FIJO or "DFin AI",
+    "tenant_sufijo": TICKER_FIJO or "DFin AI",
 }
 
 
@@ -2890,8 +2892,103 @@ def _contar_pendientes_ir(ttl_segundos=30):
         return None
 
 
+def _empresas_disponibles():
+    """Devuelve la lista de subcarpetas en Empresas/ ordenada alfabéticamente.
+
+    Solo incluye las que parecen una carpeta de ticker válida (contiene
+    alguno de: docs/, logo/, tema.txt, lineas_maestras.txt).
+    """
+    base = _ROOT_DIR / "Empresas"
+    if not base.exists():
+        return []
+    out = []
+    for d in sorted(base.iterdir()):
+        if not d.is_dir():
+            continue
+        # Heurística suave: la carpeta cuenta como empresa si tiene algo
+        # significativo dentro. Si está vacía o solo tiene `auditoria/`, la
+        # filtramos para no ofrecer empresas vacías.
+        marcadores = ["docs", "logo", "tema.txt", "lineas_maestras.txt"]
+        if any((d / m).exists() for m in marcadores):
+            out.append(d.name)
+    return out
+
+
+def _set_ticker_activo(nuevo_ticker):
+    """Cambia el TICKER_FIJO activo y reinicializa branding / RAG / memoria."""
+    global TICKER_FIJO
+    nuevo = (nuevo_ticker or "").strip().upper()
+    if not nuevo:
+        return False
+    TICKER_FIJO = nuevo
+    _BRANDING["empresa"] = nuevo
+    _BRANDING["tenant_sufijo"] = nuevo
+    # Reset cachés dependientes del ticker.
+    _TICKER_FIJO_DATOS["ticker"] = None
+    _TICKER_FIJO_DATOS["datos"] = None
+    _RAG_INDEX["ticker"] = None
+    _RAG_INDEX["index"] = None
+    _IR_PENDIENTES_CACHE.update({"ts": 0.0, "count": None})
+    _IR_ENVIADOS.clear()
+    _IR_CONVERSACIONES.clear()
+    _GMAIL_CACHE.clear()
+    # Reconstruir auditoría apuntando a la carpeta del nuevo ticker.
+    nuevo_dir = _ROOT_DIR / "Empresas" / TICKER_FIJO / "auditoria"
+    nuevo_dir.mkdir(parents=True, exist_ok=True)
+    nuevo_log = nuevo_dir / "sesion.txt"
+    # Reemplaza el FileHandler en el logger raíz para escribir en el nuevo path.
+    root = _logging.getLogger()
+    for h in list(root.handlers):
+        if isinstance(h, _logging.FileHandler):
+            root.removeHandler(h)
+            try:
+                h.close()
+            except Exception:
+                pass
+    new_handler = _logging.FileHandler(nuevo_log, mode="a", encoding="utf-8")
+    new_handler.setFormatter(_log_formatter)
+    root.addHandler(new_handler)
+    # Recalcular acumulado de coste para el nuevo ticker.
+    global _AUDITORIA_DIR, _LOG_FILE, _COSTE_FILE
+    _AUDITORIA_DIR = nuevo_dir
+    _LOG_FILE = nuevo_log
+    _COSTE_FILE = _AUDITORIA_DIR / "coste_tokens.txt"
+    _COSTE_ACUMULADO["usd"] = 0.0
+    _COSTE_ACUMULADO["llamadas"] = 0
+    _cargar_acumulado_coste()
+    logger.info("=" * 70)
+    logger.info("TICKER cambiado a %s · fichero=%s", TICKER_FIJO, _LOG_FILE)
+    # Cargar memoria de IR y datos básicos.
+    try:
+        _cargar_memoria_ir()
+        _cargar_datos_ticker_fijo()
+    except Exception as e:
+        logger.exception("Fallo al inicializar datos del nuevo ticker: %s", e)
+    try:
+        _construir_rag_si_procede(forzar=False)
+    except Exception as e:
+        logger.exception("Fallo construyendo RAG para %s: %s", TICKER_FIJO, e)
+    return True
+
+
+@app.route("/seleccionar-empresa", methods=["POST"])
+def seleccionar_empresa():
+    from flask import redirect
+    ticker = request.form.get("ticker", "").strip().upper()
+    if not ticker:
+        return redirect("/")
+    _set_ticker_activo(ticker)
+    return redirect("/")
+
+
 @app.route("/")
 def index():
+    # Si no hay ticker activo, mostramos el selector inicial.
+    if not TICKER_FIJO:
+        return render_template(
+            "seleccionar_empresa.html",
+            empresas=_empresas_disponibles(),
+        )
     return render_template(
         "index.html",
         ir_pendientes=_contar_pendientes_ir(),
@@ -4387,6 +4484,88 @@ def descargar_archivado(nombre):
     return send_from_directory(str(d), nombre, as_attachment=True)
 
 
+def _parsear_lineas_coste(limite_lineas=200):
+    """Parsea las últimas N líneas de coste_tokens.txt en dicts.
+
+    Devuelve: lista de {timestamp, modulo, modelo, input_tokens, output_tokens,
+    coste_usd, acumulado_usd, llamada_n}, ordenadas de más reciente a más
+    antigua, y agregados por módulo y por modelo.
+    """
+    import re as _re
+    if not _COSTE_FILE.exists():
+        return {"llamadas": [], "por_modulo": {}, "por_modelo": {},
+                "total_usd": 0.0, "total_llamadas": 0}
+    lineas = _COSTE_FILE.read_text(encoding="utf-8").splitlines()
+    parseadas = []
+    for linea in lineas:
+        m = _re.match(r"^\[(?P<ts>[^\]]+)\]\s+(?P<rest>.+)$", linea)
+        if not m:
+            continue
+        partes = dict(
+            p.split("=", 1)
+            for p in m.group("rest").split()
+            if "=" in p
+        )
+        try:
+            parseadas.append({
+                "timestamp": m.group("ts"),
+                "modulo": partes.get("modulo", ""),
+                "modelo": partes.get("modelo", ""),
+                "input_tokens": int(partes.get("input_tokens", 0)),
+                "output_tokens": int(partes.get("output_tokens", 0)),
+                "coste_usd": float(partes.get("coste_usd", 0)),
+                "acumulado_usd": float(partes.get("acumulado_usd", 0)),
+                "llamada_n": int(partes.get("llamada_n", 0)),
+            })
+        except (ValueError, KeyError):
+            continue
+    por_modulo = {}
+    por_modelo = {}
+    for x in parseadas:
+        m_ = por_modulo.setdefault(x["modulo"], {"usd": 0.0, "llamadas": 0, "in": 0, "out": 0})
+        m_["usd"] += x["coste_usd"]
+        m_["llamadas"] += 1
+        m_["in"] += x["input_tokens"]
+        m_["out"] += x["output_tokens"]
+        d_ = por_modelo.setdefault(x["modelo"], {"usd": 0.0, "llamadas": 0, "in": 0, "out": 0})
+        d_["usd"] += x["coste_usd"]
+        d_["llamadas"] += 1
+        d_["in"] += x["input_tokens"]
+        d_["out"] += x["output_tokens"]
+    total_usd = parseadas[-1]["acumulado_usd"] if parseadas else 0.0
+    return {
+        "llamadas": list(reversed(parseadas[-limite_lineas:])),
+        "por_modulo": por_modulo,
+        "por_modelo": por_modelo,
+        "total_usd": total_usd,
+        "total_llamadas": len(parseadas),
+    }
+
+
+@app.route("/coste")
+def coste_tokens_panel():
+    info = _parsear_lineas_coste()
+    return render_template(
+        "coste.html",
+        info=info,
+        fichero=str(_COSTE_FILE),
+        fichero_existe=_COSTE_FILE.exists(),
+    )
+
+
+@app.route("/coste/descargar")
+def coste_tokens_descargar():
+    from flask import send_file, abort
+    if not _COSTE_FILE.exists():
+        abort(404)
+    return send_file(
+        str(_COSTE_FILE),
+        as_attachment=True,
+        download_name=f"coste_tokens_{TICKER_FIJO or 'global'}.txt",
+        mimetype="text/plain",
+    )
+
+
 # --- Funcionalidades mock (navegación completa, sin lógica productiva) ---
 
 @app.route("/presupuesto")
@@ -4528,15 +4707,6 @@ def admin():
     return render_template("admin.html")
 
 
-@app.route("/contacto", methods=["GET", "POST"])
-def contacto():
-    enviado = False
-    if request.method == "POST":
-        # Mock: no se persiste ni envía el mensaje, solo se reconoce la acción.
-        enviado = True
-    return render_template("contacto.html", enviado=enviado)
-
-
 if __name__ == "__main__":
     _arranque_logger = _logging.getLogger("dfin.app")
     _arranque_logger.info(
@@ -4546,6 +4716,7 @@ if __name__ == "__main__":
         _LOG_LEVEL,
     )
     if TICKER_FIJO:
+        # Modo compatibilidad: se pasó ticker por argv. Precargamos.
         print(f"\n[DFin AI] Precargando datos de Yahoo Finance para {TICKER_FIJO}…")
         try:
             _cargar_datos_ticker_fijo()
@@ -4556,9 +4727,6 @@ if __name__ == "__main__":
             print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}\n")
             _arranque_logger.exception("Fallo al precargar Yahoo para %s", TICKER_FIJO)
 
-        # Indexación del corpus RAG (PDFs locales + URLs corporativas).
-        # Si la carpeta `Empresas/{TICKER}/docs/` no existe, no pasa nada:
-        # el índice queda vacío y el módulo IR funcionará solo con Yahoo + web.
         print(f"[DFin AI] Indexando corpus RAG de {TICKER_FIJO}"
               f"{' (--recrawl forzado)' if RECRAWL_AL_ARRANCAR else ''}…")
         try:
@@ -4569,7 +4737,11 @@ if __name__ == "__main__":
             print(f"[DFin AI] AVISO: fallo indexando corpus RAG: {_e}\n")
             _arranque_logger.exception("Fallo en RAG para %s", TICKER_FIJO)
 
-        # Cargar memoria persistida (correos respondidos + conversaciones).
         _cargar_memoria_ir()
+    else:
+        # Modo normal: sin ticker, el usuario lo elegirá en la web.
+        print("\n[DFin AI] Aplicación lista. Abre http://localhost:5000 y "
+              "selecciona la empresa.\n")
+        _arranque_logger.info("Arranque sin TICKER_FIJO: selección desde la web.")
 
     app.run(debug=True, host="0.0.0.0", port=5000)

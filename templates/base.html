@@ -82,22 +82,26 @@
             object-fit: contain;
             display: block;
         }
-        .nav-logo-deloitte {
+        /* Logo Deloitte inline: justo a la derecha del logo de la empresa,
+           misma altura y mismo separador. */
+        .nav-logo-deloitte-inline {
             display: flex;
             align-items: center;
-            margin-right: 0.4rem;
+            gap: 0.9rem;
+            margin-left: 0.2rem;
         }
-        .nav-logo-deloitte img {
-            height: 38px;
-            max-width: 140px;
+        .nav-logo-deloitte-inline img {
+            height: 46px;
+            max-width: 160px;
             width: auto;
             object-fit: contain;
             display: block;
         }
         @media (max-width: 900px) {
-            .nav-logo-empresa img { height: 36px; max-width: 160px; }
-            .nav-logo-deloitte img { height: 30px; max-width: 110px; }
-            .nav-logo-empresa .nav-logo-sep { height: 28px; }
+            .nav-logo-empresa img,
+            .nav-logo-deloitte-inline img { height: 36px; max-width: 130px; }
+            .nav-logo-empresa .nav-logo-sep,
+            .nav-logo-deloitte-inline .nav-logo-sep { height: 28px; }
         }
         .topbar-right a { color: var(--gray-3); text-decoration: none; transition: color .15s; }
         .topbar-right a:hover { color: var(--deloitte-green); }
@@ -704,8 +708,6 @@
             <div class="topbar-right">
                 <a href="/admin">Panel</a>
                 <span class="sep">|</span>
-                <a href="/contacto">Soporte</a>
-                <span class="sep">|</span>
                 <a href="#">ES / EN</a>
                 <span class="sep">|</span>
                 <span class="user-chip">{{ TENANT_NOMBRE }}{% if TICKER_FIJO %} · {{ TICKER_FIJO }}{% else %} · Tenant ES-01{% endif %}</span>
@@ -722,6 +724,12 @@
             <div class="nav-logo-empresa" title="{{ EMPRESA_NOMBRE }}">
                 <span class="nav-logo-sep" aria-hidden="true"></span>
                 <img src="{{ EMPRESA_LOGO_URL }}" alt="{{ EMPRESA_NOMBRE }}">
+            </div>
+            {% endif %}
+            {% if DELOITTE_LOGO_DISPONIBLE %}
+            <div class="nav-logo-deloitte-inline" title="Powered by Deloitte">
+                <span class="nav-logo-sep" aria-hidden="true"></span>
+                <img src="{{ DELOITTE_LOGO_URL }}" alt="Deloitte">
             </div>
             {% endif %}
             <ul class="nav-links">
@@ -749,16 +757,10 @@
                     <a href="/admin" class="{% if request.path.startswith('/admin') %}active{% endif %}">Administración</a>
                 </li>
                 <li>
-                    <a href="/contacto" class="{% if request.path == '/contacto' %}active{% endif %}">Contacto</a>
+                    <a href="/coste" class="{% if request.path == '/coste' %}active{% endif %}">Coste</a>
                 </li>
-                {% if DELOITTE_LOGO_DISPONIBLE %}
-                <li class="nav-logo-deloitte" title="Powered by Deloitte">
-                    <img src="{{ DELOITTE_LOGO_URL }}" alt="Deloitte">
-                </li>
-                {% endif %}
                 <li class="nav-cta">
                     <button class="icon-btn" title="Notificaciones" aria-label="Notificaciones">&#9873;</button>
-                    <a href="/analisis" class="btn btn-primary btn-sm">Nuevo análisis</a>
                 </li>
             </ul>
         </div>
@@ -796,7 +798,7 @@
                 <h4>Organización</h4>
                 <ul>
                     <li><a href="/admin">Administración</a></li>
-                    <li><a href="/contacto">Contacto &amp; Soporte</a></li>
+                    <li><a href="/coste">Coste de tokens</a></li>
                     <li><a href="#">Política de privacidad</a></li>
                     <li><a href="#">Términos de servicio</a></li>
                 </ul>
