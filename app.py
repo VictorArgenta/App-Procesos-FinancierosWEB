@@ -311,8 +311,10 @@ def _ruta_logo_deloitte():
     """Busca el logo de Deloitte en varias ubicaciones razonables.
 
     Devuelve la primera que exista o None. Probamos nombres comunes
-    (`deloitte.png`, `logo.png`, `deloitte_logo.png`) en `static/` y
-    `static/img/` para no obligar a un nombre exacto.
+    (`deloitte.png`, `deloitte_logo.png`, `logo_deloitte.png` y como
+    último recurso `logo.png`) en `static/` y `static/img/` para no
+    obligar a un nombre exacto. Los nombres más explícitos tienen
+    prioridad sobre `logo.png` por si conviven con otro logo.
     """
     candidatos = [
         _ROOT_DIR / "static" / "deloitte_logo.png",
@@ -321,6 +323,8 @@ def _ruta_logo_deloitte():
         _ROOT_DIR / "static" / "img" / "deloitte_logo.png",
         _ROOT_DIR / "static" / "img" / "deloitte.png",
         _ROOT_DIR / "static" / "img" / "logo_deloitte.png",
+        _ROOT_DIR / "static" / "logo.png",
+        _ROOT_DIR / "static" / "img" / "logo.png",
     ]
     for ruta in candidatos:
         if ruta.exists():
@@ -330,13 +334,26 @@ def _ruta_logo_deloitte():
 
 @app.context_processor
 def _inyectar_branding():
+    ruta_emp = _ruta_logo_empresa()
+    if ruta_emp:
+        # Cache-buster basado en el mtime del fichero. Cambia cuando cambias
+        # el logo o cuando arrancas con otro ticker (cuyo logo tiene otro
+        # mtime/contenido). Así el navegador no reutiliza el PNG cacheado
+        # de la sesión anterior.
+        try:
+            v = int(ruta_emp.stat().st_mtime)
+        except OSError:
+            v = 0
+        empresa_url = f"/empresa-logo?v={v}"
+    else:
+        empresa_url = None
     ruta_del = _ruta_logo_deloitte()
     if ruta_del:
-        # `url_for('static', ...)` requiere la ruta relativa a la carpeta static/
         try:
             rel = ruta_del.relative_to(_ROOT_DIR / "static")
-            deloitte_url = "/static/" + str(rel).replace("\\", "/")
-        except ValueError:
+            v = int(ruta_del.stat().st_mtime)
+            deloitte_url = "/static/" + str(rel).replace("\\", "/") + f"?v={v}"
+        except (ValueError, OSError):
             deloitte_url = "/deloitte-logo"
     else:
         deloitte_url = None
@@ -344,8 +361,8 @@ def _inyectar_branding():
         "TICKER_FIJO": TICKER_FIJO,
         "EMPRESA_NOMBRE": _BRANDING["empresa"],
         "TENANT_NOMBRE": _BRANDING["tenant_sufijo"],
-        "EMPRESA_LOGO_DISPONIBLE": _ruta_logo_empresa() is not None,
-        "EMPRESA_LOGO_URL": "/empresa-logo" if _ruta_logo_empresa() else None,
+        "EMPRESA_LOGO_DISPONIBLE": ruta_emp is not None,
+        "EMPRESA_LOGO_URL": empresa_url,
         "DELOITTE_LOGO_DISPONIBLE": ruta_del is not None,
         "DELOITTE_LOGO_URL": deloitte_url,
         "TEMA_EMPRESA": _cargar_tema_empresa(),
@@ -354,11 +371,18 @@ def _inyectar_branding():
 
 @app.route("/empresa-logo")
 def empresa_logo():
-    from flask import send_file, abort
+    from flask import send_file, abort, make_response
     ruta = _ruta_logo_empresa()
     if not ruta:
         abort(404)
-    return send_file(str(ruta), mimetype="image/png", max_age=300)
+    # max_age=0 + Cache-Control restrictivo: el navegador hará revalidación.
+    # El cache-buster ?v=mtime en la URL del template ya garantiza no
+    # mezclar logos entre instancias.
+    resp = make_response(send_file(str(ruta), mimetype="image/png", max_age=0))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -2933,6 +2957,34 @@ def _cargar_datos_ticker_fijo():
     return datos
 
 
+def _listar_informes_descargados():
+    """Devuelve la lista de informes guardados en Empresas/{TICKER}/descargas/.
+
+    Cada item: {nombre, tamano_kb, fecha, url, extension}. Lista vacía si no
+    hay TICKER_FIJO o la carpeta aún no existe / está vacía.
+    """
+    from datetime import datetime as _dt
+    import urllib.parse as _up
+    d = _dir_descargas_ticker()
+    items = []
+    if d and d.exists():
+        for ruta in sorted(d.iterdir(), reverse=True):
+            if ruta.suffix.lower() not in (".docx", ".pdf"):
+                continue
+            try:
+                stat = ruta.stat()
+            except OSError:
+                continue
+            items.append({
+                "nombre": ruta.name,
+                "tamano_kb": round(stat.st_size / 1024, 1),
+                "fecha": _dt.fromtimestamp(stat.st_mtime).strftime("%d/%m/%Y %H:%M"),
+                "url": "/descargar-archivado/" + _up.quote(ruta.name),
+                "extension": ruta.suffix.lstrip(".").upper(),
+            })
+    return items
+
+
 def _render_datos_yahoo(datos, modelo, error=None):
     cache_id = str(uuid.uuid4())
     _download_cache[cache_id] = {
@@ -2951,6 +3003,7 @@ def _render_datos_yahoo(datos, modelo, error=None):
         escala_para_estado=escala_para_estado,
         formatear_celda_estado=formatear_celda_estado,
         error=error,
+        informes_previos=_listar_informes_descargados(),
     )
 
 
@@ -4312,26 +4365,12 @@ def descargar_pdf():
 @app.route("/informes-generados")
 def informes_generados():
     """Lista los informes Word/PDF guardados en Empresas/{TICKER}/descargas/."""
-    from datetime import datetime as _dt
-    import urllib.parse as _up
     d = _dir_descargas_ticker()
-    items = []
-    if d and d.exists():
-        for ruta in sorted(d.iterdir(), reverse=True):
-            if ruta.suffix.lower() not in (".docx", ".pdf"):
-                continue
-            try:
-                stat = ruta.stat()
-            except OSError:
-                continue
-            items.append({
-                "nombre": ruta.name,
-                "tamano_kb": round(stat.st_size / 1024, 1),
-                "fecha": _dt.fromtimestamp(stat.st_mtime).strftime("%d/%m/%Y %H:%M"),
-                "url": "/descargar-archivado/" + _up.quote(ruta.name),
-                "extension": ruta.suffix.lstrip(".").upper(),
-            })
-    return render_template("informes_generados.html", items=items, carpeta=str(d) if d else "")
+    return render_template(
+        "informes_generados.html",
+        items=_listar_informes_descargados(),
+        carpeta=str(d) if d else "",
+    )
 
 
 @app.route("/descargar-archivado/<nombre>")
