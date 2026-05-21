@@ -436,13 +436,13 @@
         }
         .btn-primary {
             background: var(--deloitte-green);
-            color: var(--black);
+            color: var(--brand-primary-text, var(--black));
             border-color: var(--deloitte-green);
         }
         .btn-primary:hover {
             background: var(--deloitte-green-dark);
             border-color: var(--deloitte-green-dark);
-            color: var(--white);
+            color: var(--brand-primary-dark-text, var(--white));
         }
         .btn-dark {
             background: var(--black);
@@ -687,6 +687,8 @@
             {% if TEMA_EMPRESA.color_primario_oscuro %}--deloitte-green-dark: {{ TEMA_EMPRESA.color_primario_oscuro }};{% endif %}
             {% if TEMA_EMPRESA.color_secundario %}--brand-secondary: {{ TEMA_EMPRESA.color_secundario }};{% endif %}
             {% if TEMA_EMPRESA.color_acento %}--brand-accent: {{ TEMA_EMPRESA.color_acento }};{% endif %}
+            {% if TEMA_EMPRESA.color_texto_primario %}--brand-primary-text: {{ TEMA_EMPRESA.color_texto_primario }};{% endif %}
+            {% if TEMA_EMPRESA.color_texto_primario_oscuro %}--brand-primary-dark-text: {{ TEMA_EMPRESA.color_texto_primario_oscuro }};{% endif %}
         }
         {% if TEMA_EMPRESA.fondo_topbar %}.topbar { background: {{ TEMA_EMPRESA.fondo_topbar }} !important; }{% endif %}
         {% if TEMA_EMPRESA.color_texto_topbar %}.topbar, .topbar-left span, .topbar-right, .topbar-right a { color: {{ TEMA_EMPRESA.color_texto_topbar }} !important; }{% endif %}
@@ -750,7 +752,7 @@
                 </li>
                 {% if DELOITTE_LOGO_DISPONIBLE %}
                 <li class="nav-logo-deloitte" title="Powered by Deloitte">
-                    <img src="{{ url_for('static', filename='img/deloitte_logo.png') }}" alt="Deloitte">
+                    <img src="{{ DELOITTE_LOGO_URL }}" alt="Deloitte">
                 </li>
                 {% endif %}
                 <li class="nav-cta">
