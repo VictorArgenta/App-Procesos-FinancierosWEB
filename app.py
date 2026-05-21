@@ -31,6 +31,36 @@ from matplotlib.ticker import FuncFormatter
 load_dotenv()
 
 import sys as _sys
+import logging as _logging
+from pathlib import Path as _Path
+
+# Logging: append continuo a `logs/sesion.txt`. Crea la carpeta si no existe.
+# Si quieres más detalle, define LOG_LEVEL=DEBUG en .env.
+_LOGS_DIR = _Path(__file__).resolve().parent / "logs"
+_LOGS_DIR.mkdir(exist_ok=True)
+_LOG_FILE = _LOGS_DIR / "sesion.txt"
+_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+_log_formatter = _logging.Formatter(
+    fmt="[%(asctime)s.%(msecs)03d] %(levelname)-5s %(name)-18s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+_file_handler = _logging.FileHandler(_LOG_FILE, mode="a", encoding="utf-8")
+_file_handler.setFormatter(_log_formatter)
+_stream_handler = _logging.StreamHandler()
+_stream_handler.setFormatter(_log_formatter)
+_logging.basicConfig(
+    level=getattr(_logging, _LOG_LEVEL, _logging.INFO),
+    handlers=[_file_handler, _stream_handler],
+    force=True,
+)
+# Silenciamos ruido de librerías de terceros (peticiones HTTP, yfinance, etc.).
+for _ruidoso in ("urllib3", "yfinance", "google", "anthropic", "httpx", "httpcore"):
+    _logging.getLogger(_ruidoso).setLevel(_logging.WARNING)
+
+logger = _logging.getLogger("dfin")
+logger.info("=" * 70)
+logger.info("Módulo cargado · LOG_LEVEL=%s · fichero=%s", _LOG_LEVEL, _LOG_FILE)
 
 # Ticker fijado al arrancar la aplicación. Uso: `python app.py META`. Si se
 # pasa, el flujo de análisis individual salta el paso de selección de ticker
@@ -989,11 +1019,26 @@ def generar_nota_memoria(datos, modelo, instrucciones_usuario=None,
 Datos financieros sobre los que elaborar el informe:
 {tabla_texto}"""
 
-    texto, citas = llamar_ia_con_reintentos(
-        prompt, max_tokens=max_tokens, modelo=modelo,
-        permitir_busqueda=permitir_busqueda,
+    log_inf = _logging.getLogger("dfin.informe")
+    import time as _t
+    _t0 = _t.time()
+    log_inf.info(
+        "Generando informe: ticker=%s tipo=%s extension=%s modelo=%s busqueda=%s",
+        (datos or {}).get("ticker", "?"), tipo_informe, extension, modelo, permitir_busqueda,
     )
+    try:
+        texto, citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=max_tokens, modelo=modelo,
+            permitir_busqueda=permitir_busqueda,
+        )
+    except Exception as e:
+        log_inf.exception("Fallo generando informe: %s", e)
+        raise
     memoria = _limpiar_respuesta_ia(texto)
+    log_inf.info(
+        "Informe generado: %d palabras, lat=%.2fs",
+        len((memoria or "").split()), _t.time() - _t0,
+    )
     return _append_fuentes_consultadas(memoria, citas)
 
 
@@ -2991,7 +3036,9 @@ def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
       precisión real; IMAP solo permite filtrar por día, por lo que el
       filtro fino se aplica después).
     """
+    log_bandeja = _logging.getLogger("dfin.ir.bandeja")
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        log_bandeja.warning("Lectura Gmail abortada: faltan credenciales")
         raise RuntimeError(
             "Faltan GMAIL_USER y/o GMAIL_APP_PASSWORD en el archivo .env"
         )
@@ -3000,9 +3047,11 @@ def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
     import email as _emaillib
     from email.utils import parseaddr, parsedate_to_datetime
     from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    import time as _time
 
     desde = _dt.now(_tz.utc) - _td(hours=horas_max)
     desde_imap_dia = desde.strftime("%d-%b-%Y")
+    _t0 = _time.time()
 
     correos = []
     with imaplib.IMAP4_SSL("imap.gmail.com", 993) as M:
@@ -3079,6 +3128,10 @@ def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
                 "_message_id": msg.get("Message-ID", ""),
                 "_fecha": fecha.strftime("%d/%m/%Y %H:%M") if fecha else "",
             })
+    log_bandeja.info(
+        "Gmail leído: %d correos coincidentes (prefijo='%s', %dh, %.2fs)",
+        len(correos), prefijo, horas_max, _time.time() - _t0,
+    )
     return correos
 
 
@@ -3104,9 +3157,23 @@ def _enviar_correo_smtp(destinatario_email, destinatario_nombre, asunto,
         msg["In-Reply-To"] = in_reply_to
         msg["References"] = in_reply_to
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
-        server.send_message(msg)
+    log_smtp = _logging.getLogger("dfin.ir.enviar")
+    import time as _t
+    _t0 = _t.time()
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
+            server.send_message(msg)
+    except Exception as e:
+        log_smtp.exception(
+            "Fallo enviando a %s (asunto=%r): %s",
+            destinatario_email, asunto, e,
+        )
+        raise
+    log_smtp.info(
+        "Correo enviado a %s (asunto=%r, %.2fs)",
+        destinatario_email, (asunto or "")[:80], _t.time() - _t0,
+    )
 
 
 
@@ -3235,13 +3302,30 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
     if datos:
         prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
 
-    texto, _citas = llamar_ia_con_reintentos(
-        prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+    log_res = _logging.getLogger("dfin.ir.resolver")
+    import time as _t
+    _t0 = _t.time()
+    log_res.info(
+        "Resolviendo correo id=%s remitente=%s modelo=%s",
+        correo.get("id", "?"), correo.get("remitente_email", "?"), modelo,
     )
 
+    try:
+        texto, _citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+        )
+    except Exception as e:
+        log_res.exception("Fallo en LLM al resolver id=%s: %s", correo.get("id", "?"), e)
+        raise
+
+    _latencia = _t.time() - _t0
     import json as _json
     bloque = re.search(r"\{.*\}", texto or "", re.DOTALL)
     if not bloque:
+        log_res.warning(
+            "Sin JSON válido para id=%s (modelo=%s, %.2fs)",
+            correo.get("id", "?"), modelo, _latencia,
+        )
         return {
             "puede_resolver": False,
             "asunto_respuesta": f"Re: {correo['asunto']}",
@@ -3268,6 +3352,13 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
     parsed["tipo_inversor"] = tipo
     parsed.setdefault("perfil_estimado", "")
     parsed = _validar_borrador_ir(parsed, correo)
+    log_res.info(
+        "Correo id=%s resuelto: puede_resolver=%s tipo=%s modelo=%s lat=%.2fs",
+        correo.get("id", "?"),
+        parsed.get("puede_resolver"),
+        parsed.get("tipo_inversor"),
+        modelo, _latencia,
+    )
     return parsed
 
 
@@ -3317,6 +3408,11 @@ def _validar_borrador_ir(parsed, correo):
             break
 
     if razones or not parsed.get("puede_resolver"):
+        if razones:
+            _logging.getLogger("dfin.ir.validador").warning(
+                "Borrador descartado para id=%s: %s",
+                correo.get("id", "?"), "; ".join(razones),
+            )
         parsed["puede_resolver"] = False
         parsed["cuerpo_respuesta"] = ""
         if not parsed.get("asunto_respuesta"):
@@ -3467,13 +3563,27 @@ válido, sin comentarios ni acentos graves:
     if datos:
         prompt += f"\nDatos financieros de Yahoo Finance disponibles:\n{tabla}\n"
 
-    texto, _citas = llamar_ia_con_reintentos(
-        prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+    log_ref = _logging.getLogger("dfin.ir.refinar")
+    import time as _t
+    _t0 = _t.time()
+    log_ref.info(
+        "Refinando correo id=%s modelo=%s msg=%r",
+        correo.get("id", "?"), modelo, (mensaje_usuario or "")[:120],
     )
 
+    try:
+        texto, _citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=True,
+        )
+    except Exception as e:
+        log_ref.exception("Fallo en LLM al refinar id=%s: %s", correo.get("id", "?"), e)
+        raise
+
+    _lat = _t.time() - _t0
     import json as _json
     bloque = re.search(r"\{.*\}", texto or "", re.DOTALL)
     if not bloque:
+        log_ref.warning("Sin JSON válido refinando id=%s (lat=%.2fs)", correo.get("id", "?"), _lat)
         return {
             "respuesta_chat": (texto or "").strip()[:600] or "(sin respuesta)",
             "asunto_respuesta": borrador_actual.get("asunto", ""),
@@ -3510,6 +3620,10 @@ válido, sin comentarios ni acentos graves:
             "pendiente para revisión manual."
         )
         parsed["modificado"] = True
+    log_ref.info(
+        "Refinado id=%s modificado=%s modelo=%s lat=%.2fs",
+        correo.get("id", "?"), parsed.get("modificado"), modelo, _lat,
+    )
     return parsed
 
 
@@ -3800,12 +3914,21 @@ def contacto():
 
 
 if __name__ == "__main__":
+    _arranque_logger = _logging.getLogger("dfin.app")
+    _arranque_logger.info(
+        "ARRANQUE python app.py TICKER_FIJO=%s GMAIL=%s LOG_LEVEL=%s",
+        TICKER_FIJO or "(ninguno)",
+        "configurado" if (GMAIL_USER and GMAIL_APP_PASSWORD) else "no_configurado",
+        _LOG_LEVEL,
+    )
     if TICKER_FIJO:
         print(f"\n[DFin AI] Precargando datos de Yahoo Finance para {TICKER_FIJO}…")
         try:
             _cargar_datos_ticker_fijo()
             nombre = _BRANDING["empresa"]
             print(f"[DFin AI] Aplicación dedicada a: {nombre} ({TICKER_FIJO})\n")
+            _arranque_logger.info("Datos de Yahoo precargados: %s (%s)", nombre, TICKER_FIJO)
         except Exception as _e:
             print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}\n")
+            _arranque_logger.exception("Fallo al precargar Yahoo para %s", TICKER_FIJO)
     app.run(debug=True, host="0.0.0.0", port=5000)

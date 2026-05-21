@@ -9,3 +9,7 @@ env/
 dist/
 build/
 .DS_Store
+
+# Logs de sesión y caché derivado
+logs/
+cache/
