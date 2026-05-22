@@ -107,23 +107,41 @@
         color: var(--gray-10);
         margin-top: 2px;
     }
-    .cd-chat-acciones {
-        display: flex;
-        gap: 0.2rem;
-        opacity: 0.55;
-        transition: opacity 0.12s ease;
-    }
-    .cd-chat-item:hover .cd-chat-acciones { opacity: 1; }
-    .cd-chat-acciones button {
+    .cd-chat-acciones { position: relative; }
+    .cd-chat-acciones .cd-menu-btn {
         background: transparent;
         border: none;
         cursor: pointer;
-        font-size: 0.8rem;
+        font-size: 1.05rem;
         color: var(--gray-10);
-        padding: 2px 5px;
+        padding: 2px 6px;
         border-radius: 3px;
+        line-height: 1;
     }
-    .cd-chat-acciones button:hover { background: rgba(0,0,0,0.06); color: var(--black); }
+    .cd-chat-acciones .cd-menu-btn:hover { background: rgba(0,0,0,0.08); color: var(--black); }
+    .cd-chat-menu {
+        position: fixed;
+        background: #fff;
+        border: 1px solid var(--gray-border);
+        border-radius: 4px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+        min-width: 150px;
+        z-index: 1000;
+        padding: 0.25rem 0;
+    }
+    .cd-chat-menu button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 0.84rem;
+        color: var(--black);
+        padding: 6px 12px;
+    }
+    .cd-chat-menu button:hover { background: var(--gray-bg); }
+    .cd-chat-menu button.peligro:hover { background: #FFEBEE; color: #B71C1C; }
 
     /* --- Área central de chat --- */
     .cd-chat-area {
@@ -239,6 +257,14 @@
     }
     .cita-marker:hover { background: #BBDEFB; }
     .cita-marker.activa { background: #1976D2; color: #fff; transform: scale(1.08); }
+    .cita-marker.invalida {
+        background: #FFEBEE;
+        color: #B71C1C;
+        border-color: #EF9A9A;
+        text-decoration: line-through;
+        cursor: help;
+    }
+    .cita-marker.invalida:hover { background: #FFCDD2; }
 
     /* Bloque expandible de citas debajo de cada respuesta. */
     .cd-citas-bloque {
@@ -654,41 +680,88 @@
                     <span class="cd-chat-meta">${c.n_mensajes} msg · ${fmtFecha(c.actualizado)}</span>
                 </div>
                 <div class="cd-chat-acciones">
-                    <button type="button" data-accion="renombrar" data-id="${c.id}" title="Renombrar">✎</button>
-                    <button type="button" data-accion="borrar" data-id="${c.id}" title="Borrar">🗑</button>
+                    <button type="button" class="cd-menu-btn" data-accion="menu" data-id="${c.id}" title="Más acciones" aria-haspopup="menu">⋮</button>
                 </div>
             </div>
         `).join('');
     }
 
-    elList.addEventListener('click', async (e) => {
-        const btn = e.target.closest('button[data-accion]');
-        if (btn) {
+    // Estado del menú contextual abierto (uno como mucho a la vez).
+    let menuAbiertoEl = null;
+    function cerrarMenuContextual() {
+        if (menuAbiertoEl) { menuAbiertoEl.remove(); menuAbiertoEl = null; }
+    }
+    document.addEventListener('click', (e) => {
+        if (menuAbiertoEl && !e.target.closest('.cd-chat-menu') && !e.target.closest('.cd-menu-btn')) {
+            cerrarMenuContextual();
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') cerrarMenuContextual();
+    });
+
+    function abrirMenuContextual(btn, id) {
+        cerrarMenuContextual();
+        const menu = document.createElement('div');
+        menu.className = 'cd-chat-menu';
+        menu.setAttribute('role', 'menu');
+        menu.innerHTML = `
+            <button type="button" data-accion="renombrar" role="menuitem">✎ Renombrar</button>
+            <button type="button" data-accion="borrar" class="peligro" role="menuitem">🗑 Borrar</button>
+        `;
+        document.body.appendChild(menu);
+        // Posicionar bajo el botón, alineado a la derecha, sin salirse de la ventana.
+        const r = btn.getBoundingClientRect();
+        const ancho = 160;
+        const altoEst = 80;
+        let left = r.right - ancho;
+        let top = r.bottom + 2;
+        if (left < 6) left = 6;
+        if (top + altoEst > window.innerHeight - 6) top = r.top - altoEst - 2;
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+        menuAbiertoEl = menu;
+        menu.addEventListener('click', async (e) => {
+            const b = e.target.closest('button[data-accion]');
+            if (!b) return;
             e.stopPropagation();
-            const id = btn.dataset.id;
-            if (btn.dataset.accion === 'borrar') {
-                if (!confirm('¿Borrar esta conversación? No se puede deshacer.')) return;
-                await fetch(`${URL_CHATS}/${id}`, {method: 'DELETE'});
-                if (chatActual && chatActual.id === id) {
-                    chatActual = null;
-                    pintarVacio();
-                }
-                await recargarLista();
-            } else if (btn.dataset.accion === 'renombrar') {
-                const actual = listaChats.find(x => x.id === id);
-                const nuevo = prompt('Nuevo título:', actual ? actual.titulo : '');
-                if (!nuevo) return;
-                await fetch(`${URL_CHATS}/${id}`, {
-                    method: 'PATCH',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({titulo: nuevo}),
-                });
-                if (chatActual && chatActual.id === id) {
-                    chatActual.titulo = nuevo;
-                    elTituloActual.textContent = nuevo;
-                }
-                await recargarLista();
+            const accion = b.dataset.accion;
+            cerrarMenuContextual();
+            await ejecutarAccionChat(accion, id);
+        });
+    }
+
+    async function ejecutarAccionChat(accion, id) {
+        if (accion === 'borrar') {
+            if (!confirm('¿Borrar esta conversación? No se puede deshacer.')) return;
+            await fetch(`${URL_CHATS}/${id}`, {method: 'DELETE'});
+            if (chatActual && chatActual.id === id) {
+                chatActual = null;
+                pintarVacio();
             }
+            await recargarLista();
+        } else if (accion === 'renombrar') {
+            const actual = listaChats.find(x => x.id === id);
+            const nuevo = prompt('Nuevo título:', actual ? actual.titulo : '');
+            if (!nuevo) return;
+            await fetch(`${URL_CHATS}/${id}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({titulo: nuevo}),
+            });
+            if (chatActual && chatActual.id === id) {
+                chatActual.titulo = nuevo;
+                elTituloActual.textContent = nuevo;
+            }
+            await recargarLista();
+        }
+    }
+
+    elList.addEventListener('click', (e) => {
+        const btnMenu = e.target.closest('.cd-menu-btn');
+        if (btnMenu) {
+            e.stopPropagation();
+            abrirMenuContextual(btnMenu, btnMenu.dataset.id);
             return;
         }
         const item = e.target.closest('.cd-chat-item');
@@ -737,8 +810,10 @@
     }
 
     function renderCuerpoConMarcadores(cuerpo, citas, contenedor) {
-        // Sustituye [1], [2]... por chips clicables. Solo crea chip si el
-        // número existe en la lista de citas; si no, deja el texto literal.
+        // Sustituye [1], [2]... por chips clicables.
+        // - Si [N] existe en `citas` → chip azul clicable.
+        // - Si [N] NO existe (modelo se inventó el número) → chip rojo
+        //   tachado con tooltip avisando de que es una cita inventada.
         const citasMap = {};
         for (const c of (citas || [])) citasMap[c.n] = c;
         const RE = /\[(\d+)\]/g;
@@ -748,16 +823,16 @@
                 contenedor.appendChild(document.createTextNode(cuerpo.slice(ult, m.index)));
             }
             const n = parseInt(m[1], 10);
-            if (citasMap[n]) {
-                const sup = document.createElement('a');
-                sup.className = 'cita-marker';
-                sup.textContent = '[' + n + ']';
-                sup.href = '#';
-                sup.dataset.cita = n;
-                contenedor.appendChild(sup);
-            } else {
-                contenedor.appendChild(document.createTextNode(m[0]));
+            const sup = document.createElement('a');
+            sup.className = 'cita-marker';
+            sup.textContent = '[' + n + ']';
+            sup.href = '#';
+            sup.dataset.cita = n;
+            if (!citasMap[n]) {
+                sup.classList.add('invalida');
+                sup.title = 'Cita inválida: el asistente referenció el fragmento [' + n + '] pero no existe en los documentos consultados.';
             }
+            contenedor.appendChild(sup);
             ult = m.index + m[0].length;
         }
         if (ult < cuerpo.length) {
@@ -848,6 +923,7 @@
 
     function activarCitaResaltada(burbuja, n) {
         burbuja.querySelectorAll('.cita-marker').forEach(el => {
+            if (el.classList.contains('invalida')) return;
             el.classList.toggle('activa', parseInt(el.dataset.cita, 10) === n);
         });
         const lista = burbuja.querySelector('.cd-citas-lista');
@@ -882,6 +958,18 @@
         renderCuerpoConMarcadores(msg.contenido || '', msg.citas || [], cuerpo);
         div.appendChild(cuerpo);
 
+        // Aviso si hay marcadores [N] inventados (el modelo citó un fragmento
+        // que no existe). El chip aparece tachado individualmente, pero
+        // además mostramos un aviso global para que el usuario no lo pase
+        // por alto.
+        const invalidos = cuerpo.querySelectorAll('.cita-marker.invalida');
+        if (invalidos.length > 0) {
+            const av = document.createElement('div');
+            av.className = 'cd-citas-aviso';
+            av.innerHTML = `⚠️ <strong>Cita(s) inválida(s):</strong> el asistente ha referenciado ${invalidos.length} fragmento(s) que no existen en la documentación. Las verás tachadas en el texto. Revisa la respuesta con precaución.`;
+            div.appendChild(av);
+        }
+
         const citas = msg.citas || [];
         if (citas.length > 0) {
             const bloque = crearBloqueCitas(citas);
@@ -891,6 +979,7 @@
                 const m = e.target.closest('.cita-marker');
                 if (!m) return;
                 e.preventDefault();
+                if (m.classList.contains('invalida')) return;  // chip rojo: solo tooltip
                 activarCitaResaltada(div, parseInt(m.dataset.cita, 10));
             });
         } else if (!esUser && /\[\d+\]/.test(msg.contenido || '')
