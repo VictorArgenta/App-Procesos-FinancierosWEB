@@ -5179,32 +5179,46 @@ if __name__ == "__main__":
         _LOG_LEVEL,
     )
     if TICKER_FIJO:
-        # Modo compatibilidad: se pasó ticker por argv. Precargamos.
-        print(f"\n[DFin AI] Precargando datos de Yahoo Finance para {TICKER_FIJO}…")
+        # Modo "directo": el usuario ya indicó la empresa por argv. Saltamos
+        # el selector. Precargamos Yahoo (rápido) y la memoria de IR, y
+        # lanzamos el RAG en background (o síncrono si se pidió --recrawl).
+        print(f"\n[DFin AI] Modo directo: empresa fijada a {TICKER_FIJO}")
+        print(f"[DFin AI] Precargando datos de Yahoo Finance para {TICKER_FIJO}…")
         try:
             _cargar_datos_ticker_fijo()
             nombre = _BRANDING["empresa"]
-            print(f"[DFin AI] Aplicación dedicada a: {nombre} ({TICKER_FIJO})\n")
+            print(f"[DFin AI] Aplicación dedicada a: {nombre} ({TICKER_FIJO})")
             _arranque_logger.info("Datos de Yahoo precargados: %s (%s)", nombre, TICKER_FIJO)
         except Exception as _e:
-            print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}\n")
+            print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}")
             _arranque_logger.exception("Fallo al precargar Yahoo para %s", TICKER_FIJO)
 
-        print(f"[DFin AI] Indexando corpus RAG de {TICKER_FIJO}"
-              f"{' (--recrawl forzado)' if RECRAWL_AL_ARRANCAR else ''}…")
-        try:
-            idx = _construir_rag_si_procede(forzar=RECRAWL_AL_ARRANCAR)
-            n = len(idx.chunks) if idx else 0
-            print(f"[DFin AI] RAG: {n} fragmentos indexados.\n")
-        except Exception as _e:
-            print(f"[DFin AI] AVISO: fallo indexando corpus RAG: {_e}\n")
-            _arranque_logger.exception("Fallo en RAG para %s", TICKER_FIJO)
-
         _cargar_memoria_ir()
+
+        if RECRAWL_AL_ARRANCAR:
+            # --recrawl: queremos garantizar el corpus fresco antes de servir.
+            print(f"[DFin AI] Indexando corpus RAG de {TICKER_FIJO} (--recrawl forzado)…")
+            try:
+                idx = _construir_rag_si_procede(forzar=True)
+                n = len(idx.chunks) if idx else 0
+                print(f"[DFin AI] RAG: {n} fragmentos indexados.")
+            except Exception as _e:
+                print(f"[DFin AI] AVISO: fallo indexando corpus RAG: {_e}")
+                _arranque_logger.exception("Fallo en RAG para %s", TICKER_FIJO)
+        else:
+            # Sin --recrawl: en background para no bloquear el arranque.
+            print(f"[DFin AI] Indexando corpus RAG de {TICKER_FIJO} en background…")
+            try:
+                _construir_rag_async(forzar=False)
+            except Exception as _e:
+                print(f"[DFin AI] AVISO: fallo lanzando RAG: {_e}")
+                _arranque_logger.exception("Fallo en RAG async para %s", TICKER_FIJO)
+
+        print("[DFin AI] Servidor listo. Abre http://localhost:5000\n")
     else:
-        # Modo normal: sin ticker, el usuario lo elegirá en la web.
-        print("\n[DFin AI] Aplicación lista. Abre http://localhost:5000 y "
-              "selecciona la empresa.\n")
+        # Modo "selector": sin ticker, el usuario lo elegirá en la web.
+        print("\n[DFin AI] Aplicación lista. Abre http://localhost:5000 "
+              "y selecciona la empresa en el selector inicial.\n")
         _arranque_logger.info("Arranque sin TICKER_FIJO: selección desde la web.")
 
     app.run(debug=True, host="0.0.0.0", port=5000)
