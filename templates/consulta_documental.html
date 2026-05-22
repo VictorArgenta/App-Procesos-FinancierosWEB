@@ -68,6 +68,16 @@
         color: var(--gray-10);
         line-height: 1.5;
     }
+    .cd-sidebar-foot {
+        padding: 0.5rem 0.9rem;
+        border-top: 1px solid var(--gray-border);
+        background: var(--gray-bg);
+    }
+    .cd-sidebar-foot button {
+        width: 100%;
+        font-size: 0.78rem;
+        padding: 5px 8px;
+    }
     .cd-chat-item {
         padding: 0.55rem 0.9rem;
         border-bottom: 1px solid var(--gray-bg);
@@ -100,7 +110,7 @@
     .cd-chat-acciones {
         display: flex;
         gap: 0.2rem;
-        opacity: 0;
+        opacity: 0.55;
         transition: opacity 0.12s ease;
     }
     .cd-chat-item:hover .cd-chat-acciones { opacity: 1; }
@@ -209,15 +219,125 @@
         color: var(--gray-10);
     }
     .cd-msg-fuentes strong { color: var(--black); margin-right: 4px; }
-    .cd-msg-fuentes .chip {
+
+    /* Marcadores [N] inline dentro del cuerpo de la respuesta. */
+    .cita-marker {
         display: inline-block;
+        background: #E3F2FD;
+        color: #0D47A1;
+        font-size: 0.7em;
+        font-weight: 600;
+        line-height: 1;
+        padding: 2px 5px;
+        margin: 0 1px;
+        border-radius: 3px;
+        vertical-align: super;
+        cursor: pointer;
+        text-decoration: none;
+        border: 1px solid #BBDEFB;
+        transition: background 0.12s ease, transform 0.08s ease;
+    }
+    .cita-marker:hover { background: #BBDEFB; }
+    .cita-marker.activa { background: #1976D2; color: #fff; transform: scale(1.08); }
+
+    /* Bloque expandible de citas debajo de cada respuesta. */
+    .cd-citas-bloque {
+        margin-top: 0.55rem;
+        padding-top: 0.45rem;
+        border-top: 1px dashed rgba(0,0,0,0.12);
+    }
+    .cd-citas-toggle {
+        background: transparent;
+        border: none;
+        color: var(--gray-11);
+        cursor: pointer;
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 2px 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    .cd-citas-toggle:hover { color: var(--black); }
+    .cd-citas-toggle .chevron { transition: transform 0.15s ease; display: inline-block; }
+    .cd-citas-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+    .cd-citas-lista {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+    }
+    .cd-cita-item {
         background: #fff;
         border: 1px solid var(--gray-border);
-        padding: 1px 7px;
-        margin: 2px 3px 0 0;
-        border-radius: 999px;
-        font-size: 0.72rem;
+        border-left: 3px solid #1976D2;
+        border-radius: 3px;
+        padding: 0.55rem 0.75rem;
+        font-size: 0.83rem;
+        line-height: 1.5;
+        color: var(--black);
+    }
+    .cd-cita-item.resaltada {
+        background: #FFF8E1;
+        border-left-color: #F9A825;
+        box-shadow: 0 0 0 2px rgba(249,168,37,0.25);
+    }
+    .cd-cita-cab {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.6rem;
+        font-size: 0.75rem;
         color: var(--gray-11);
+        margin-bottom: 0.3rem;
+    }
+    .cd-cita-cab .num {
+        font-weight: 700;
+        background: #1976D2;
+        color: #fff;
+        padding: 1px 7px;
+        border-radius: 3px;
+        font-size: 0.72rem;
+    }
+    .cd-cita-cab .doc { font-weight: 600; color: var(--black); flex: 1; word-break: break-word; }
+    .cd-cita-cab .loc { color: var(--gray-10); white-space: nowrap; }
+    .cd-cita-literal {
+        font-style: italic;
+        color: var(--gray-11);
+        padding-left: 0.6rem;
+        border-left: 2px solid var(--gray-border);
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .cd-cita-fragmento-toggle {
+        background: transparent;
+        border: none;
+        color: var(--gray-10);
+        cursor: pointer;
+        font-size: 0.74rem;
+        padding: 2px 0;
+        margin-top: 0.3rem;
+        text-decoration: underline dotted;
+    }
+    .cd-cita-fragmento-toggle:hover { color: var(--black); }
+    .cd-cita-fragmento {
+        margin-top: 0.4rem;
+        padding: 0.5rem 0.65rem;
+        background: var(--gray-bg);
+        font-size: 0.78rem;
+        color: var(--gray-11);
+        border-radius: 3px;
+        white-space: pre-wrap;
+        max-height: 220px;
+        overflow-y: auto;
+    }
+    .cd-citas-aviso {
+        margin-top: 0.4rem;
+        font-size: 0.76rem;
+        color: #8D6E00;
+        background: #FFF8E1;
+        border: 1px solid #FFE082;
+        padding: 5px 9px;
+        border-radius: 3px;
     }
 
     .cd-pensando {
@@ -394,6 +514,9 @@
         </div>
         <div class="cd-chat-list" id="chat-list">
             <div class="cd-chat-list-empty">Cargando…</div>
+        </div>
+        <div class="cd-sidebar-foot">
+            <button type="button" class="btn btn-outline" id="btn-limpiar-antiguos" title="Borra conversaciones que no se hayan tocado en N días">🧹 Limpiar antiguos…</button>
         </div>
     </aside>
 
@@ -613,6 +736,135 @@
         scrollAbajo();
     }
 
+    function renderCuerpoConMarcadores(cuerpo, citas, contenedor) {
+        // Sustituye [1], [2]... por chips clicables. Solo crea chip si el
+        // número existe en la lista de citas; si no, deja el texto literal.
+        const citasMap = {};
+        for (const c of (citas || [])) citasMap[c.n] = c;
+        const RE = /\[(\d+)\]/g;
+        let ult = 0, m;
+        while ((m = RE.exec(cuerpo)) !== null) {
+            if (m.index > ult) {
+                contenedor.appendChild(document.createTextNode(cuerpo.slice(ult, m.index)));
+            }
+            const n = parseInt(m[1], 10);
+            if (citasMap[n]) {
+                const sup = document.createElement('a');
+                sup.className = 'cita-marker';
+                sup.textContent = '[' + n + ']';
+                sup.href = '#';
+                sup.dataset.cita = n;
+                contenedor.appendChild(sup);
+            } else {
+                contenedor.appendChild(document.createTextNode(m[0]));
+            }
+            ult = m.index + m[0].length;
+        }
+        if (ult < cuerpo.length) {
+            contenedor.appendChild(document.createTextNode(cuerpo.slice(ult)));
+        }
+    }
+
+    function crearBloqueCitas(citas) {
+        // Bloque expandible "▸ Citas usadas (N)" + lista de fichas.
+        const wrap = document.createElement('div');
+        wrap.className = 'cd-citas-bloque';
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'cd-citas-toggle';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.innerHTML = `<span class="chevron">▸</span> Citas usadas (${citas.length})`;
+        wrap.appendChild(toggle);
+
+        const lista = document.createElement('div');
+        lista.className = 'cd-citas-lista';
+        lista.hidden = true;
+
+        const sinLiteral = citas.filter(c => !c.cita_literal).length;
+        if (sinLiteral === citas.length && citas.length > 0) {
+            const aviso = document.createElement('div');
+            aviso.className = 'cd-citas-aviso';
+            aviso.textContent = 'El asistente no aportó citas literales para esta respuesta. Mostramos los fragmentos completos que se le pasaron.';
+            lista.appendChild(aviso);
+        }
+
+        for (const c of citas) {
+            const item = document.createElement('div');
+            item.className = 'cd-cita-item';
+            item.dataset.cita = c.n;
+
+            const cab = document.createElement('div');
+            cab.className = 'cd-cita-cab';
+            cab.innerHTML = `
+                <span><span class="num">[${c.n}]</span> <span class="doc">${escapeHtml(c.documento || '?')}</span></span>
+                <span class="loc">${escapeHtml(c.localizador || '')}</span>
+            `;
+            item.appendChild(cab);
+
+            if (c.cita_literal) {
+                const lit = document.createElement('div');
+                lit.className = 'cd-cita-literal';
+                lit.textContent = '« ' + c.cita_literal + ' »';
+                item.appendChild(lit);
+            } else if (c.fragmento_texto) {
+                const aviso = document.createElement('div');
+                aviso.style.fontSize = '0.74rem';
+                aviso.style.color = 'var(--gray-10)';
+                aviso.style.fontStyle = 'italic';
+                aviso.textContent = '(sin cita literal del asistente — se muestra el fragmento entero abajo)';
+                item.appendChild(aviso);
+            }
+
+            if (c.fragmento_texto) {
+                const verBtn = document.createElement('button');
+                verBtn.type = 'button';
+                verBtn.className = 'cd-cita-fragmento-toggle';
+                verBtn.textContent = 'Ver fragmento completo';
+                const frag = document.createElement('div');
+                frag.className = 'cd-cita-fragmento';
+                frag.hidden = true;
+                frag.textContent = c.fragmento_texto;
+                verBtn.addEventListener('click', () => {
+                    frag.hidden = !frag.hidden;
+                    verBtn.textContent = frag.hidden ? 'Ver fragmento completo' : 'Ocultar fragmento';
+                });
+                item.appendChild(verBtn);
+                item.appendChild(frag);
+            }
+
+            lista.appendChild(item);
+        }
+        wrap.appendChild(lista);
+
+        toggle.addEventListener('click', () => {
+            const abierto = !lista.hidden;
+            lista.hidden = abierto;
+            toggle.setAttribute('aria-expanded', String(!abierto));
+        });
+
+        return wrap;
+    }
+
+    function activarCitaResaltada(burbuja, n) {
+        burbuja.querySelectorAll('.cita-marker').forEach(el => {
+            el.classList.toggle('activa', parseInt(el.dataset.cita, 10) === n);
+        });
+        const lista = burbuja.querySelector('.cd-citas-lista');
+        const toggle = burbuja.querySelector('.cd-citas-toggle');
+        if (lista && lista.hidden && toggle) {
+            lista.hidden = false;
+            toggle.setAttribute('aria-expanded', 'true');
+        }
+        burbuja.querySelectorAll('.cd-cita-item').forEach(el => el.classList.remove('resaltada'));
+        const item = burbuja.querySelector(`.cd-cita-item[data-cita="${n}"]`);
+        if (item) {
+            item.classList.add('resaltada');
+            item.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+            setTimeout(() => item.classList.remove('resaltada'), 2200);
+        }
+    }
+
     function crearBurbuja(msg) {
         const div = document.createElement('div');
         const esUser = msg.rol === 'user';
@@ -621,13 +873,35 @@
         if (!esUser && (msg.contenido || '').includes('No encuentro esa información en la documentación')) {
             div.classList.add('sin-datos');
         }
-        div.textContent = msg.contenido || '';
-        if (!esUser && msg.fuentes && msg.fuentes.length) {
-            const pie = document.createElement('div');
-            pie.className = 'cd-msg-fuentes';
-            const chips = msg.fuentes.map(f => `<span class="chip">${escapeHtml(f)}</span>`).join('');
-            pie.innerHTML = `<strong>Fuentes:</strong> ${chips}`;
-            div.appendChild(pie);
+        if (esUser) {
+            div.textContent = msg.contenido || '';
+            return div;
+        }
+        // Mensaje del asistente: cuerpo con marcadores [N] + bloque de citas.
+        const cuerpo = document.createElement('div');
+        renderCuerpoConMarcadores(msg.contenido || '', msg.citas || [], cuerpo);
+        div.appendChild(cuerpo);
+
+        const citas = msg.citas || [];
+        if (citas.length > 0) {
+            const bloque = crearBloqueCitas(citas);
+            div.appendChild(bloque);
+            // Click en marcador [N] → abre y resalta la cita correspondiente.
+            div.addEventListener('click', (e) => {
+                const m = e.target.closest('.cita-marker');
+                if (!m) return;
+                e.preventDefault();
+                activarCitaResaltada(div, parseInt(m.dataset.cita, 10));
+            });
+        } else if (!esUser && /\[\d+\]/.test(msg.contenido || '')
+                   && !(msg.contenido || '').includes('No encuentro esa información')) {
+            // Respuesta con marcadores pero sin citas estructuradas (modelo no
+            // emitió ---CITAS---). Aviso suave para que el usuario sepa que
+            // esa respuesta no tiene fuentes trazables.
+            const aviso = document.createElement('div');
+            aviso.className = 'cd-citas-aviso';
+            aviso.textContent = 'El asistente no aportó el bloque de citas literales en esta respuesta. Revisa con cuidado antes de usarla.';
+            div.appendChild(aviso);
         }
         return div;
     }
@@ -682,7 +956,7 @@
                 chatActual.mensajes.push({
                     rol: 'assistant',
                     contenido: j.respuesta,
-                    fuentes: j.fuentes || [],
+                    citas: j.citas || [],
                     ts: j.ts,
                 });
                 // Reemplazamos la burbuja optimista por la versión definitiva
@@ -692,7 +966,7 @@
                 elMensajes.appendChild(crearBurbuja({
                     rol: 'assistant',
                     contenido: j.respuesta,
-                    fuentes: j.fuentes || [],
+                    citas: j.citas || [],
                 }));
                 elTituloActual.textContent = chatActual.titulo;
                 scrollAbajo();
@@ -836,6 +1110,36 @@
         }
         // No abrimos modal automáticamente: el usuario lo abre si quiere ver el resultado.
     }
+
+    // --- Limpieza por antigüedad ---
+    $('#btn-limpiar-antiguos').addEventListener('click', async () => {
+        const txt = prompt(
+            'Borrar conversaciones que no se hayan tocado en los últimos N días.\n\n' +
+            '¿A partir de cuántos días quieres borrar?', '30'
+        );
+        if (txt === null) return;
+        const dias = parseInt(txt, 10);
+        if (!dias || dias < 1) { alert('Introduce un número entero ≥ 1.'); return; }
+        if (!confirm(`Se borrarán las conversaciones sin actividad en los últimos ${dias} días. ¿Continuar?`)) return;
+        try {
+            const r = await fetch(URL_CHATS + '/limpiar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({dias}),
+            });
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            alert(`Borradas ${j.borrados} conversación(es) con más de ${dias} días.`);
+            if (chatActual) {
+                // Si el chat activo fue uno de los borrados, lo vaciamos.
+                const r2 = await fetch(`${URL_CHATS}/${chatActual.id}`);
+                if (r2.status === 404) { chatActual = null; pintarVacio(); }
+            }
+            await recargarLista();
+        } catch(e) {
+            alert('No se pudo limpiar: ' + e.message);
+        }
+    });
 
     // --- Init ---
     recargarLista();

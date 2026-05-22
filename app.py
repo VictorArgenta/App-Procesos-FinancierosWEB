@@ -4793,18 +4793,26 @@ def _titulo_desde_pregunta(pregunta, max_len=60):
     return t[: max_len - 1].rstrip() + "…"
 
 
-_PROMPT_CONSULTA_DOCUMENTAL = """Eres un asistente de consulta documental para {empresa}. Recibes fragmentos de la documentación corporativa interna y respondes a la pregunta del usuario.
+_PROMPT_CONSULTA_DOCUMENTAL = """Eres un asistente de consulta documental para {empresa}. Recibes FRAGMENTOS numerados de la documentación corporativa interna y respondes a la pregunta del usuario.
 
 REGLAS ESTRICTAS:
 1. Responde ÚNICAMENTE con información que aparezca explícitamente en los FRAGMENTOS proporcionados.
-2. Si la respuesta NO aparece en los fragmentos, di exactamente esta frase:
+2. Tras CADA afirmación factual que tomes de un fragmento, añade el marcador del fragmento entre corchetes: [1], [2], etc.
+   Si una misma afirmación se apoya en varios fragmentos, escríbelos juntos: [1][3].
+3. Si la respuesta NO aparece en ningún fragmento, di exactamente esta frase:
    «No encuentro esa información en la documentación corporativa cargada.»
-   Puedes añadir una línea sugiriendo qué tipo de documento podría contenerla, sin inventar nada.
-3. NO uses conocimiento general del mundo ni datos que no estén en los fragmentos.
-4. Tras la respuesta, añade una línea final con las fuentes usadas en este formato:
-   «Fuentes: nombre_fichero_1.pdf · otro_fichero.docx»
-   (solo los ficheros de los que realmente has sacado información, no todos los proporcionados).
+   En ese caso, omite el bloque ---CITAS---.
+4. NO uses conocimiento general del mundo ni datos externos a los fragmentos.
 5. Tono profesional, en español. Responde directo, sin rodeos.
+
+FORMATO DE LA RESPUESTA:
+- Primero el cuerpo de la respuesta con los marcadores [N] inline.
+- Después una LÍNEA EN BLANCO y la marca literal `---CITAS---` en una línea sola.
+- A continuación, una cita textual por cada marcador [N] usado, EN EL IDIOMA ORIGINAL del fragmento (no traduzcas), entre comillas angulares:
+    [1] «texto literal extraído del fragmento 1»
+    [2] «texto literal del fragmento 2»
+  La cita debe ser una frase o frases CONTIGUAS copiadas tal cual del fragmento, con un máximo de ~40 palabras, que respalden lo que has afirmado. No parafrasees.
+- Solo incluye en el bloque ---CITAS--- los marcadores que hayas usado en el cuerpo. No inventes citas para fragmentos que no aportan a la respuesta.
 
 {bloque_historial}
 FRAGMENTOS DE LA DOCUMENTACIÓN CORPORATIVA:
@@ -4849,6 +4857,106 @@ def _hits_locales_para_consulta(consulta, top_k=10):
             if len(hits_locales) >= top_k:
                 break
     return hits_locales
+
+
+def _formatear_fragmentos_numerados(hits):
+    """Devuelve (texto_para_prompt, fuentes_por_numero).
+
+    Numera los fragmentos [1], [2], … e inyecta documento + página/sección
+    en la cabecera de cada uno. `fuentes_por_numero` mapea N → meta del
+    fragmento, para que el frontend pueda mostrar la ficha completa cuando
+    el usuario despliegue las citas.
+    """
+    if not hits:
+        return "(no se han encontrado fragmentos relevantes)", {}
+    partes = []
+    fuentes = {}
+    for n, (score, ch) in enumerate(hits, start=1):
+        meta = ch.get("meta") or {}
+        nombre = meta.get("fuente_nombre", "documento desconocido")
+        tipo = meta.get("fuente_tipo", "")
+        # Localizador: página para PDFs, sección para los demás.
+        if tipo == "pdf_local":
+            p_ini = meta.get("pagina_inicio")
+            p_fin = meta.get("pagina_fin")
+            if p_ini and p_fin and p_ini != p_fin:
+                localizador = f"páginas {p_ini}-{p_fin}"
+            elif p_ini:
+                localizador = f"página {p_ini}"
+            else:
+                localizador = "página desconocida"
+        else:
+            localizador = f"sección {meta.get('seccion', meta.get('fragmento', 0) + 1)}"
+        partes.append(f"[{n}] Documento: {nombre} · {localizador}")
+        partes.append(ch.get("texto", ""))
+        partes.append("")
+        fuentes[n] = {
+            "n": n,
+            "documento": nombre,
+            "localizador": localizador,
+            "tipo": tipo,
+            "pagina_inicio": meta.get("pagina_inicio"),
+            "pagina_fin": meta.get("pagina_fin"),
+            "seccion": meta.get("seccion"),
+            "fragmento_texto": ch.get("texto", ""),
+        }
+    return "\n".join(partes), fuentes
+
+
+# Regex para localizar el bloque de citas literales en la respuesta del LLM.
+# Acepta tanto comillas angulares «...» como dobles "..." o curly “...”.
+_RE_BLOQUE_CITAS = re.compile(r"\n[-\s]*-+\s*CITAS\s*-+\s*\n", re.IGNORECASE)
+_RE_LINEA_CITA = re.compile(
+    r"^\s*\[(\d+)\]\s*[«\"“]([^»\"”]+)[»\"”]\s*$",
+    re.MULTILINE,
+)
+# Regex para encontrar los marcadores [N] dentro del cuerpo de la respuesta.
+_RE_MARCADOR = re.compile(r"\[(\d+)\]")
+
+
+def _parsear_respuesta_con_citas(texto, fuentes_por_numero):
+    """Separa el cuerpo de la respuesta del bloque ---CITAS---.
+
+    Devuelve (cuerpo, lista_de_citas) donde cada cita es:
+        {n, documento, localizador, cita_literal, fragmento_texto, ...}
+    Si el modelo no emitió el bloque ---CITAS---, lista_de_citas estará
+    vacía pero `cuerpo` mantiene los marcadores [N] que sí escribió.
+    """
+    m = _RE_BLOQUE_CITAS.search(texto or "")
+    if m:
+        cuerpo = texto[: m.start()].rstrip()
+        bloque = texto[m.end() :]
+    else:
+        cuerpo = (texto or "").rstrip()
+        bloque = ""
+
+    citas_literales = {}
+    if bloque:
+        for cita_m in _RE_LINEA_CITA.finditer(bloque):
+            n = int(cita_m.group(1))
+            citas_literales[n] = cita_m.group(2).strip()
+
+    # Construimos la lista de citas en el orden en que aparecen en el cuerpo.
+    orden = []
+    vistos = set()
+    for marker in _RE_MARCADOR.finditer(cuerpo):
+        n = int(marker.group(1))
+        if n in vistos:
+            continue
+        vistos.add(n)
+        orden.append(n)
+
+    citas = []
+    for n in orden:
+        fuente = fuentes_por_numero.get(n)
+        if not fuente:
+            # Marcador a fragmento inexistente — lo ignoramos.
+            continue
+        citas.append({
+            **fuente,
+            "cita_literal": citas_literales.get(n, ""),
+        })
+    return cuerpo, citas
 
 
 @app.route("/consulta-documental")
@@ -4963,24 +5071,21 @@ def consulta_preguntar():
 
     # Recuperación RAG (solo fuentes locales).
     hits = _hits_locales_para_consulta(pregunta, top_k=10)
-    fragmentos_texto = _rag.formatear_chunks_para_prompt(hits) if hits else ""
-    fuentes_usadas = []
-    for _score, ch in hits:
-        nombre = (ch.get("meta") or {}).get("fuente_nombre")
-        if nombre and nombre not in fuentes_usadas:
-            fuentes_usadas.append(nombre)
+    fragmentos_texto, fuentes_por_numero = _formatear_fragmentos_numerados(hits)
 
     prompt = _construir_prompt_consulta(
         pregunta, fragmentos_texto, chat.get("mensajes", []),
     )
 
     try:
-        respuesta, _citas = llamar_ia_con_reintentos(
-            prompt, max_tokens=1500, modelo=modelo,
+        respuesta_bruta, _citas_modelo = llamar_ia_con_reintentos(
+            prompt, max_tokens=2000, modelo=modelo,
             permitir_busqueda=False, modulo="consulta-documental",
         )
     except Exception as e:
         return jsonify({"ok": False, "error": f"Error al consultar la IA: {e}"}), 500
+
+    cuerpo, citas = _parsear_respuesta_con_citas(respuesta_bruta, fuentes_por_numero)
 
     ahora = _dt.now(_tz.utc).isoformat()
     chat["mensajes"].append({
@@ -4990,8 +5095,8 @@ def consulta_preguntar():
     })
     chat["mensajes"].append({
         "rol": "assistant",
-        "contenido": respuesta,
-        "fuentes": fuentes_usadas,
+        "contenido": cuerpo,
+        "citas": citas,
         "modelo": modelo,
         "ts": ahora,
     })
@@ -5003,12 +5108,57 @@ def consulta_preguntar():
         "ok": True,
         "chat_id": chat["id"],
         "titulo": chat["titulo"],
-        "respuesta": respuesta,
-        "fuentes": fuentes_usadas,
+        "respuesta": cuerpo,
+        "citas": citas,
         "modelo": modelo,
         "ts": ahora,
         "sin_fragmentos": not hits,
     })
+
+
+@app.route("/consulta-documental/chats/limpiar", methods=["POST"])
+def consulta_limpiar_chats():
+    """Borra conversaciones cuyo campo `actualizado` sea anterior al límite.
+
+    Body JSON: {"dias": 30}. Devuelve el número de conversaciones borradas.
+    """
+    from flask import jsonify
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    try:
+        dias = int(data.get("dias", 30))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Días debe ser un entero."}), 400
+    if dias < 1:
+        return jsonify({"ok": False, "error": "Días debe ser ≥ 1."}), 400
+
+    d = _dir_consulta_chats()
+    if not d or not d.exists():
+        return jsonify({"ok": True, "borrados": 0})
+
+    limite = _dt.now(_tz.utc) - _td(days=dias)
+    import json as _json
+    borrados = 0
+    for ruta in d.glob("*.json"):
+        try:
+            data_chat = _json.loads(ruta.read_text(encoding="utf-8"))
+            ts = data_chat.get("actualizado") or data_chat.get("creado")
+            if not ts:
+                continue
+            try:
+                fecha = _dt.fromisoformat(ts.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if fecha < limite:
+                ruta.unlink()
+                borrados += 1
+        except Exception as e:
+            _logging.getLogger("dfin.consulta").warning(
+                "No se pudo evaluar %s para limpieza: %s", ruta.name, e,
+            )
+    return jsonify({"ok": True, "borrados": borrados, "dias": dias})
 
 
 @app.route("/descargar_word", methods=["POST"])
