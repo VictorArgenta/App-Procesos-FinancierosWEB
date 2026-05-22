@@ -472,6 +472,58 @@
         font-size: 0.78rem;
     }
 
+    /* --- Modal genérico de confirm / prompt / alert --- */
+    dialog.cd-ui-modal {
+        border: none;
+        border-radius: 6px;
+        padding: 0;
+        max-width: 440px;
+        width: 92%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    dialog.cd-ui-modal::backdrop {
+        background: rgba(0,0,0,0.45);
+        backdrop-filter: blur(2px);
+    }
+    .cd-ui-modal .modal-header {
+        padding: 1rem 1.3rem 0.7rem;
+        border-bottom: 1px solid var(--gray-border);
+    }
+    .cd-ui-modal .modal-header h2 { margin: 0; font-size: 1.02rem; }
+    .cd-ui-modal .modal-body {
+        padding: 1rem 1.3rem;
+        font-size: 0.92rem;
+        color: var(--gray-11);
+        line-height: 1.5;
+    }
+    .cd-ui-modal .modal-footer {
+        padding: 0.7rem 1.3rem 1rem;
+        border-top: 1px solid var(--gray-border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+    .cd-ui-modal #cd-ui-input {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid var(--gray-1);
+        border-radius: 4px;
+        font-size: 0.92rem;
+        font-family: inherit;
+        margin-top: 0.7rem;
+    }
+    .cd-ui-modal #cd-ui-input:focus {
+        outline: none;
+        border-color: var(--deloitte-green);
+        box-shadow: 0 0 0 3px rgba(134, 188, 37, 0.18);
+    }
+    .cd-ui-modal .btn-danger {
+        background: var(--danger);
+        color: #fff;
+        border-color: var(--danger);
+    }
+    .cd-ui-modal .btn-danger:hover { background: #b71f15; border-color: #b71f15; }
+
     .cd-doc-tabla { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     .cd-doc-tabla th, .cd-doc-tabla td {
         text-align: left;
@@ -602,6 +654,22 @@
     </div>
 </dialog>
 
+<dialog class="cd-ui-modal" id="cd-ui-dialog" aria-labelledby="cd-ui-titulo">
+    <div class="modal-header">
+        <h2 id="cd-ui-titulo">Aviso</h2>
+    </div>
+    <div class="modal-body">
+        <p id="cd-ui-mensaje" style="margin:0;"></p>
+        <div id="cd-ui-input-wrap" hidden>
+            <input type="text" id="cd-ui-input" autocomplete="off">
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="cd-ui-cancelar">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="cd-ui-aceptar">Aceptar</button>
+    </div>
+</dialog>
+
 <script>
 (function() {
     const URL_CHATS = '/consulta-documental/chats';
@@ -612,6 +680,79 @@
 
     const $ = (sel, root) => (root || document).querySelector(sel);
     const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+    // --- Modal genérico (sustituye a confirm/prompt/alert nativos) ---
+    const cdDlg = $('#cd-ui-dialog');
+    const cdTitulo = $('#cd-ui-titulo');
+    const cdMensaje = $('#cd-ui-mensaje');
+    const cdInputWrap = $('#cd-ui-input-wrap');
+    const cdInput = $('#cd-ui-input');
+    const cdBtnOk = $('#cd-ui-aceptar');
+    const cdBtnCancel = $('#cd-ui-cancelar');
+    let cdResolver = null;
+
+    function cdCerrar(valor) {
+        if (cdResolver) { const r = cdResolver; cdResolver = null; r(valor); }
+        try { cdDlg.close(); } catch(_) {}
+    }
+    cdBtnOk.addEventListener('click', () => {
+        if (cdDlg.dataset.tipo === 'prompt') cdCerrar(cdInput.value);
+        else cdCerrar(true);
+    });
+    cdBtnCancel.addEventListener('click', () => {
+        cdCerrar(cdDlg.dataset.tipo === 'prompt' ? null : false);
+    });
+    cdDlg.addEventListener('cancel', (e) => {
+        e.preventDefault();
+        if (cdDlg.dataset.tipo === 'alert') cdCerrar();
+        else cdCerrar(cdDlg.dataset.tipo === 'prompt' ? null : false);
+    });
+    cdInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); cdBtnOk.click(); }
+    });
+
+    function cdAbrir(opts) {
+        cdTitulo.textContent = opts.titulo || 'Aviso';
+        cdMensaje.textContent = opts.mensaje || '';
+        cdMensaje.style.whiteSpace = opts.preLinea ? 'pre-line' : 'normal';
+        cdInputWrap.hidden = opts.tipo !== 'prompt';
+        if (opts.tipo === 'prompt') {
+            cdInput.value = opts.valor || '';
+            cdInput.placeholder = opts.placeholder || '';
+        }
+        cdDlg.dataset.tipo = opts.tipo;
+        cdBtnCancel.hidden = (opts.tipo === 'alert');
+        cdBtnOk.textContent = opts.aceptarTxt || (opts.tipo === 'alert' ? 'Cerrar' : 'Aceptar');
+        cdBtnOk.classList.toggle('btn-danger', !!opts.peligroso);
+        cdBtnOk.classList.toggle('btn-primary', !opts.peligroso);
+        cdDlg.showModal();
+        if (opts.tipo === 'prompt') setTimeout(() => { cdInput.focus(); cdInput.select(); }, 0);
+        else setTimeout(() => cdBtnOk.focus(), 0);
+        return new Promise(res => { cdResolver = res; });
+    }
+
+    function cdAlert(mensaje, titulo) {
+        return cdAbrir({tipo: 'alert', mensaje, titulo: titulo || 'Aviso'});
+    }
+    function cdConfirm(mensaje, opts) {
+        opts = opts || {};
+        return cdAbrir({
+            tipo: 'confirm', mensaje,
+            titulo: opts.titulo || 'Confirmar',
+            aceptarTxt: opts.aceptarTxt || 'Aceptar',
+            peligroso: !!opts.peligroso,
+        });
+    }
+    function cdPrompt(mensaje, valor, opts) {
+        opts = opts || {};
+        return cdAbrir({
+            tipo: 'prompt', mensaje, valor,
+            titulo: opts.titulo || 'Introducir valor',
+            preLinea: opts.preLinea,
+            placeholder: opts.placeholder,
+            aceptarTxt: opts.aceptarTxt || 'Aceptar',
+        });
+    }
 
     const elList = $('#chat-list');
     const elMensajes = $('#cd-mensajes');
@@ -733,7 +874,12 @@
 
     async function ejecutarAccionChat(accion, id) {
         if (accion === 'borrar') {
-            if (!confirm('¿Borrar esta conversación? No se puede deshacer.')) return;
+            const ok = await cdConfirm('¿Borrar esta conversación? No se puede deshacer.', {
+                titulo: 'Borrar conversación',
+                aceptarTxt: 'Borrar',
+                peligroso: true,
+            });
+            if (!ok) return;
             await fetch(`${URL_CHATS}/${id}`, {method: 'DELETE'});
             if (chatActual && chatActual.id === id) {
                 chatActual = null;
@@ -742,7 +888,9 @@
             await recargarLista();
         } else if (accion === 'renombrar') {
             const actual = listaChats.find(x => x.id === id);
-            const nuevo = prompt('Nuevo título:', actual ? actual.titulo : '');
+            const nuevo = await cdPrompt('Nuevo título:', actual ? actual.titulo : '', {
+                titulo: 'Renombrar conversación',
+            });
             if (!nuevo) return;
             await fetch(`${URL_CHATS}/${id}`, {
                 method: 'PATCH',
@@ -778,7 +926,7 @@
             pintarChatActual();
             pintarLista();
         } catch(e) {
-            alert('No se pudo abrir la conversación: ' + e.message);
+            cdAlert('No se pudo abrir la conversación: ' + e.message, 'Error');
         }
     }
 
@@ -1182,7 +1330,7 @@
             // Polling propio: cuando termine, refrescamos la lista (sin abrir el modal).
             esperarReindex();
         } catch(e) {
-            alert('No se pudo recargar: ' + e.message);
+            cdAlert('No se pudo recargar: ' + e.message, 'Error');
         } finally {
             btn.disabled = false;
             btn.textContent = 'Recargar documentos';
@@ -1202,14 +1350,20 @@
 
     // --- Limpieza por antigüedad ---
     $('#btn-limpiar-antiguos').addEventListener('click', async () => {
-        const txt = prompt(
+        const txt = await cdPrompt(
             'Borrar conversaciones que no se hayan tocado en los últimos N días.\n\n' +
-            '¿A partir de cuántos días quieres borrar?', '30'
+            '¿A partir de cuántos días quieres borrar?',
+            '30',
+            { titulo: 'Limpiar conversaciones antiguas', preLinea: true, placeholder: 'Ej.: 30' }
         );
         if (txt === null) return;
         const dias = parseInt(txt, 10);
-        if (!dias || dias < 1) { alert('Introduce un número entero ≥ 1.'); return; }
-        if (!confirm(`Se borrarán las conversaciones sin actividad en los últimos ${dias} días. ¿Continuar?`)) return;
+        if (!dias || dias < 1) { await cdAlert('Introduce un número entero ≥ 1.', 'Valor no válido'); return; }
+        const ok = await cdConfirm(
+            `Se borrarán las conversaciones sin actividad en los últimos ${dias} días. ¿Continuar?`,
+            { titulo: 'Confirmar limpieza', aceptarTxt: 'Borrar', peligroso: true }
+        );
+        if (!ok) return;
         try {
             const r = await fetch(URL_CHATS + '/limpiar', {
                 method: 'POST',
@@ -1218,7 +1372,7 @@
             });
             const j = await r.json();
             if (!j.ok) throw new Error(j.error);
-            alert(`Borradas ${j.borrados} conversación(es) con más de ${dias} días.`);
+            await cdAlert(`Borradas ${j.borrados} conversación(es) con más de ${dias} días.`, 'Limpieza completada');
             if (chatActual) {
                 // Si el chat activo fue uno de los borrados, lo vaciamos.
                 const r2 = await fetch(`${URL_CHATS}/${chatActual.id}`);
@@ -1226,7 +1380,7 @@
             }
             await recargarLista();
         } catch(e) {
-            alert('No se pudo limpiar: ' + e.message);
+            cdAlert('No se pudo limpiar: ' + e.message, 'Error');
         }
     });
 
