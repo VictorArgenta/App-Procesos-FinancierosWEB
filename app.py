@@ -3010,6 +3010,80 @@ def rag_status():
     })
 
 
+@app.route("/rag/reindex", methods=["POST"])
+def rag_reindex():
+    """Relanza la indexación en background. Reusa la caché incremental:
+    solo procesa ficheros nuevos o modificados desde la última indexación.
+    """
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    if _RAG_INDEX.get("en_construccion"):
+        return jsonify({"ok": True, "ya_en_curso": True})
+    _construir_rag_async(forzar=False, relanzar=True)
+    return jsonify({"ok": True, "ya_en_curso": False, "ticker": TICKER_FIJO})
+
+
+@app.route("/rag/inventario")
+def rag_inventario():
+    """Inventario de los ficheros locales que el RAG tiene parseados.
+
+    Para cada documento devuelve nombre, extensión, tamaño en bytes y
+    número de chunks indexados. La fuente de verdad es el propio índice
+    BM25 en memoria.
+    """
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    idx = _RAG_INDEX.get("index")
+    docs_dir = _ROOT_DIR / "Empresas" / TICKER_FIJO / "docs"
+
+    # Conteo de chunks por nombre de fichero (solo fuentes locales).
+    chunks_por_nombre = {}
+    if idx is not None:
+        for ch in idx.chunks:
+            meta = ch.get("meta") or {}
+            tipo = meta.get("fuente_tipo", "")
+            if tipo.endswith("_local"):
+                nombre = meta.get("fuente_nombre", "")
+                if nombre:
+                    chunks_por_nombre[nombre] = chunks_por_nombre.get(nombre, 0) + 1
+
+    ficheros = []
+    if docs_dir.exists():
+        for ruta in sorted(docs_dir.iterdir()):
+            if not ruta.is_file():
+                continue
+            if ruta.name == "url_inversores.txt":
+                continue
+            ext = ruta.suffix.lower()
+            soportado = ext in _rag.EXTENSIONES_SOPORTADAS
+            try:
+                tam = ruta.stat().st_size
+                mtime = ruta.stat().st_mtime
+            except OSError:
+                tam, mtime = 0, 0
+            n_chunks = chunks_por_nombre.get(ruta.name, 0)
+            ficheros.append({
+                "nombre": ruta.name,
+                "extension": ext.lstrip(".") or "—",
+                "tamano_bytes": tam,
+                "mtime": mtime,
+                "chunks": n_chunks,
+                "soportado": soportado,
+                "indexado": soportado and n_chunks > 0,
+            })
+
+    return jsonify({
+        "ok": True,
+        "ticker": TICKER_FIJO,
+        "en_construccion": bool(_RAG_INDEX.get("en_construccion")),
+        "carpeta": str(docs_dir),
+        "ficheros": ficheros,
+        "extensiones_soportadas": list(_rag.EXTENSIONES_SOPORTADAS),
+    })
+
+
 @app.route("/cambiar-empresa", methods=["POST", "GET"])
 def cambiar_empresa():
     """Resetea el TICKER_FIJO activo y vuelve al selector inicial."""
@@ -3105,17 +3179,23 @@ def _construir_rag_si_procede(forzar: bool = False):
         return None
 
 
-def _construir_rag_async(forzar: bool = False):
+def _construir_rag_async(forzar: bool = False, relanzar: bool = False):
     """Lanza la indexación RAG en un hilo separado para no bloquear la UI.
 
     El usuario puede usar la app inmediatamente; el RAG estará vacío hasta
     que termine la indexación, momento en que entran en juego los chunks.
     El endpoint `/rag/status` permite al frontend mostrar progreso.
+
+    `forzar=True` ignora la caché y reconstruye desde cero (lento).
+    `relanzar=True` salta el atajo "ya está indexado" — la caché incremental
+    detecta lo nuevo o modificado y reusa lo demás. Usado por el botón
+    "Recargar documentos" del módulo de Consulta Documental.
     """
     if not TICKER_FIJO:
         return
     ticker_objetivo = TICKER_FIJO
-    if (not forzar and _RAG_INDEX["ticker"] == ticker_objetivo
+    if (not forzar and not relanzar
+            and _RAG_INDEX["ticker"] == ticker_objetivo
             and _RAG_INDEX["index"] is not None):
         return  # ya está
     log = _logging.getLogger("dfin.rag")
@@ -4625,6 +4705,460 @@ def _guardar_descarga_en_empresa(buffer, datos, extension):
     except Exception as e:
         _logging.getLogger("dfin.informe").warning("No se pudo guardar copia local: %s", e)
         return None
+
+
+# ============================================================================
+# Módulo "Consulta Documental" — Habla con tus documentos.
+#
+# Chat conversacional sobre el corpus local (solo ficheros de docs/, no URLs).
+# Modo estricto: si la respuesta no está en los fragmentos, lo dice. Cada
+# conversación se guarda como un JSON independiente en
+# `Empresas/{TICKER}/memoria/chats/{uuid}.json`, al estilo Claude.ai: el
+# usuario puede abrir una nueva o retomar una antigua desde la sidebar.
+# ============================================================================
+
+def _dir_consulta_chats():
+    if not TICKER_FIJO:
+        return None
+    d = _ROOT_DIR / "Empresas" / TICKER_FIJO / "memoria" / "chats"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _ruta_chat(chat_id):
+    d = _dir_consulta_chats()
+    if not d or not chat_id:
+        return None
+    # Sanitización defensiva: el id solo puede contener hex y guiones (uuid).
+    if not re.fullmatch(r"[0-9a-fA-F\-]{8,64}", chat_id):
+        return None
+    return d / f"{chat_id}.json"
+
+
+def _cargar_chat(chat_id):
+    import json as _json
+    ruta = _ruta_chat(chat_id)
+    if not ruta or not ruta.exists():
+        return None
+    try:
+        return _json.loads(ruta.read_text(encoding="utf-8"))
+    except Exception as e:
+        _logging.getLogger("dfin.consulta").warning("Chat %s ilegible: %s", chat_id, e)
+        return None
+
+
+def _guardar_chat(chat):
+    ruta = _ruta_chat(chat.get("id", ""))
+    if not ruta:
+        return False
+    try:
+        _escribir_json_atomico(ruta, chat)
+        return True
+    except Exception as e:
+        _logging.getLogger("dfin.consulta").warning(
+            "No se pudo persistir chat %s: %s", chat.get("id"), e,
+        )
+        return False
+
+
+def _listar_chats():
+    """Devuelve resúmenes de todos los chats ordenados por última actividad."""
+    import json as _json
+    d = _dir_consulta_chats()
+    if not d or not d.exists():
+        return []
+    resumenes = []
+    for ruta in d.glob("*.json"):
+        try:
+            data = _json.loads(ruta.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        resumenes.append({
+            "id": data.get("id"),
+            "titulo": data.get("titulo") or "Conversación sin título",
+            "modelo": data.get("modelo"),
+            "creado": data.get("creado"),
+            "actualizado": data.get("actualizado") or data.get("creado"),
+            "n_mensajes": len(data.get("mensajes") or []),
+        })
+    resumenes.sort(key=lambda r: r.get("actualizado") or "", reverse=True)
+    return resumenes
+
+
+def _titulo_desde_pregunta(pregunta, max_len=60):
+    """Genera un título a partir de la primera pregunta del usuario."""
+    t = " ".join((pregunta or "").split())
+    if len(t) <= max_len:
+        return t
+    return t[: max_len - 1].rstrip() + "…"
+
+
+_PROMPT_CONSULTA_DOCUMENTAL = """Eres un asistente de consulta documental para {empresa}. Recibes FRAGMENTOS numerados de la documentación corporativa interna y respondes a la pregunta del usuario.
+
+REGLAS ESTRICTAS:
+1. Responde ÚNICAMENTE con información que aparezca explícitamente en los FRAGMENTOS proporcionados.
+2. Tras CADA afirmación factual que tomes de un fragmento, añade el marcador del fragmento entre corchetes: [1], [2], etc.
+   Si una misma afirmación se apoya en varios fragmentos, escríbelos juntos: [1][3].
+3. Si la respuesta NO aparece en ningún fragmento, di exactamente esta frase:
+   «No encuentro esa información en la documentación corporativa cargada.»
+   En ese caso, omite el bloque ---CITAS---.
+4. NO uses conocimiento general del mundo ni datos externos a los fragmentos.
+5. Tono profesional, en español. Responde directo, sin rodeos.
+
+FORMATO DE LA RESPUESTA:
+- Primero el cuerpo de la respuesta con los marcadores [N] inline.
+- Después una LÍNEA EN BLANCO y la marca literal `---CITAS---` en una línea sola.
+- A continuación, una cita textual por cada marcador [N] usado, EN EL IDIOMA ORIGINAL del fragmento (no traduzcas), entre comillas angulares:
+    [1] «texto literal extraído del fragmento 1»
+    [2] «texto literal del fragmento 2»
+  La cita debe ser una frase o frases CONTIGUAS copiadas tal cual del fragmento, con un máximo de ~40 palabras, que respalden lo que has afirmado. No parafrasees.
+- Solo incluye en el bloque ---CITAS--- los marcadores que hayas usado en el cuerpo. No inventes citas para fragmentos que no aportan a la respuesta.
+
+{bloque_historial}
+FRAGMENTOS DE LA DOCUMENTACIÓN CORPORATIVA:
+{fragmentos}
+
+PREGUNTA:
+{pregunta}
+
+RESPUESTA:"""
+
+
+def _construir_prompt_consulta(pregunta, fragmentos_texto, historial):
+    """Compone el prompt para el LLM con el modo estricto + historial corto."""
+    bloque_historial = ""
+    if historial:
+        # Solo últimos 6 turnos (3 user + 3 assistant) para no inflar el prompt.
+        recientes = historial[-6:]
+        lineas = ["HISTORIAL DE LA CONVERSACIÓN (turnos previos):"]
+        for msg in recientes:
+            rol = "Usuario" if msg.get("rol") == "user" else "Asistente"
+            lineas.append(f"{rol}: {msg.get('contenido', '')}")
+        bloque_historial = "\n".join(lineas) + "\n\n"
+    return _PROMPT_CONSULTA_DOCUMENTAL.format(
+        empresa=_BRANDING.get("empresa", "la empresa"),
+        bloque_historial=bloque_historial,
+        fragmentos=fragmentos_texto or "(no se han encontrado fragmentos relevantes)",
+        pregunta=pregunta,
+    )
+
+
+def _hits_locales_para_consulta(consulta, top_k=10):
+    """Recupera chunks del RAG filtrando a solo fuentes locales (no web)."""
+    idx = _RAG_INDEX.get("index")
+    if idx is None or not idx.chunks:
+        return []
+    hits_brutos = idx.buscar(consulta, top_k=top_k * 2)
+    hits_locales = []
+    for score, ch in hits_brutos:
+        tipo = (ch.get("meta") or {}).get("fuente_tipo", "")
+        if tipo.endswith("_local"):
+            hits_locales.append((score, ch))
+            if len(hits_locales) >= top_k:
+                break
+    return hits_locales
+
+
+def _formatear_fragmentos_numerados(hits):
+    """Devuelve (texto_para_prompt, fuentes_por_numero).
+
+    Numera los fragmentos [1], [2], … e inyecta documento + página/sección
+    en la cabecera de cada uno. `fuentes_por_numero` mapea N → meta del
+    fragmento, para que el frontend pueda mostrar la ficha completa cuando
+    el usuario despliegue las citas.
+    """
+    if not hits:
+        return "(no se han encontrado fragmentos relevantes)", {}
+    partes = []
+    fuentes = {}
+    for n, (score, ch) in enumerate(hits, start=1):
+        meta = ch.get("meta") or {}
+        nombre = meta.get("fuente_nombre", "documento desconocido")
+        tipo = meta.get("fuente_tipo", "")
+        # Localizador: página para PDFs, sección para los demás.
+        if tipo == "pdf_local":
+            p_ini = meta.get("pagina_inicio")
+            p_fin = meta.get("pagina_fin")
+            if p_ini and p_fin and p_ini != p_fin:
+                localizador = f"páginas {p_ini}-{p_fin}"
+            elif p_ini:
+                localizador = f"página {p_ini}"
+            else:
+                localizador = "página desconocida"
+        else:
+            localizador = f"sección {meta.get('seccion', meta.get('fragmento', 0) + 1)}"
+        partes.append(f"[{n}] Documento: {nombre} · {localizador}")
+        partes.append(ch.get("texto", ""))
+        partes.append("")
+        fuentes[n] = {
+            "n": n,
+            "documento": nombre,
+            "localizador": localizador,
+            "tipo": tipo,
+            "pagina_inicio": meta.get("pagina_inicio"),
+            "pagina_fin": meta.get("pagina_fin"),
+            "seccion": meta.get("seccion"),
+            "fragmento_texto": ch.get("texto", ""),
+        }
+    return "\n".join(partes), fuentes
+
+
+# Regex para localizar el bloque de citas literales en la respuesta del LLM.
+# Acepta tanto comillas angulares «...» como dobles "..." o curly “...”.
+_RE_BLOQUE_CITAS = re.compile(r"\n[-\s]*-+\s*CITAS\s*-+\s*\n", re.IGNORECASE)
+_RE_LINEA_CITA = re.compile(
+    r"^\s*\[(\d+)\]\s*[«\"“]([^»\"”]+)[»\"”]\s*$",
+    re.MULTILINE,
+)
+# Regex para encontrar los marcadores [N] dentro del cuerpo de la respuesta.
+_RE_MARCADOR = re.compile(r"\[(\d+)\]")
+
+
+def _parsear_respuesta_con_citas(texto, fuentes_por_numero):
+    """Separa el cuerpo de la respuesta del bloque ---CITAS---.
+
+    Devuelve (cuerpo, lista_de_citas) donde cada cita es:
+        {n, documento, localizador, cita_literal, fragmento_texto, ...}
+    Si el modelo no emitió el bloque ---CITAS---, lista_de_citas estará
+    vacía pero `cuerpo` mantiene los marcadores [N] que sí escribió.
+    """
+    m = _RE_BLOQUE_CITAS.search(texto or "")
+    if m:
+        cuerpo = texto[: m.start()].rstrip()
+        bloque = texto[m.end() :]
+    else:
+        cuerpo = (texto or "").rstrip()
+        bloque = ""
+
+    citas_literales = {}
+    if bloque:
+        for cita_m in _RE_LINEA_CITA.finditer(bloque):
+            n = int(cita_m.group(1))
+            citas_literales[n] = cita_m.group(2).strip()
+
+    # Construimos la lista de citas en el orden en que aparecen en el cuerpo.
+    orden = []
+    vistos = set()
+    for marker in _RE_MARCADOR.finditer(cuerpo):
+        n = int(marker.group(1))
+        if n in vistos:
+            continue
+        vistos.add(n)
+        orden.append(n)
+
+    citas = []
+    for n in orden:
+        fuente = fuentes_por_numero.get(n)
+        if not fuente:
+            # Marcador a fragmento inexistente — lo ignoramos.
+            continue
+        citas.append({
+            **fuente,
+            "cita_literal": citas_literales.get(n, ""),
+        })
+    return cuerpo, citas
+
+
+@app.route("/consulta-documental")
+def consulta_documental():
+    if not TICKER_FIJO:
+        from flask import redirect
+        return redirect("/")
+    return render_template(
+        "consulta_documental.html",
+        modelos_disponibles=MODELOS_DISPONIBLES,
+        modelo_default=MODELO_POR_DEFECTO,
+    )
+
+
+@app.route("/consulta-documental/chats", methods=["GET"])
+def consulta_listar_chats():
+    from flask import jsonify
+    return jsonify({"ok": True, "chats": _listar_chats()})
+
+
+@app.route("/consulta-documental/chats", methods=["POST"])
+def consulta_crear_chat():
+    from flask import jsonify
+    import uuid as _uuid
+    from datetime import datetime as _dt, timezone as _tz
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    ahora = _dt.now(_tz.utc).isoformat()
+    chat = {
+        "id": str(_uuid.uuid4()),
+        "ticker": TICKER_FIJO,
+        "titulo": "Nueva conversación",
+        "modelo": MODELO_POR_DEFECTO,
+        "creado": ahora,
+        "actualizado": ahora,
+        "mensajes": [],
+    }
+    _guardar_chat(chat)
+    return jsonify({"ok": True, "chat": chat})
+
+
+@app.route("/consulta-documental/chats/<chat_id>", methods=["GET"])
+def consulta_leer_chat(chat_id):
+    from flask import jsonify
+    chat = _cargar_chat(chat_id)
+    if not chat:
+        return jsonify({"ok": False, "error": "Conversación no encontrada."}), 404
+    return jsonify({"ok": True, "chat": chat})
+
+
+@app.route("/consulta-documental/chats/<chat_id>", methods=["DELETE"])
+def consulta_borrar_chat(chat_id):
+    from flask import jsonify
+    ruta = _ruta_chat(chat_id)
+    if not ruta or not ruta.exists():
+        return jsonify({"ok": False, "error": "Conversación no encontrada."}), 404
+    try:
+        ruta.unlink()
+    except OSError as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True})
+
+
+@app.route("/consulta-documental/chats/<chat_id>", methods=["PATCH"])
+def consulta_renombrar_chat(chat_id):
+    from flask import jsonify
+    from datetime import datetime as _dt, timezone as _tz
+    data = request.get_json(silent=True) or {}
+    nuevo_titulo = (data.get("titulo") or "").strip()
+    if not nuevo_titulo:
+        return jsonify({"ok": False, "error": "Título vacío."}), 400
+    chat = _cargar_chat(chat_id)
+    if not chat:
+        return jsonify({"ok": False, "error": "Conversación no encontrada."}), 404
+    chat["titulo"] = nuevo_titulo[:120]
+    chat["actualizado"] = _dt.now(_tz.utc).isoformat()
+    _guardar_chat(chat)
+    return jsonify({"ok": True, "chat": chat})
+
+
+@app.route("/consulta-documental/preguntar", methods=["POST"])
+def consulta_preguntar():
+    from flask import jsonify
+    from datetime import datetime as _dt, timezone as _tz
+
+    data = request.get_json(silent=True) or {}
+    chat_id = (data.get("chat_id") or "").strip()
+    pregunta = (data.get("pregunta") or "").strip()
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
+
+    if not pregunta:
+        return jsonify({"ok": False, "error": "La pregunta no puede estar vacía."}), 400
+    if len(pregunta) > 4000:
+        return jsonify({"ok": False, "error": "Pregunta demasiado larga (máx. 4000)."}), 400
+
+    chat = _cargar_chat(chat_id) if chat_id else None
+    if not chat:
+        # Auto-crear chat si el id no es válido o se ha perdido.
+        import uuid as _uuid
+        ahora = _dt.now(_tz.utc).isoformat()
+        chat = {
+            "id": str(_uuid.uuid4()),
+            "ticker": TICKER_FIJO,
+            "titulo": _titulo_desde_pregunta(pregunta),
+            "modelo": modelo,
+            "creado": ahora,
+            "actualizado": ahora,
+            "mensajes": [],
+        }
+    elif not chat.get("mensajes"):
+        chat["titulo"] = _titulo_desde_pregunta(pregunta)
+
+    # Recuperación RAG (solo fuentes locales).
+    hits = _hits_locales_para_consulta(pregunta, top_k=10)
+    fragmentos_texto, fuentes_por_numero = _formatear_fragmentos_numerados(hits)
+
+    prompt = _construir_prompt_consulta(
+        pregunta, fragmentos_texto, chat.get("mensajes", []),
+    )
+
+    try:
+        respuesta_bruta, _citas_modelo = llamar_ia_con_reintentos(
+            prompt, max_tokens=2000, modelo=modelo,
+            permitir_busqueda=False, modulo="consulta-documental",
+        )
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Error al consultar la IA: {e}"}), 500
+
+    cuerpo, citas = _parsear_respuesta_con_citas(respuesta_bruta, fuentes_por_numero)
+
+    ahora = _dt.now(_tz.utc).isoformat()
+    chat["mensajes"].append({
+        "rol": "user",
+        "contenido": pregunta,
+        "ts": ahora,
+    })
+    chat["mensajes"].append({
+        "rol": "assistant",
+        "contenido": cuerpo,
+        "citas": citas,
+        "modelo": modelo,
+        "ts": ahora,
+    })
+    chat["modelo"] = modelo
+    chat["actualizado"] = ahora
+    _guardar_chat(chat)
+
+    return jsonify({
+        "ok": True,
+        "chat_id": chat["id"],
+        "titulo": chat["titulo"],
+        "respuesta": cuerpo,
+        "citas": citas,
+        "modelo": modelo,
+        "ts": ahora,
+        "sin_fragmentos": not hits,
+    })
+
+
+@app.route("/consulta-documental/chats/limpiar", methods=["POST"])
+def consulta_limpiar_chats():
+    """Borra conversaciones cuyo campo `actualizado` sea anterior al límite.
+
+    Body JSON: {"dias": 30}. Devuelve el número de conversaciones borradas.
+    """
+    from flask import jsonify
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    try:
+        dias = int(data.get("dias", 30))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "Días debe ser un entero."}), 400
+    if dias < 1:
+        return jsonify({"ok": False, "error": "Días debe ser ≥ 1."}), 400
+
+    d = _dir_consulta_chats()
+    if not d or not d.exists():
+        return jsonify({"ok": True, "borrados": 0})
+
+    limite = _dt.now(_tz.utc) - _td(days=dias)
+    import json as _json
+    borrados = 0
+    for ruta in d.glob("*.json"):
+        try:
+            data_chat = _json.loads(ruta.read_text(encoding="utf-8"))
+            ts = data_chat.get("actualizado") or data_chat.get("creado")
+            if not ts:
+                continue
+            try:
+                fecha = _dt.fromisoformat(ts.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if fecha < limite:
+                ruta.unlink()
+                borrados += 1
+        except Exception as e:
+            _logging.getLogger("dfin.consulta").warning(
+                "No se pudo evaluar %s para limpieza: %s", ruta.name, e,
+            )
+    return jsonify({"ok": True, "borrados": borrados, "dias": dias})
 
 
 @app.route("/descargar_word", methods=["POST"])

@@ -113,6 +113,31 @@ def _extraer_texto_pdf(ruta: Path) -> str:
         return ""
 
 
+def _extraer_paginas_pdf(ruta: Path) -> list[tuple[int, str]]:
+    """Extrae el texto del PDF página a página.
+
+    Devuelve [(n_pagina_1based, texto), ...]. Si falla, lista vacía.
+    Necesario para que cada chunk lleve el número de página en su meta.
+    """
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return []
+    try:
+        reader = PdfReader(str(ruta))
+        paginas = []
+        for i, pagina in enumerate(reader.pages, start=1):
+            try:
+                txt = (pagina.extract_text() or "").strip()
+            except Exception:
+                txt = ""
+            paginas.append((i, txt))
+        return paginas
+    except Exception as e:
+        log.warning("No se pudo leer páginas del PDF %s: %s", ruta, e)
+        return []
+
+
 def _extraer_texto_docx(ruta: Path) -> str:
     """Extrae texto de un .docx (Word). Incluye párrafos y celdas de tablas."""
     try:
@@ -477,8 +502,10 @@ def _leer_cache_incremental(cache_idx: Path) -> dict | None:
     except (OSError, json.JSONDecodeError) as e:
         log.warning("Caché RAG ilegible (%s); reconstruyo desde cero.", e)
         return None
-    if data.get("version") != 2:
-        log.info("Caché RAG con formato antiguo; reconstruyo en v2 incremental.")
+    # v3 añade pagina_inicio/pagina_fin (PDFs) y seccion (resto) en chunks.
+    # Cachés v2 carecen de esos campos y los chunks no pueden citar página.
+    if data.get("version") != 3:
+        log.info("Caché RAG con formato antiguo; reconstruyo en v3 con paginación.")
         return None
     if not isinstance(data.get("documentos_locales"), dict):
         return None
@@ -493,23 +520,83 @@ def _md5_fichero(ruta: Path) -> str | None:
 
 
 def _chunks_de_documento(doc: Path) -> list[dict]:
-    """Extrae texto del documento y devuelve la lista de chunks con metadata."""
+    """Extrae texto del documento y devuelve la lista de chunks con metadata.
+
+    Para PDFs cada chunk lleva `pagina_inicio` y `pagina_fin` (1-based)
+    para que la respuesta del módulo de Consulta Documental pueda citar
+    "documento.pdf, página 12". Para el resto de formatos no hay
+    concepto de página, así que llevan `seccion` (índice del chunk).
+    """
+    ext_lower = doc.suffix.lower().lstrip(".")
+    meta_base = {
+        "fuente_tipo": f"{ext_lower}_local",
+        "fuente_nombre": doc.name,
+        "fuente_path": str(doc),
+    }
+
+    if doc.suffix.lower() == ".pdf":
+        paginas = _extraer_paginas_pdf(doc)
+        if not paginas:
+            return []
+        # Construimos un texto continuo concatenando páginas, pero
+        # arrastramos los rangos de palabras [inicio, fin) para saber
+        # luego de qué páginas viene cada chunk.
+        palabras = []
+        rangos_pag = []  # [(pagina, idx_palabra_inicio, idx_palabra_fin), ...]
+        for n_pag, texto_pag in paginas:
+            if not texto_pag:
+                continue
+            words_pag = texto_pag.split()
+            if not words_pag:
+                continue
+            rangos_pag.append((n_pag, len(palabras), len(palabras) + len(words_pag)))
+            palabras.extend(words_pag)
+        if not palabras:
+            return []
+
+        chunks_meta = []
+        paso = max(CHUNK_PALABRAS - CHUNK_SOLAPE, 1)
+        idx = 0
+        chunk_i = 0
+        while idx < len(palabras):
+            ini = idx
+            fin = min(idx + CHUNK_PALABRAS, len(palabras))
+            texto_chunk = " ".join(palabras[ini:fin]).strip()
+            pag_ini = _pagina_de_palabra(rangos_pag, ini)
+            pag_fin = _pagina_de_palabra(rangos_pag, max(fin - 1, ini))
+            meta = {
+                **meta_base,
+                "fragmento": chunk_i,
+                "pagina_inicio": pag_ini,
+                "pagina_fin": pag_fin,
+            }
+            chunks_meta.append({"texto": texto_chunk, "meta": meta})
+            chunk_i += 1
+            if fin >= len(palabras):
+                break
+            idx += paso
+        return chunks_meta
+
+    # Resto de formatos: sin paginación; usamos índice de sección.
     texto = extraer_texto_documento(doc)
     if not texto:
         return []
-    ext_lower = doc.suffix.lower().lstrip(".")
     return [
         {
             "texto": chunk,
-            "meta": {
-                "fuente_tipo": f"{ext_lower}_local",
-                "fuente_nombre": doc.name,
-                "fuente_path": str(doc),
-                "fragmento": i,
-            },
+            "meta": {**meta_base, "fragmento": i, "seccion": i + 1},
         }
         for i, chunk in enumerate(_chunk_texto(texto))
     ]
+
+
+def _pagina_de_palabra(rangos_pag: list[tuple[int, int, int]], idx_pal: int) -> int:
+    """Dado un índice de palabra global, devuelve la página a la que pertenece."""
+    for n_pag, ini, fin in rangos_pag:
+        if ini <= idx_pal < fin:
+            return n_pag
+    # Si no cae en ningún rango (margen), devolvemos el último visto.
+    return rangos_pag[-1][0] if rangos_pag else 1
 
 
 def indexar_ticker(ticker: str, root: Path | None = None, forzar: bool = False) -> BM25Index:
@@ -646,7 +733,7 @@ def indexar_ticker(ticker: str, root: Path | None = None, forzar: bool = False) 
     # -- 4) Persistir caché incremental --------------------------------------
     try:
         payload = {
-            "version": 2,
+            "version": 3,
             "ticker": ticker,
             "construido_en": datetime.now(timezone.utc).isoformat(),
             "documentos_locales": nuevos_docs_cache,

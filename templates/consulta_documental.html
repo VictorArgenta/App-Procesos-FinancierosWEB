@@ -1,0 +1,1239 @@
+{% extends "base.html" %}
+
+{% block title %}Consulta Documental — {{ EMPRESA_NOMBRE }}{% endblock %}
+
+{% block content %}
+<style>
+    [hidden] { display: none !important; }
+
+    .cd-breadcrumbs { margin-bottom: 0.4rem; }
+
+    .cd-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 1.5rem;
+        margin-bottom: 1.2rem;
+        flex-wrap: wrap;
+    }
+    .cd-header h1 { margin: 0.2rem 0 0.3rem; }
+    .cd-header .lead { margin: 0; color: var(--gray-10); }
+    .cd-header-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+    .cd-layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 1.2rem;
+        align-items: stretch;
+        height: calc(100vh - 260px);
+        min-height: 540px;
+    }
+
+    /* --- Sidebar de conversaciones --- */
+    .cd-sidebar {
+        background: #fff;
+        border: 1px solid var(--gray-border);
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .cd-sidebar-head {
+        padding: 0.7rem 0.9rem;
+        border-bottom: 1px solid var(--gray-border);
+        background: var(--gray-bg);
+    }
+    .cd-sidebar-head h2 {
+        margin: 0;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--gray-10);
+        font-weight: 700;
+    }
+    .cd-btn-nuevo {
+        width: 100%;
+        margin-top: 0.45rem;
+        padding: 7px 10px;
+        font-size: 0.84rem;
+    }
+    .cd-chat-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.3rem 0;
+    }
+    .cd-chat-list-empty {
+        padding: 1rem 0.9rem;
+        font-size: 0.82rem;
+        color: var(--gray-10);
+        line-height: 1.5;
+    }
+    .cd-sidebar-foot {
+        padding: 0.5rem 0.9rem;
+        border-top: 1px solid var(--gray-border);
+        background: var(--gray-bg);
+    }
+    .cd-sidebar-foot button {
+        width: 100%;
+        font-size: 0.78rem;
+        padding: 5px 8px;
+    }
+    .cd-chat-item {
+        padding: 0.55rem 0.9rem;
+        border-bottom: 1px solid var(--gray-bg);
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.4rem;
+        transition: background 0.12s ease;
+    }
+    .cd-chat-item:hover { background: var(--gray-bg); }
+    .cd-chat-item.activo {
+        background: #E8F0FE;
+        border-left: 3px solid var(--primary, #1976D2);
+        padding-left: calc(0.9rem - 3px);
+    }
+    .cd-chat-titulo {
+        flex: 1;
+        font-size: 0.85rem;
+        line-height: 1.3;
+        color: var(--black);
+        word-break: break-word;
+    }
+    .cd-chat-meta {
+        display: block;
+        font-size: 0.72rem;
+        color: var(--gray-10);
+        margin-top: 2px;
+    }
+    .cd-chat-acciones { position: relative; }
+    .cd-chat-acciones .cd-menu-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 1.05rem;
+        color: var(--gray-10);
+        padding: 2px 6px;
+        border-radius: 3px;
+        line-height: 1;
+    }
+    .cd-chat-acciones .cd-menu-btn:hover { background: rgba(0,0,0,0.08); color: var(--black); }
+    .cd-chat-menu {
+        position: fixed;
+        background: #fff;
+        border: 1px solid var(--gray-border);
+        border-radius: 4px;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+        min-width: 150px;
+        z-index: 1000;
+        padding: 0.25rem 0;
+    }
+    .cd-chat-menu button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 0.84rem;
+        color: var(--black);
+        padding: 6px 12px;
+    }
+    .cd-chat-menu button:hover { background: var(--gray-bg); }
+    .cd-chat-menu button.peligro:hover { background: #FFEBEE; color: #B71C1C; }
+
+    /* --- Área central de chat --- */
+    .cd-chat-area {
+        background: #fff;
+        border: 1px solid var(--gray-border);
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .cd-chat-head {
+        padding: 0.7rem 1rem;
+        border-bottom: 1px solid var(--gray-border);
+        background: var(--gray-bg);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.8rem;
+        flex-wrap: wrap;
+    }
+    .cd-chat-titulo-actual {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--black);
+        flex: 1;
+        min-width: 200px;
+    }
+    .cd-modelo-selector { font-size: 0.82rem; }
+
+    .cd-mensajes {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.2rem 1.4rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+    }
+    .cd-empty {
+        margin: auto;
+        max-width: 460px;
+        text-align: center;
+        color: var(--gray-10);
+        font-size: 0.92rem;
+        line-height: 1.6;
+    }
+    .cd-empty h3 { font-size: 1.1rem; margin: 0 0 0.5rem; color: var(--black); }
+    .cd-empty .cd-ejemplos {
+        margin-top: 1rem;
+        text-align: left;
+        background: var(--gray-bg);
+        padding: 0.7rem 1rem;
+        border-radius: 4px;
+        font-size: 0.82rem;
+    }
+    .cd-empty .cd-ejemplos strong { display: block; margin-bottom: 0.3rem; color: var(--black); }
+    .cd-empty .cd-ejemplo {
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 3px;
+        color: var(--gray-11);
+    }
+    .cd-empty .cd-ejemplo:hover { background: rgba(0,0,0,0.04); color: var(--black); }
+
+    .cd-msg {
+        max-width: 88%;
+        padding: 0.7rem 0.95rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        line-height: 1.55;
+    }
+    .cd-msg.user {
+        align-self: flex-end;
+        background: #1976D2;
+        color: #fff;
+        white-space: pre-wrap;
+    }
+    .cd-msg.assistant {
+        align-self: flex-start;
+        background: var(--gray-bg);
+        color: var(--black);
+        white-space: pre-wrap;
+    }
+    .cd-msg.assistant.sin-datos {
+        background: #FFF3E0;
+        border: 1px solid #FFCC80;
+        color: #5D4037;
+    }
+    .cd-msg-fuentes {
+        margin-top: 0.5rem;
+        padding-top: 0.45rem;
+        border-top: 1px solid rgba(0,0,0,0.08);
+        font-size: 0.74rem;
+        color: var(--gray-10);
+    }
+    .cd-msg-fuentes strong { color: var(--black); margin-right: 4px; }
+
+    /* Marcadores [N] inline dentro del cuerpo de la respuesta. */
+    .cita-marker {
+        display: inline-block;
+        background: #E3F2FD;
+        color: #0D47A1;
+        font-size: 0.7em;
+        font-weight: 600;
+        line-height: 1;
+        padding: 2px 5px;
+        margin: 0 1px;
+        border-radius: 3px;
+        vertical-align: super;
+        cursor: pointer;
+        text-decoration: none;
+        border: 1px solid #BBDEFB;
+        transition: background 0.12s ease, transform 0.08s ease;
+    }
+    .cita-marker:hover { background: #BBDEFB; }
+    .cita-marker.activa { background: #1976D2; color: #fff; transform: scale(1.08); }
+    .cita-marker.invalida {
+        background: #FFEBEE;
+        color: #B71C1C;
+        border-color: #EF9A9A;
+        text-decoration: line-through;
+        cursor: help;
+    }
+    .cita-marker.invalida:hover { background: #FFCDD2; }
+
+    /* Bloque expandible de citas debajo de cada respuesta. */
+    .cd-citas-bloque {
+        margin-top: 0.55rem;
+        padding-top: 0.45rem;
+        border-top: 1px dashed rgba(0,0,0,0.12);
+    }
+    .cd-citas-toggle {
+        background: transparent;
+        border: none;
+        color: var(--gray-11);
+        cursor: pointer;
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 2px 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    .cd-citas-toggle:hover { color: var(--black); }
+    .cd-citas-toggle .chevron { transition: transform 0.15s ease; display: inline-block; }
+    .cd-citas-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+    .cd-citas-lista {
+        margin-top: 0.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+    }
+    .cd-cita-item {
+        background: #fff;
+        border: 1px solid var(--gray-border);
+        border-left: 3px solid #1976D2;
+        border-radius: 3px;
+        padding: 0.55rem 0.75rem;
+        font-size: 0.83rem;
+        line-height: 1.5;
+        color: var(--black);
+    }
+    .cd-cita-item.resaltada {
+        background: #FFF8E1;
+        border-left-color: #F9A825;
+        box-shadow: 0 0 0 2px rgba(249,168,37,0.25);
+    }
+    .cd-cita-cab {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.6rem;
+        font-size: 0.75rem;
+        color: var(--gray-11);
+        margin-bottom: 0.3rem;
+    }
+    .cd-cita-cab .num {
+        font-weight: 700;
+        background: #1976D2;
+        color: #fff;
+        padding: 1px 7px;
+        border-radius: 3px;
+        font-size: 0.72rem;
+    }
+    .cd-cita-cab .doc { font-weight: 600; color: var(--black); flex: 1; word-break: break-word; }
+    .cd-cita-cab .loc { color: var(--gray-10); white-space: nowrap; }
+    .cd-cita-literal {
+        font-style: italic;
+        color: var(--gray-11);
+        padding-left: 0.6rem;
+        border-left: 2px solid var(--gray-border);
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+    .cd-cita-fragmento-toggle {
+        background: transparent;
+        border: none;
+        color: var(--gray-10);
+        cursor: pointer;
+        font-size: 0.74rem;
+        padding: 2px 0;
+        margin-top: 0.3rem;
+        text-decoration: underline dotted;
+    }
+    .cd-cita-fragmento-toggle:hover { color: var(--black); }
+    .cd-cita-fragmento {
+        margin-top: 0.4rem;
+        padding: 0.5rem 0.65rem;
+        background: var(--gray-bg);
+        font-size: 0.78rem;
+        color: var(--gray-11);
+        border-radius: 3px;
+        white-space: pre-wrap;
+        max-height: 220px;
+        overflow-y: auto;
+    }
+    .cd-citas-aviso {
+        margin-top: 0.4rem;
+        font-size: 0.76rem;
+        color: #8D6E00;
+        background: #FFF8E1;
+        border: 1px solid #FFE082;
+        padding: 5px 9px;
+        border-radius: 3px;
+    }
+
+    .cd-pensando {
+        align-self: flex-start;
+        font-size: 0.82rem;
+        color: var(--gray-10);
+        font-style: italic;
+        padding: 0.4rem 0;
+    }
+    .cd-pensando::after {
+        content: "";
+        display: inline-block;
+        animation: cd-dots 1.2s infinite;
+    }
+    @keyframes cd-dots {
+        0%   { content: ""; }
+        33%  { content: "."; }
+        66%  { content: ".."; }
+        100% { content: "..."; }
+    }
+
+    .cd-input-zona {
+        border-top: 1px solid var(--gray-border);
+        padding: 0.75rem 1rem;
+        background: #fff;
+    }
+    .cd-input-fila { display: flex; gap: 0.5rem; align-items: flex-end; }
+    .cd-input-fila textarea {
+        flex: 1;
+        resize: none;
+        min-height: 44px;
+        max-height: 140px;
+        font-family: inherit;
+        font-size: 0.92rem;
+        line-height: 1.45;
+        padding: 0.55rem 0.8rem;
+    }
+    .cd-input-pista {
+        font-size: 0.72rem;
+        color: var(--gray-10);
+        margin-top: 0.3rem;
+    }
+    .cd-rag-aviso {
+        margin-bottom: 0.5rem;
+        font-size: 0.78rem;
+        padding: 0.45rem 0.7rem;
+        border-radius: 3px;
+        background: #FFF8E1;
+        border: 1px solid #FFE082;
+        color: #5D4037;
+    }
+    .cd-rag-aviso.ok { background: #E8F5E9; border-color: #A5D6A7; color: #1B5E20; }
+
+    /* --- Modal de documentos --- */
+    dialog.cd-docs-modal {
+        border: none;
+        border-radius: 6px;
+        padding: 0;
+        max-width: 760px;
+        width: 92%;
+        max-height: 86vh;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    dialog.cd-docs-modal::backdrop {
+        background: rgba(0,0,0,0.45);
+        backdrop-filter: blur(2px);
+    }
+    .cd-docs-modal .modal-header {
+        padding: 1rem 1.3rem 0.7rem;
+        border-bottom: 1px solid var(--gray-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.6rem;
+    }
+    .cd-docs-modal .modal-header h2 { margin: 0; font-size: 1.05rem; }
+    .cd-docs-modal .modal-header small {
+        display: block;
+        color: var(--gray-10);
+        font-size: 0.78rem;
+        margin-top: 0.2rem;
+    }
+    .cd-docs-modal .modal-body {
+        padding: 1rem 1.3rem;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    .cd-docs-modal .modal-footer {
+        padding: 0.7rem 1.3rem 1rem;
+        border-top: 1px solid var(--gray-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+    }
+    .cd-docs-modal .modal-footer .footer-info {
+        font-size: 0.78rem;
+        color: var(--gray-10);
+        line-height: 1.4;
+    }
+    .cd-docs-modal .modal-footer .footer-info code {
+        background: var(--gray-bg);
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 0.78rem;
+    }
+
+    .cd-doc-tabla { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    .cd-doc-tabla th, .cd-doc-tabla td {
+        text-align: left;
+        padding: 0.45rem 0.5rem;
+        border-bottom: 1px solid var(--gray-bg);
+    }
+    .cd-doc-tabla th {
+        font-weight: 600;
+        color: var(--gray-10);
+        font-size: 0.74rem;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        border-bottom: 2px solid var(--gray-border);
+    }
+    .cd-doc-tabla tr.no-soportado td { color: var(--gray-9); font-style: italic; }
+    .cd-doc-tabla .ext {
+        display: inline-block;
+        background: var(--gray-bg);
+        color: var(--gray-11);
+        padding: 1px 6px;
+        border-radius: 3px;
+        font-size: 0.74rem;
+        font-family: 'Menlo','Consolas',monospace;
+        text-transform: uppercase;
+    }
+    .cd-doc-tabla .estado {
+        font-size: 0.74rem;
+        padding: 1px 7px;
+        border-radius: 999px;
+    }
+    .cd-doc-tabla .estado.indexado { background: #E8F5E9; color: #1B5E20; }
+    .cd-doc-tabla .estado.pendiente { background: #FFF3E0; color: #BF360C; }
+    .cd-doc-tabla .estado.ignorado { background: var(--gray-bg); color: var(--gray-10); }
+
+    @media (max-width: 880px) {
+        .cd-layout {
+            grid-template-columns: 1fr;
+            height: auto;
+        }
+        .cd-sidebar { max-height: 240px; }
+        .cd-chat-area { min-height: 420px; }
+    }
+</style>
+
+<div class="cd-breadcrumbs breadcrumbs">
+    <a href="/">Inicio</a><span class="sep">/</span>
+    <span class="current">Consulta Documental</span>
+</div>
+
+<div class="cd-header">
+    <div>
+        <span class="eyebrow">Módulo · Habla con tus documentos</span>
+        <h1>Consulta Documental</h1>
+        <p class="lead">Pregunta en lenguaje natural a la documentación corporativa cargada para <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}. Modo estricto: si la respuesta no está en los documentos, te lo dirá.</p>
+    </div>
+    <div class="cd-header-actions">
+        <button type="button" class="btn btn-secondary" id="btn-docs">Documentos</button>
+    </div>
+</div>
+
+<div class="cd-layout">
+    <aside class="cd-sidebar">
+        <div class="cd-sidebar-head">
+            <h2>Conversaciones</h2>
+            <button type="button" class="btn btn-primary cd-btn-nuevo" id="btn-nuevo-chat">+ Nueva conversación</button>
+        </div>
+        <div class="cd-chat-list" id="chat-list">
+            <div class="cd-chat-list-empty">Cargando…</div>
+        </div>
+        <div class="cd-sidebar-foot">
+            <button type="button" class="btn btn-outline" id="btn-limpiar-antiguos" title="Borra conversaciones que no se hayan tocado en N días">🧹 Limpiar antiguos…</button>
+        </div>
+    </aside>
+
+    <section class="cd-chat-area">
+        <div class="cd-chat-head">
+            <div class="cd-chat-titulo-actual" id="chat-titulo-actual">Nueva conversación</div>
+            <label class="cd-modelo-selector">
+                Modelo:
+                <select id="cd-modelo">
+                    {% for m in modelos_disponibles %}
+                    <option value="{{ m }}" {% if m == modelo_default %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        </div>
+
+        <div class="cd-mensajes" id="cd-mensajes">
+            <div class="cd-empty" id="cd-empty">
+                <h3>¿Sobre qué quieres preguntar?</h3>
+                <p>Habla con la documentación corporativa cargada en <code>Empresas/{{ TICKER_FIJO }}/docs/</code>. Solo se consultan ficheros locales (no se buscan URLs).</p>
+                <div class="cd-ejemplos">
+                    <strong>Ejemplos:</strong>
+                    <div class="cd-ejemplo">¿Cuál es la política de dividendos para 2025?</div>
+                    <div class="cd-ejemplo">Resume las principales magnitudes del último informe anual</div>
+                    <div class="cd-ejemplo">¿Qué dice el informe sobre el negocio en LATAM?</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="cd-input-zona">
+            <div class="cd-input-fila">
+                <textarea id="cd-input" placeholder="Escribe tu pregunta… (Enter para enviar · Mayús+Enter para nueva línea)"></textarea>
+                <button type="button" class="btn btn-primary" id="btn-enviar">Enviar</button>
+            </div>
+            <div class="cd-input-pista">Modo estricto: si la información no aparece en los documentos cargados, el asistente lo dirá en vez de inventar.</div>
+        </div>
+    </section>
+</div>
+
+<dialog class="cd-docs-modal" id="cd-docs-dialog" aria-labelledby="cd-docs-titulo">
+    <div class="modal-header">
+        <div>
+            <h2 id="cd-docs-titulo">Base documental</h2>
+            <small id="cd-docs-meta">Ficheros que el RAG ha parseado y tiene listos para consultas.</small>
+        </div>
+        <button type="button" class="modal-close" id="cd-docs-cerrar" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body" id="cd-docs-body">
+        <p style="color: var(--gray-10); font-size: 0.85rem;">Cargando inventario…</p>
+    </div>
+    <div class="modal-footer">
+        <div class="footer-info" id="cd-docs-carpeta">—</div>
+        <div style="display:flex; gap:0.5rem;">
+            <button type="button" class="btn btn-secondary" id="cd-docs-cerrar-2">Cerrar</button>
+            <button type="button" class="btn btn-primary" id="cd-docs-recargar">Recargar documentos</button>
+        </div>
+    </div>
+</dialog>
+
+<script>
+(function() {
+    const URL_CHATS = '/consulta-documental/chats';
+    const URL_PREGUNTAR = '/consulta-documental/preguntar';
+    const URL_INVENTARIO = '/rag/inventario';
+    const URL_REINDEX = '/rag/reindex';
+    const URL_RAG_STATUS = '/rag/status';
+
+    const $ = (sel, root) => (root || document).querySelector(sel);
+    const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+    const elList = $('#chat-list');
+    const elMensajes = $('#cd-mensajes');
+    const elEmpty = $('#cd-empty');
+    const elInput = $('#cd-input');
+    const elBtnEnviar = $('#btn-enviar');
+    const elBtnNuevo = $('#btn-nuevo-chat');
+    const elTituloActual = $('#chat-titulo-actual');
+    const elModelo = $('#cd-modelo');
+    const elBtnDocs = $('#btn-docs');
+    const dlgDocs = $('#cd-docs-dialog');
+
+    // Estado en memoria del front
+    let chatActual = null;   // {id, titulo, modelo, mensajes: [...]}
+    let listaChats = [];     // resúmenes
+    let enviando = false;
+
+    function escapeHtml(s) {
+        return (s || '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    function fmtFecha(iso) {
+        if (!iso) return '';
+        try {
+            const d = new Date(iso);
+            const hoy = new Date();
+            const ayer = new Date(hoy); ayer.setDate(hoy.getDate() - 1);
+            const sameDay = (a, b) => a.toDateString() === b.toDateString();
+            const hora = d.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'});
+            if (sameDay(d, hoy)) return `Hoy · ${hora}`;
+            if (sameDay(d, ayer)) return `Ayer · ${hora}`;
+            return d.toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
+        } catch(e) { return ''; }
+    }
+
+    function fmtBytes(n) {
+        if (!n && n !== 0) return '—';
+        if (n < 1024) return n + ' B';
+        if (n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+        return (n/1024/1024).toFixed(2) + ' MB';
+    }
+
+    // --- Lista de chats ---
+    async function recargarLista() {
+        try {
+            const r = await fetch(URL_CHATS);
+            const j = await r.json();
+            listaChats = j.chats || [];
+            pintarLista();
+        } catch(e) {
+            elList.innerHTML = '<div class="cd-chat-list-empty">Error cargando conversaciones.</div>';
+        }
+    }
+
+    function pintarLista() {
+        if (!listaChats.length) {
+            elList.innerHTML = '<div class="cd-chat-list-empty">Aún no hay conversaciones. Crea una nueva con el botón de arriba.</div>';
+            return;
+        }
+        elList.innerHTML = listaChats.map(c => `
+            <div class="cd-chat-item ${chatActual && chatActual.id === c.id ? 'activo' : ''}" data-id="${c.id}">
+                <div class="cd-chat-titulo">
+                    ${escapeHtml(c.titulo)}
+                    <span class="cd-chat-meta">${c.n_mensajes} msg · ${fmtFecha(c.actualizado)}</span>
+                </div>
+                <div class="cd-chat-acciones">
+                    <button type="button" class="cd-menu-btn" data-accion="menu" data-id="${c.id}" title="Más acciones" aria-haspopup="menu">⋮</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Estado del menú contextual abierto (uno como mucho a la vez).
+    let menuAbiertoEl = null;
+    function cerrarMenuContextual() {
+        if (menuAbiertoEl) { menuAbiertoEl.remove(); menuAbiertoEl = null; }
+    }
+    document.addEventListener('click', (e) => {
+        if (menuAbiertoEl && !e.target.closest('.cd-chat-menu') && !e.target.closest('.cd-menu-btn')) {
+            cerrarMenuContextual();
+        }
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') cerrarMenuContextual();
+    });
+
+    function abrirMenuContextual(btn, id) {
+        cerrarMenuContextual();
+        const menu = document.createElement('div');
+        menu.className = 'cd-chat-menu';
+        menu.setAttribute('role', 'menu');
+        menu.innerHTML = `
+            <button type="button" data-accion="renombrar" role="menuitem">✎ Renombrar</button>
+            <button type="button" data-accion="borrar" class="peligro" role="menuitem">🗑 Borrar</button>
+        `;
+        document.body.appendChild(menu);
+        // Posicionar bajo el botón, alineado a la derecha, sin salirse de la ventana.
+        const r = btn.getBoundingClientRect();
+        const ancho = 160;
+        const altoEst = 80;
+        let left = r.right - ancho;
+        let top = r.bottom + 2;
+        if (left < 6) left = 6;
+        if (top + altoEst > window.innerHeight - 6) top = r.top - altoEst - 2;
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+        menuAbiertoEl = menu;
+        menu.addEventListener('click', async (e) => {
+            const b = e.target.closest('button[data-accion]');
+            if (!b) return;
+            e.stopPropagation();
+            const accion = b.dataset.accion;
+            cerrarMenuContextual();
+            await ejecutarAccionChat(accion, id);
+        });
+    }
+
+    async function ejecutarAccionChat(accion, id) {
+        if (accion === 'borrar') {
+            if (!confirm('¿Borrar esta conversación? No se puede deshacer.')) return;
+            await fetch(`${URL_CHATS}/${id}`, {method: 'DELETE'});
+            if (chatActual && chatActual.id === id) {
+                chatActual = null;
+                pintarVacio();
+            }
+            await recargarLista();
+        } else if (accion === 'renombrar') {
+            const actual = listaChats.find(x => x.id === id);
+            const nuevo = prompt('Nuevo título:', actual ? actual.titulo : '');
+            if (!nuevo) return;
+            await fetch(`${URL_CHATS}/${id}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({titulo: nuevo}),
+            });
+            if (chatActual && chatActual.id === id) {
+                chatActual.titulo = nuevo;
+                elTituloActual.textContent = nuevo;
+            }
+            await recargarLista();
+        }
+    }
+
+    elList.addEventListener('click', (e) => {
+        const btnMenu = e.target.closest('.cd-menu-btn');
+        if (btnMenu) {
+            e.stopPropagation();
+            abrirMenuContextual(btnMenu, btnMenu.dataset.id);
+            return;
+        }
+        const item = e.target.closest('.cd-chat-item');
+        if (item) abrirChat(item.dataset.id);
+    });
+
+    // --- Abrir / crear chat ---
+    async function abrirChat(id) {
+        try {
+            const r = await fetch(`${URL_CHATS}/${id}`);
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            chatActual = j.chat;
+            pintarChatActual();
+            pintarLista();
+        } catch(e) {
+            alert('No se pudo abrir la conversación: ' + e.message);
+        }
+    }
+
+    elBtnNuevo.addEventListener('click', async () => {
+        // Modelo "lazy": no creamos en backend hasta que el usuario envíe.
+        chatActual = null;
+        pintarVacio();
+        pintarLista();
+        elInput.focus();
+    });
+
+    function pintarVacio() {
+        elTituloActual.textContent = 'Nueva conversación';
+        elMensajes.innerHTML = '';
+        elMensajes.appendChild(elEmpty);
+        elEmpty.hidden = false;
+    }
+
+    function pintarChatActual() {
+        if (!chatActual) { pintarVacio(); return; }
+        elTituloActual.textContent = chatActual.titulo || 'Conversación';
+        if (chatActual.modelo) elModelo.value = chatActual.modelo;
+        elEmpty.hidden = true;
+        elMensajes.innerHTML = '';
+        for (const m of (chatActual.mensajes || [])) {
+            elMensajes.appendChild(crearBurbuja(m));
+        }
+        scrollAbajo();
+    }
+
+    function renderCuerpoConMarcadores(cuerpo, citas, contenedor) {
+        // Sustituye [1], [2]... por chips clicables.
+        // - Si [N] existe en `citas` → chip azul clicable.
+        // - Si [N] NO existe (modelo se inventó el número) → chip rojo
+        //   tachado con tooltip avisando de que es una cita inventada.
+        const citasMap = {};
+        for (const c of (citas || [])) citasMap[c.n] = c;
+        const RE = /\[(\d+)\]/g;
+        let ult = 0, m;
+        while ((m = RE.exec(cuerpo)) !== null) {
+            if (m.index > ult) {
+                contenedor.appendChild(document.createTextNode(cuerpo.slice(ult, m.index)));
+            }
+            const n = parseInt(m[1], 10);
+            const sup = document.createElement('a');
+            sup.className = 'cita-marker';
+            sup.textContent = '[' + n + ']';
+            sup.href = '#';
+            sup.dataset.cita = n;
+            if (!citasMap[n]) {
+                sup.classList.add('invalida');
+                sup.title = 'Cita inválida: el asistente referenció el fragmento [' + n + '] pero no existe en los documentos consultados.';
+            }
+            contenedor.appendChild(sup);
+            ult = m.index + m[0].length;
+        }
+        if (ult < cuerpo.length) {
+            contenedor.appendChild(document.createTextNode(cuerpo.slice(ult)));
+        }
+    }
+
+    function crearBloqueCitas(citas) {
+        // Bloque expandible "▸ Citas usadas (N)" + lista de fichas.
+        const wrap = document.createElement('div');
+        wrap.className = 'cd-citas-bloque';
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'cd-citas-toggle';
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.innerHTML = `<span class="chevron">▸</span> Citas usadas (${citas.length})`;
+        wrap.appendChild(toggle);
+
+        const lista = document.createElement('div');
+        lista.className = 'cd-citas-lista';
+        lista.hidden = true;
+
+        const sinLiteral = citas.filter(c => !c.cita_literal).length;
+        if (sinLiteral === citas.length && citas.length > 0) {
+            const aviso = document.createElement('div');
+            aviso.className = 'cd-citas-aviso';
+            aviso.textContent = 'El asistente no aportó citas literales para esta respuesta. Mostramos los fragmentos completos que se le pasaron.';
+            lista.appendChild(aviso);
+        }
+
+        for (const c of citas) {
+            const item = document.createElement('div');
+            item.className = 'cd-cita-item';
+            item.dataset.cita = c.n;
+
+            const cab = document.createElement('div');
+            cab.className = 'cd-cita-cab';
+            cab.innerHTML = `
+                <span><span class="num">[${c.n}]</span> <span class="doc">${escapeHtml(c.documento || '?')}</span></span>
+                <span class="loc">${escapeHtml(c.localizador || '')}</span>
+            `;
+            item.appendChild(cab);
+
+            if (c.cita_literal) {
+                const lit = document.createElement('div');
+                lit.className = 'cd-cita-literal';
+                lit.textContent = '« ' + c.cita_literal + ' »';
+                item.appendChild(lit);
+            } else if (c.fragmento_texto) {
+                const aviso = document.createElement('div');
+                aviso.style.fontSize = '0.74rem';
+                aviso.style.color = 'var(--gray-10)';
+                aviso.style.fontStyle = 'italic';
+                aviso.textContent = '(sin cita literal del asistente — se muestra el fragmento entero abajo)';
+                item.appendChild(aviso);
+            }
+
+            if (c.fragmento_texto) {
+                const verBtn = document.createElement('button');
+                verBtn.type = 'button';
+                verBtn.className = 'cd-cita-fragmento-toggle';
+                verBtn.textContent = 'Ver fragmento completo';
+                const frag = document.createElement('div');
+                frag.className = 'cd-cita-fragmento';
+                frag.hidden = true;
+                frag.textContent = c.fragmento_texto;
+                verBtn.addEventListener('click', () => {
+                    frag.hidden = !frag.hidden;
+                    verBtn.textContent = frag.hidden ? 'Ver fragmento completo' : 'Ocultar fragmento';
+                });
+                item.appendChild(verBtn);
+                item.appendChild(frag);
+            }
+
+            lista.appendChild(item);
+        }
+        wrap.appendChild(lista);
+
+        toggle.addEventListener('click', () => {
+            const abierto = !lista.hidden;
+            lista.hidden = abierto;
+            toggle.setAttribute('aria-expanded', String(!abierto));
+        });
+
+        return wrap;
+    }
+
+    function activarCitaResaltada(burbuja, n) {
+        burbuja.querySelectorAll('.cita-marker').forEach(el => {
+            if (el.classList.contains('invalida')) return;
+            el.classList.toggle('activa', parseInt(el.dataset.cita, 10) === n);
+        });
+        const lista = burbuja.querySelector('.cd-citas-lista');
+        const toggle = burbuja.querySelector('.cd-citas-toggle');
+        if (lista && lista.hidden && toggle) {
+            lista.hidden = false;
+            toggle.setAttribute('aria-expanded', 'true');
+        }
+        burbuja.querySelectorAll('.cd-cita-item').forEach(el => el.classList.remove('resaltada'));
+        const item = burbuja.querySelector(`.cd-cita-item[data-cita="${n}"]`);
+        if (item) {
+            item.classList.add('resaltada');
+            item.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+            setTimeout(() => item.classList.remove('resaltada'), 2200);
+        }
+    }
+
+    function crearBurbuja(msg) {
+        const div = document.createElement('div');
+        const esUser = msg.rol === 'user';
+        div.className = 'cd-msg ' + (esUser ? 'user' : 'assistant');
+        // Detectar la frase fija de "no encontrado" para teñir la burbuja.
+        if (!esUser && (msg.contenido || '').includes('No encuentro esa información en la documentación')) {
+            div.classList.add('sin-datos');
+        }
+        if (esUser) {
+            div.textContent = msg.contenido || '';
+            return div;
+        }
+        // Mensaje del asistente: cuerpo con marcadores [N] + bloque de citas.
+        const cuerpo = document.createElement('div');
+        renderCuerpoConMarcadores(msg.contenido || '', msg.citas || [], cuerpo);
+        div.appendChild(cuerpo);
+
+        // Aviso si hay marcadores [N] inventados (el modelo citó un fragmento
+        // que no existe). El chip aparece tachado individualmente, pero
+        // además mostramos un aviso global para que el usuario no lo pase
+        // por alto.
+        const invalidos = cuerpo.querySelectorAll('.cita-marker.invalida');
+        if (invalidos.length > 0) {
+            const av = document.createElement('div');
+            av.className = 'cd-citas-aviso';
+            av.innerHTML = `⚠️ <strong>Cita(s) inválida(s):</strong> el asistente ha referenciado ${invalidos.length} fragmento(s) que no existen en la documentación. Las verás tachadas en el texto. Revisa la respuesta con precaución.`;
+            div.appendChild(av);
+        }
+
+        const citas = msg.citas || [];
+        if (citas.length > 0) {
+            const bloque = crearBloqueCitas(citas);
+            div.appendChild(bloque);
+            // Click en marcador [N] → abre y resalta la cita correspondiente.
+            div.addEventListener('click', (e) => {
+                const m = e.target.closest('.cita-marker');
+                if (!m) return;
+                e.preventDefault();
+                if (m.classList.contains('invalida')) return;  // chip rojo: solo tooltip
+                activarCitaResaltada(div, parseInt(m.dataset.cita, 10));
+            });
+        } else if (!esUser && /\[\d+\]/.test(msg.contenido || '')
+                   && !(msg.contenido || '').includes('No encuentro esa información')) {
+            // Respuesta con marcadores pero sin citas estructuradas (modelo no
+            // emitió ---CITAS---). Aviso suave para que el usuario sepa que
+            // esa respuesta no tiene fuentes trazables.
+            const aviso = document.createElement('div');
+            aviso.className = 'cd-citas-aviso';
+            aviso.textContent = 'El asistente no aportó el bloque de citas literales en esta respuesta. Revisa con cuidado antes de usarla.';
+            div.appendChild(aviso);
+        }
+        return div;
+    }
+
+    function scrollAbajo() {
+        elMensajes.scrollTop = elMensajes.scrollHeight;
+    }
+
+    // --- Enviar pregunta ---
+    async function enviarPregunta() {
+        if (enviando) return;
+        const txt = elInput.value.trim();
+        if (!txt) return;
+
+        enviando = true;
+        elBtnEnviar.disabled = true;
+        elInput.disabled = true;
+
+        // Optimista: pintamos el mensaje del usuario y un indicador.
+        elEmpty.hidden = true;
+        const burbujaUser = crearBurbuja({rol: 'user', contenido: txt});
+        elMensajes.appendChild(burbujaUser);
+        const pensando = document.createElement('div');
+        pensando.className = 'cd-pensando';
+        pensando.textContent = 'Consultando los documentos';
+        elMensajes.appendChild(pensando);
+        scrollAbajo();
+
+        try {
+            const body = {
+                chat_id: chatActual ? chatActual.id : '',
+                pregunta: txt,
+                modelo: elModelo.value,
+            };
+            const r = await fetch(URL_PREGUNTAR, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+            });
+            const j = await r.json();
+            pensando.remove();
+            if (!j.ok) throw new Error(j.error || 'Error desconocido');
+
+            // Sincronizar estado local con el chat que devolvió el backend
+            if (!chatActual || chatActual.id !== j.chat_id) {
+                // Era una conversación nueva, recargamos el chat completo
+                await abrirChat(j.chat_id);
+            } else {
+                chatActual.titulo = j.titulo || chatActual.titulo;
+                chatActual.mensajes = chatActual.mensajes || [];
+                chatActual.mensajes.push({rol: 'user', contenido: txt, ts: j.ts});
+                chatActual.mensajes.push({
+                    rol: 'assistant',
+                    contenido: j.respuesta,
+                    citas: j.citas || [],
+                    ts: j.ts,
+                });
+                // Reemplazamos la burbuja optimista por la versión definitiva
+                burbujaUser.remove();
+                const real = crearBurbuja({rol: 'user', contenido: txt});
+                elMensajes.appendChild(real);
+                elMensajes.appendChild(crearBurbuja({
+                    rol: 'assistant',
+                    contenido: j.respuesta,
+                    citas: j.citas || [],
+                }));
+                elTituloActual.textContent = chatActual.titulo;
+                scrollAbajo();
+            }
+            await recargarLista();
+            elInput.value = '';
+            autoResize();
+        } catch(e) {
+            pensando.remove();
+            const errBurb = document.createElement('div');
+            errBurb.className = 'cd-msg assistant sin-datos';
+            errBurb.textContent = 'Error al consultar la IA: ' + e.message;
+            elMensajes.appendChild(errBurb);
+            scrollAbajo();
+        } finally {
+            enviando = false;
+            elBtnEnviar.disabled = false;
+            elInput.disabled = false;
+            elInput.focus();
+        }
+    }
+
+    elBtnEnviar.addEventListener('click', enviarPregunta);
+    elInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            enviarPregunta();
+        }
+    });
+
+    function autoResize() {
+        elInput.style.height = 'auto';
+        elInput.style.height = Math.min(elInput.scrollHeight, 140) + 'px';
+    }
+    elInput.addEventListener('input', autoResize);
+
+    // --- Ejemplos clickables ---
+    document.addEventListener('click', (e) => {
+        const ej = e.target.closest('.cd-ejemplo');
+        if (ej && !enviando) {
+            elInput.value = ej.textContent.trim();
+            autoResize();
+            elInput.focus();
+        }
+    });
+
+    // --- Modal de documentos ---
+    function abrirDocs() {
+        if (typeof dlgDocs.showModal === 'function') dlgDocs.showModal();
+        else dlgDocs.setAttribute('open', '');
+        cargarInventario();
+    }
+    function cerrarDocs() {
+        if (typeof dlgDocs.close === 'function') dlgDocs.close();
+        else dlgDocs.removeAttribute('open');
+    }
+    elBtnDocs.addEventListener('click', abrirDocs);
+    $('#cd-docs-cerrar').addEventListener('click', cerrarDocs);
+    $('#cd-docs-cerrar-2').addEventListener('click', cerrarDocs);
+    dlgDocs.addEventListener('click', (e) => {
+        const r = dlgDocs.getBoundingClientRect();
+        const dentro = e.clientX >= r.left && e.clientX <= r.right
+                    && e.clientY >= r.top  && e.clientY <= r.bottom;
+        if (!dentro) cerrarDocs();
+    });
+
+    async function cargarInventario() {
+        const body = $('#cd-docs-body');
+        const carpetaInfo = $('#cd-docs-carpeta');
+        body.innerHTML = '<p style="color: var(--gray-10); font-size: 0.85rem;">Cargando inventario…</p>';
+        try {
+            const r = await fetch(URL_INVENTARIO);
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            const exts = (j.extensiones_soportadas || []).map(e => e.replace(/^\./, '')).join(', ');
+            carpetaInfo.innerHTML = `Carpeta: <code>${escapeHtml(j.carpeta)}</code><br>Formatos soportados: ${escapeHtml(exts)}`;
+            if (!j.ficheros.length) {
+                body.innerHTML = `<p style="color: var(--gray-10); font-size: 0.9rem; line-height: 1.6;">La carpeta está vacía. Suelta ahí tus PDFs, Word, HTML, txt o markdown y pulsa <strong>Recargar documentos</strong>.</p>`;
+                return;
+            }
+            const filas = j.ficheros.map(f => {
+                let estado, claseFila = '';
+                if (!f.soportado) {
+                    estado = '<span class="estado ignorado">no soportado</span>';
+                    claseFila = 'no-soportado';
+                } else if (f.indexado) {
+                    estado = `<span class="estado indexado">indexado · ${f.chunks} chunks</span>`;
+                } else {
+                    estado = '<span class="estado pendiente">pendiente de indexar</span>';
+                }
+                return `<tr class="${claseFila}">
+                    <td>${escapeHtml(f.nombre)}</td>
+                    <td><span class="ext">${escapeHtml(f.extension)}</span></td>
+                    <td>${fmtBytes(f.tamano_bytes)}</td>
+                    <td>${estado}</td>
+                </tr>`;
+            }).join('');
+            const totalIdx = j.ficheros.filter(f => f.indexado).length;
+            const totalChunks = j.ficheros.reduce((s, f) => s + (f.chunks || 0), 0);
+            body.innerHTML = `
+                <p style="font-size: 0.85rem; color: var(--gray-11); margin-bottom: 0.8rem;">
+                    ${j.ficheros.length} fichero(s) en la carpeta · ${totalIdx} indexado(s) · ${totalChunks} chunks en el índice.
+                </p>
+                <table class="cd-doc-tabla">
+                    <thead><tr><th>Nombre</th><th>Tipo</th><th>Tamaño</th><th>Estado</th></tr></thead>
+                    <tbody>${filas}</tbody>
+                </table>`;
+        } catch(e) {
+            body.innerHTML = `<p style="color: #B71C1C;">No se pudo cargar el inventario: ${escapeHtml(e.message)}</p>`;
+        }
+    }
+
+    $('#cd-docs-recargar').addEventListener('click', async (ev) => {
+        const btn = ev.currentTarget;
+        btn.disabled = true;
+        btn.textContent = 'Lanzando indexación…';
+        try {
+            const r = await fetch(URL_REINDEX, {method: 'POST'});
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            // El banner amarillo global aparecerá solo en cuanto el polling detecte en_construccion=true.
+            // Cerramos el modal para que el usuario vea el banner trabajando.
+            cerrarDocs();
+            // Polling propio: cuando termine, refrescamos la lista (sin abrir el modal).
+            esperarReindex();
+        } catch(e) {
+            alert('No se pudo recargar: ' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Recargar documentos';
+        }
+    });
+
+    async function esperarReindex() {
+        for (let i = 0; i < 120; i++) {  // ~10 min máx, suficiente
+            await new Promise(r => setTimeout(r, 2500));
+            try {
+                const s = await (await fetch(URL_RAG_STATUS)).json();
+                if (!s.en_construccion) break;
+            } catch(e) { break; }
+        }
+        // No abrimos modal automáticamente: el usuario lo abre si quiere ver el resultado.
+    }
+
+    // --- Limpieza por antigüedad ---
+    $('#btn-limpiar-antiguos').addEventListener('click', async () => {
+        const txt = prompt(
+            'Borrar conversaciones que no se hayan tocado en los últimos N días.\n\n' +
+            '¿A partir de cuántos días quieres borrar?', '30'
+        );
+        if (txt === null) return;
+        const dias = parseInt(txt, 10);
+        if (!dias || dias < 1) { alert('Introduce un número entero ≥ 1.'); return; }
+        if (!confirm(`Se borrarán las conversaciones sin actividad en los últimos ${dias} días. ¿Continuar?`)) return;
+        try {
+            const r = await fetch(URL_CHATS + '/limpiar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({dias}),
+            });
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            alert(`Borradas ${j.borrados} conversación(es) con más de ${dias} días.`);
+            if (chatActual) {
+                // Si el chat activo fue uno de los borrados, lo vaciamos.
+                const r2 = await fetch(`${URL_CHATS}/${chatActual.id}`);
+                if (r2.status === 404) { chatActual = null; pintarVacio(); }
+            }
+            await recargarLista();
+        } catch(e) {
+            alert('No se pudo limpiar: ' + e.message);
+        }
+    });
+
+    // --- Init ---
+    recargarLista();
+    autoResize();
+    elInput.focus();
+})();
+</script>
+{% endblock %}

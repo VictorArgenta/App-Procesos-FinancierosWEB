@@ -55,6 +55,21 @@
         <div style="margin-top: 1rem;"><a href="/relacion-inversores" class="btn btn-primary">{% if ir_pendientes and ir_pendientes > 0 %}Atender bandeja{% else %}Abrir bandeja{% endif %}</a></div>
     </div>
 
+    <div class="card" style="border-top: 3px solid #86BC25;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <h2>Consulta Documental</h2>
+            <span class="tag tag-green">Disponible</span>
+        </div>
+        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Habla con tus documentos. Pregunta en lenguaje natural a la base documental cargada para <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}: PDFs, Word, HTML y notas de la carpeta corporativa.</p>
+        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
+            <li>Respuestas con cita de la fuente exacta</li>
+            <li>Conversaciones guardadas, recuperables</li>
+            <li>Recargar documentos sin reiniciar la app</li>
+            <li>Modo estricto: solo responde si está en los docs</li>
+        </ul>
+        <div style="margin-top: 1rem;"><a href="/consulta-documental" class="btn btn-primary">Acceder</a></div>
+    </div>
+
     <div class="card" style="border-top: 3px solid #A7A8AA;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <h2>Elaboración Presupuesto (ML)</h2>
@@ -68,21 +83,6 @@
             <li>Versión final — Q3 2026</li>
         </ul>
         <div style="margin-top: 1rem;"><a href="/presupuesto" class="btn btn-outline">Explorar Preview</a></div>
-    </div>
-
-    <div class="card" style="border-top: 3px solid #A7A8AA;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <h2>Conciliación Bancaria</h2>
-            <span class="tag tag-orange">Preview</span>
-        </div>
-        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Matching automático entre extractos bancarios y libro mayor mediante reglas de negocio y fuzzy matching.</p>
-        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
-            <li>Carga de CSV, MT940 y ficheros ERP</li>
-            <li>Conciliación 1-a-1, 1-a-N y N-a-N</li>
-            <li>Aprobación de partidas pendientes</li>
-            <li>Auditoría de movimientos</li>
-        </ul>
-        <div style="margin-top: 1rem;"><a href="/conciliacion" class="btn btn-outline">Explorar Preview</a></div>
     </div>
 
     <div class="card" style="border-top: 3px solid #A7A8AA;">
