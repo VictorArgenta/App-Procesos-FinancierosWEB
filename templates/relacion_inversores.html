@@ -376,6 +376,64 @@
     .ir-verificacion strong    { color: inherit; }
     .ir-verificacion ul        { margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.82rem; }
     .ir-verificacion li        { margin-bottom: 0.2rem; }
+    .ir-verificacion .ver-fuentes-btn {
+        margin-top: 0.5rem;
+        display: inline-block;
+        background: transparent;
+        border: 1px solid currentColor;
+        color: inherit;
+        font-size: 0.76rem;
+        padding: 3px 9px;
+        border-radius: 999px;
+        cursor: pointer;
+    }
+    .ir-verificacion .ver-fuentes-btn:hover { opacity: 0.8; }
+
+    /* Modal para ver el contexto que se le pasó al critic */
+    dialog.critic-context-modal {
+        border: none;
+        border-radius: 6px;
+        padding: 0;
+        max-width: 900px;
+        width: 92%;
+        max-height: 85vh;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    dialog.critic-context-modal::backdrop {
+        background: rgba(0,0,0,0.45);
+        backdrop-filter: blur(2px);
+    }
+    .critic-context-modal .modal-header {
+        padding: 1rem 1.3rem 0.6rem;
+        border-bottom: 1px solid var(--gray-border);
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+    .critic-context-modal .modal-header h2 { margin: 0; font-size: 1.05rem; }
+    .critic-context-modal .modal-header small {
+        display: block;
+        color: var(--gray-10);
+        font-size: 0.78rem;
+        margin-top: 0.2rem;
+    }
+    .critic-context-modal .modal-body {
+        padding: 1rem 1.3rem;
+        max-height: 65vh;
+        overflow-y: auto;
+        font-family: 'Menlo','Consolas',monospace;
+        font-size: 0.78rem;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        background: #FAFAFA;
+        color: var(--black);
+    }
+    .critic-context-modal .modal-footer {
+        padding: 0.7rem 1.3rem 1rem;
+        border-top: 1px solid var(--gray-border);
+        display: flex;
+        justify-content: flex-end;
+    }
     .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 </style>
 
@@ -619,6 +677,20 @@
     </div>
 </dialog>
 
+<dialog class="critic-context-modal" id="critic-context-dialog" aria-labelledby="critic-titulo">
+    <div class="modal-header">
+        <div>
+            <h2 id="critic-titulo">Fuentes consultadas por el verificador</h2>
+            <small id="critic-meta">Texto literal que se pasó al critic LLM para evaluar el borrador.</small>
+        </div>
+        <button type="button" class="modal-close" id="critic-cerrar" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="modal-body" id="critic-context-body"></div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="critic-cancelar">Cerrar</button>
+    </div>
+</dialog>
+
 <script>
 (function() {
     const RESOLVER_URL = '/relacion-inversores/resolver';
@@ -746,6 +818,34 @@
             enviarMensajeRefinar();
         }
     });
+
+    // --- Modal de fuentes del verificador ---
+    const dlgCritic = document.getElementById('critic-context-dialog');
+    const dlgCriticBody = document.getElementById('critic-context-body');
+    const dlgCriticMeta = document.getElementById('critic-meta');
+    function abrirContextoCritic(card) {
+        if (!dlgCritic) return;
+        dlgCriticBody.textContent = card._criticContexto || '(no hay contexto disponible)';
+        dlgCriticMeta.textContent = card._criticModelo
+            ? `Texto literal que se le pasó al critic (${card._criticModelo}). Si el dato que buscas NO aparece aquí, es porque el verificador no lo vio.`
+            : 'Texto literal que se pasó al critic LLM.';
+        if (typeof dlgCritic.showModal === 'function') dlgCritic.showModal();
+        else dlgCritic.setAttribute('open', '');
+    }
+    function cerrarCritic() {
+        if (typeof dlgCritic.close === 'function') dlgCritic.close();
+        else dlgCritic.removeAttribute('open');
+    }
+    if (dlgCritic) {
+        document.getElementById('critic-cerrar').addEventListener('click', cerrarCritic);
+        document.getElementById('critic-cancelar').addEventListener('click', cerrarCritic);
+        dlgCritic.addEventListener('click', (e) => {
+            const r = dlgCritic.getBoundingClientRect();
+            const dentro = e.clientX >= r.left && e.clientX <= r.right
+                        && e.clientY >= r.top  && e.clientY <= r.bottom;
+            if (!dentro) cerrarCritic();
+        });
+    }
 
     // --- Modal de líneas maestras ---
     const LINEAS_URL = '/relacion-inversores/lineas-maestras';
@@ -994,9 +1094,28 @@
                         verifBox.classList.add('ok');
                         html = '<strong>✓ Verificación:</strong> sin observaciones.';
                     }
+                    // Pie con info técnica + botón para ver qué leyó el critic.
+                    const meta_pie = [];
+                    if (v.modelo_critic) meta_pie.push('Critic: ' + v.modelo_critic);
+                    if (v.severidad_capa_a) meta_pie.push('Capa A: ' + v.severidad_capa_a);
+                    if (v.severidad_capa_c) meta_pie.push('Capa C: ' + v.severidad_capa_c);
+                    if (v.truncado_fuentes) meta_pie.push('⚠ fuentes truncadas');
+                    if (meta_pie.length || v.contexto_fuentes) {
+                        html += `<div style="margin-top:.5rem; font-size:.74rem; opacity:.75; display:flex; justify-content:space-between; align-items:center;">`
+                              + `<span>${meta_pie.join(' · ')}</span>`
+                              + (v.contexto_fuentes ? `<button type="button" class="ver-fuentes-btn">Ver fuentes consultadas</button>` : '')
+                              + `</div>`;
+                    }
                     verifBox.innerHTML = html;
-                    // Si severidad alta, exigimos confirmación al pulsar Enviar.
+                    // Guardamos el contexto en la card para abrirlo en el modal global
                     card.dataset.verifSeveridad = v.severidad || 'ninguna';
+                    card._criticContexto = v.contexto_fuentes || '';
+                    card._criticModelo = v.modelo_critic || '';
+                    // Listener del botón
+                    const btnVer = verifBox.querySelector('.ver-fuentes-btn');
+                    if (btnVer) {
+                        btnVer.addEventListener('click', () => abrirContextoCritic(card));
+                    }
                 }
 
                 const tipoIA = (j.tipo_inversor || '').toLowerCase();
