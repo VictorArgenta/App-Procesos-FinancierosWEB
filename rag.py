@@ -459,26 +459,68 @@ def _leer_urls_inversores(ruta_txt: Path) -> list[str]:
     return urls
 
 
-def _hash_corpus(docs_dir: Path, urls_txt: Path) -> str:
-    """Hash de la lista de PDFs locales + urls_inversores para detectar cambios."""
-    h = hashlib.sha1()
-    if docs_dir.exists():
-        for pdf in sorted(docs_dir.glob("*.pdf")):
-            try:
-                h.update(pdf.name.encode())
-                h.update(str(pdf.stat().st_size).encode())
-                h.update(str(int(pdf.stat().st_mtime)).encode())
-            except OSError:
-                pass
-    if urls_txt.exists():
-        h.update(urls_txt.read_bytes())
-    return h.hexdigest()[:16]
+def _leer_cache_incremental(cache_idx: Path) -> dict | None:
+    """Carga el caché incremental (formato v2) si existe y es legible.
+
+    Estructura esperada:
+        {
+          "version": 2,
+          "documentos_locales": {nombre: {"hash_md5", "chunks": [...]}},
+          "web": {"completado_en", "url_inversores_hash", "chunks": [...]}
+        }
+    Devuelve None si el caché no existe, es de versión vieja o está corrupto.
+    """
+    if not cache_idx.exists():
+        return None
+    try:
+        data = json.loads(cache_idx.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        log.warning("Caché RAG ilegible (%s); reconstruyo desde cero.", e)
+        return None
+    if data.get("version") != 2:
+        log.info("Caché RAG con formato antiguo; reconstruyo en v2 incremental.")
+        return None
+    if not isinstance(data.get("documentos_locales"), dict):
+        return None
+    return data
+
+
+def _md5_fichero(ruta: Path) -> str | None:
+    try:
+        return hashlib.md5(ruta.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def _chunks_de_documento(doc: Path) -> list[dict]:
+    """Extrae texto del documento y devuelve la lista de chunks con metadata."""
+    texto = extraer_texto_documento(doc)
+    if not texto:
+        return []
+    ext_lower = doc.suffix.lower().lstrip(".")
+    return [
+        {
+            "texto": chunk,
+            "meta": {
+                "fuente_tipo": f"{ext_lower}_local",
+                "fuente_nombre": doc.name,
+                "fuente_path": str(doc),
+                "fragmento": i,
+            },
+        }
+        for i, chunk in enumerate(_chunk_texto(texto))
+    ]
 
 
 def indexar_ticker(ticker: str, root: Path | None = None, forzar: bool = False) -> BM25Index:
-    """Indexa el corpus de un ticker. Usa caché si existe y no ha caducado.
+    """Indexa el corpus de un ticker con caché INCREMENTAL.
 
-    Returns: BM25Index (vacío si no hay docs/url_inversores.txt).
+    Reaprovecha los chunks de documentos cuyo hash MD5 no ha cambiado desde
+    la última indexación; solo reprocesa los nuevos o modificados. El crawl
+    web sigue siendo "todo o nada" (con TTL 24h) porque el contenido web es
+    inherentemente cambiante.
+
+    Si `forzar=True`, ignora completamente el caché y reconstruye desde cero.
     """
     root = root or Path(__file__).resolve().parent
     base = root / "Empresas" / ticker
@@ -494,104 +536,137 @@ def indexar_ticker(ticker: str, root: Path | None = None, forzar: bool = False) 
         return idx
 
     cache_dir.mkdir(parents=True, exist_ok=True)
-    huella = _hash_corpus(docs_dir, urls_txt)
+    cache = None if forzar else _leer_cache_incremental(cache_idx)
+    docs_cache = (cache or {}).get("documentos_locales", {}) or {}
+    web_cache = (cache or {}).get("web", {}) or {}
 
-    # Caché válida si: existe, huella coincide y dentro de TTL.
-    if cache_idx.exists() and not forzar:
-        try:
-            cached = json.loads(cache_idx.read_text(encoding="utf-8"))
-            edad = time.time() - cache_idx.stat().st_mtime
-            if cached.get("huella") == huella and edad < TTL_CACHE_SEG:
-                log.info(
-                    "RAG ticker=%s: caché válido (edad %.1f h, huella ok)",
-                    ticker, edad / 3600,
-                )
-                return BM25Index.cargar(cached)
-            log.info(
-                "RAG ticker=%s: caché invalidado (edad %.1f h, huella %s vs %s)",
-                ticker, edad / 3600, cached.get("huella"), huella,
-            )
-        except Exception as e:
-            log.warning("Caché RAG ilegible (%s); reconstruyo", e)
-
-    log.info("RAG ticker=%s: indexando corpus...", ticker)
+    log.info("RAG ticker=%s: indexando corpus (incremental)...", ticker)
     t0 = time.time()
-    idx = BM25Index()
-    n_docs_locales = 0
-    n_chunks = 0
-    hashes_vistos: set[str] = set()  # para deduplicar documentos
 
-    # 1) Documentos locales (PDF, DOCX, HTML, TXT, MD).
+    # -- 1) Documentos locales ------------------------------------------------
+    nuevos_docs_cache = {}
+    n_reusados, n_nuevos, n_modificados, n_eliminados = 0, 0, 0, 0
+    hashes_vistos: set[str] = set()
+
+    ficheros_locales = []
     if docs_dir.exists():
-        ficheros_locales = []
         for ext in EXTENSIONES_SOPORTADAS:
             ficheros_locales.extend(docs_dir.glob(f"*{ext}"))
-        for doc in sorted(ficheros_locales):
-            # Saltamos url_inversores.txt (no es contenido a indexar).
-            if doc.name == "url_inversores.txt":
-                continue
-            try:
-                h = hashlib.md5(doc.read_bytes()).hexdigest()
-            except OSError:
-                continue
-            hashes_vistos.add(h)
-            texto = extraer_texto_documento(doc)
-            if not texto:
-                continue
-            n_docs_locales += 1
-            ext_lower = doc.suffix.lower().lstrip(".")
-            for i, chunk in enumerate(_chunk_texto(texto)):
-                idx.añadir(chunk, {
-                    "fuente_tipo": f"{ext_lower}_local",
-                    "fuente_nombre": doc.name,
-                    "fuente_path": str(doc),
-                    "fragmento": i,
-                })
-                n_chunks += 1
 
-    # 2) URLs + crawler
+    nombres_actuales = set()
+    for doc in sorted(ficheros_locales):
+        if doc.name == "url_inversores.txt":
+            continue
+        nombres_actuales.add(doc.name)
+        md5 = _md5_fichero(doc)
+        if md5 is None:
+            continue
+        hashes_vistos.add(md5)
+        entrada_cache = docs_cache.get(doc.name)
+        if entrada_cache and entrada_cache.get("hash_md5") == md5 and entrada_cache.get("chunks"):
+            # Reutilizamos los chunks ya cacheados
+            nuevos_docs_cache[doc.name] = entrada_cache
+            n_reusados += 1
+        else:
+            # Nuevo o modificado: extraer + chunkear
+            chunks = _chunks_de_documento(doc)
+            nuevos_docs_cache[doc.name] = {"hash_md5": md5, "chunks": chunks}
+            if entrada_cache:
+                n_modificados += 1
+            else:
+                n_nuevos += 1
+
+    # Documentos del caché que ya no están en disco → se eliminan
+    eliminados_nombres = set(docs_cache.keys()) - nombres_actuales
+    n_eliminados = len(eliminados_nombres)
+
+    # -- 2) Web (crawl + descargas) ------------------------------------------
     urls = _leer_urls_inversores(urls_txt)
-    docs_web = []
-    for u in urls:
-        try:
-            docs_web.extend(_crawl_url_base(u, cache_dir))
-        except Exception as e:
-            log.exception("Fallo crawleando %s: %s", u, e)
+    url_hash = hashlib.sha1(("\n".join(urls)).encode("utf-8")).hexdigest()[:16] if urls else ""
+    web_completado_en = web_cache.get("completado_en", 0) or 0
+    web_url_hash = web_cache.get("url_inversores_hash", "")
+    web_edad = time.time() - web_completado_en
+    web_cache_valido = (
+        not forzar
+        and urls
+        and web_url_hash == url_hash
+        and web_completado_en > 0
+        and web_edad < TTL_CACHE_SEG
+        and isinstance(web_cache.get("chunks"), list)
+    )
 
-    # Deduplicación de PDFs web contra locales
-    for d in docs_web:
-        if d["tipo"] == "pdf_web" and d.get("fuente_path"):
+    if web_cache_valido:
+        web_chunks = web_cache["chunks"]
+        log.info(
+            "RAG ticker=%s: web cacheada (edad %.1fh, %d chunks)",
+            ticker, web_edad / 3600, len(web_chunks),
+        )
+    else:
+        log.info("RAG ticker=%s: re-crawleando web (%d URLs)", ticker, len(urls))
+        docs_web = []
+        for u in urls:
             try:
-                h = hashlib.md5(Path(d["fuente_path"]).read_bytes()).hexdigest()
-                if h in hashes_vistos:
-                    log.info("PDF web %s duplicado de uno local; ignorado", d["url"])
-                    continue
-                hashes_vistos.add(h)
-            except OSError:
-                pass
-        for i, chunk in enumerate(_chunk_texto(d["texto"])):
-            idx.añadir(chunk, {
-                "fuente_tipo": d["tipo"],
-                "fuente_nombre": d["titulo"],
-                "fuente_url": d["url"],
-                "fragmento": i,
-            })
-            n_chunks += 1
+                docs_web.extend(_crawl_url_base(u, cache_dir))
+            except Exception as e:
+                log.exception("Fallo crawleando %s: %s", u, e)
+        web_chunks = []
+        for d in docs_web:
+            # Dedup PDFs web contra los locales por hash
+            if d["tipo"] == "pdf_web" and d.get("fuente_path"):
+                try:
+                    h = hashlib.md5(Path(d["fuente_path"]).read_bytes()).hexdigest()
+                    if h in hashes_vistos:
+                        log.info("PDF web %s duplicado de uno local; ignorado", d["url"])
+                        continue
+                    hashes_vistos.add(h)
+                except OSError:
+                    pass
+            for i, chunk in enumerate(_chunk_texto(d["texto"])):
+                web_chunks.append({
+                    "texto": chunk,
+                    "meta": {
+                        "fuente_tipo": d["tipo"],
+                        "fuente_nombre": d["titulo"],
+                        "fuente_url": d["url"],
+                        "fragmento": i,
+                    },
+                })
 
+    # -- 3) Construcción del índice BM25 -------------------------------------
+    idx = BM25Index()
+    n_chunks_locales = 0
+    for entry in nuevos_docs_cache.values():
+        for ch in entry.get("chunks", []):
+            idx.añadir(ch["texto"], ch.get("meta", {}))
+            n_chunks_locales += 1
+    for ch in web_chunks:
+        idx.añadir(ch["texto"], ch.get("meta", {}))
     idx.construir()
 
-    # Persistir
+    # -- 4) Persistir caché incremental --------------------------------------
     try:
-        payload = idx.serializar()
-        payload["huella"] = huella
-        payload["ticker"] = ticker
+        payload = {
+            "version": 2,
+            "ticker": ticker,
+            "construido_en": datetime.now(timezone.utc).isoformat(),
+            "documentos_locales": nuevos_docs_cache,
+            "web": {
+                "completado_en": web_cache.get("completado_en") if web_cache_valido else time.time(),
+                "url_inversores_hash": url_hash,
+                "chunks": web_chunks,
+            },
+        }
         cache_idx.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     except Exception as e:
         log.warning("No se pudo persistir caché RAG: %s", e)
 
     log.info(
-        "RAG ticker=%s indexado: %d documentos locales, %d docs web, %d chunks (%.1fs)",
-        ticker, n_docs_locales, len(docs_web), n_chunks, time.time() - t0,
+        "RAG ticker=%s indexado: docs locales %d (%d reusados, %d nuevos, %d modificados, %d eliminados) · "
+        "%d chunks locales + %d chunks web · web %s · %.1fs",
+        ticker, len(nuevos_docs_cache), n_reusados, n_nuevos, n_modificados, n_eliminados,
+        n_chunks_locales, len(web_chunks),
+        "cacheada" if web_cache_valido else "re-crawleada",
+        time.time() - t0,
     )
     return idx
 
