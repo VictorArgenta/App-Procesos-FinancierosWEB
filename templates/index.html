@@ -32,7 +32,7 @@
             <h2>Relación con Inversores</h2>
             <span class="tag tag-green">Disponible</span>
         </div>
-        <p style="color: var(--gray-10); margin-bottom: 0.8rem; line-height: 1.5; font-size: 0.9rem;">Consultas reales del equipo de IR de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %} recibidas en las últimas 2 horas.</p>
+        <p style="color: var(--gray-10); margin-bottom: 0.8rem; line-height: 1.5; font-size: 0.9rem;">Consultas reales del equipo de IR de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %} recibidas en las últimas 24 horas.</p>
         <div style="display:flex; align-items:center; gap:1rem; margin: 0.8rem 0;">
             {% if ir_pendientes is none %}
             <div style="font-size: 0.92rem; color: var(--gray-10); padding: 0.5rem 0;">
