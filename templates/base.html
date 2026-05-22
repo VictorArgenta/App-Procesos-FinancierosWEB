@@ -811,6 +811,58 @@
         </div>
     </nav>
 
+    {% if TICKER_FIJO %}
+    <div id="rag-banner" class="rag-banner" hidden>
+        <span class="rag-spin" aria-hidden="true"></span>
+        <span><strong>Indexando documentos de {{ EMPRESA_NOMBRE }}…</strong>
+            <small id="rag-banner-progreso">Esto es de fondo; puedes seguir usando la app. Yahoo, búsqueda web y líneas maestras ya están listos.</small>
+        </span>
+    </div>
+    <style>
+        .rag-banner {
+            background: #FFF8E1;
+            border: 1px solid #FFE082;
+            color: #5D4037;
+            padding: 8px 16px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .rag-banner small { display: block; color: #7A5C2A; font-size: 0.76rem; font-weight: 400; margin-top: 1px; }
+        .rag-spin {
+            width: 13px; height: 13px;
+            border: 2px solid rgba(0,0,0,0.15);
+            border-top-color: #5D4037;
+            border-radius: 50%;
+            animation: rag-spin 0.7s linear infinite;
+            display: inline-block;
+        }
+        @keyframes rag-spin { to { transform: rotate(360deg); } }
+    </style>
+    <script>
+        (function() {
+            const banner = document.getElementById('rag-banner');
+            const progSpan = document.getElementById('rag-banner-progreso');
+            if (!banner) return;
+            async function check() {
+                try {
+                    const r = await fetch('/rag/status', { cache: 'no-store' });
+                    const j = await r.json();
+                    if (j.en_construccion) {
+                        banner.hidden = false;
+                        if (j.progreso) progSpan.textContent = j.progreso;
+                        setTimeout(check, 4000);
+                    } else {
+                        banner.hidden = true;
+                    }
+                } catch (_e) { /* silencio */ }
+            }
+            check();
+        })();
+    </script>
+    {% endif %}
+
     <main>
         {% block content %}{% endblock %}
     </main>

@@ -32,6 +32,7 @@ load_dotenv()
 
 import sys as _sys
 import logging as _logging
+import threading as _threading
 from pathlib import Path as _Path
 import rag as _rag
 
@@ -2880,7 +2881,7 @@ def _contar_pendientes_ir(ttl_segundos=30):
     Usa la misma función `_leer_bandeja_gmail()` que la vista, para que el
     contador de la home y la bandeja real coincidan SIEMPRE (mismo filtro
     estricto: asunto que EMPIEZA por `{TICKER}-Inversores-` y recibido en
-    las últimas 2 horas exactas). Caché TTL 30 s para no martillear IMAP.
+    las últimas 24 horas exactas). Caché TTL 30 s para no martillear IMAP.
     """
     import time
     if not GMAIL_USER or not GMAIL_APP_PASSWORD:
@@ -2889,7 +2890,7 @@ def _contar_pendientes_ir(ttl_segundos=30):
     if ahora - _IR_PENDIENTES_CACHE["ts"] < ttl_segundos and _IR_PENDIENTES_CACHE["count"] is not None:
         return _IR_PENDIENTES_CACHE["count"]
     try:
-        correos = _leer_bandeja_gmail(_prefijo_asunto_actual(), horas_max=2)
+        correos = _leer_bandeja_gmail(_prefijo_asunto_actual(), horas_max=24)
         # Anotar cada correo con su estado de envío
         for c in correos:
             envio = _IR_ENVIADOS.get(_clave_envio(c))
@@ -2976,7 +2977,11 @@ def _set_ticker_activo(nuevo_ticker):
     except Exception as e:
         logger.exception("Fallo al inicializar datos del nuevo ticker: %s", e)
     try:
-        _construir_rag_si_procede(forzar=False)
+        # En el cambio de empresa desde la UI, lanzamos la indexación RAG
+        # en background para que el usuario no espere. El RAG estará vacío
+        # mientras se construye; las demás fuentes (Yahoo, web search,
+        # líneas maestras) funcionan desde el primer momento.
+        _construir_rag_async(forzar=False)
     except Exception as e:
         logger.exception("Fallo construyendo RAG para %s: %s", TICKER_FIJO, e)
     return True
@@ -2990,6 +2995,19 @@ def seleccionar_empresa():
         return redirect("/")
     _set_ticker_activo(ticker)
     return redirect("/")
+
+
+@app.route("/rag/status")
+def rag_status():
+    """Estado del índice RAG, para que el frontend muestre progreso."""
+    from flask import jsonify
+    idx = _RAG_INDEX.get("index")
+    return jsonify({
+        "ticker": _RAG_INDEX.get("ticker"),
+        "en_construccion": bool(_RAG_INDEX.get("en_construccion")),
+        "chunks": len(idx.chunks) if idx else 0,
+        "progreso": _RAG_INDEX.get("progreso", ""),
+    })
 
 
 @app.route("/cambiar-empresa", methods=["POST", "GET"])
@@ -3053,11 +3071,21 @@ _TICKER_FIJO_DATOS = {"ticker": None, "datos": None}
 # Índice RAG global por ticker (en proceso). Se construye al arrancar la app
 # y al refrescar el ticker fijado. Si el ticker no tiene corpus, el índice
 # está vacío y _resolver_correo_ir simplemente no inyecta fragmentos.
-_RAG_INDEX = {"ticker": None, "index": None}
+_RAG_INDEX = {
+    "ticker": None,
+    "index": None,
+    "en_construccion": False,
+    "progreso": "",
+    "completado_en": None,
+}
 
 
 def _construir_rag_si_procede(forzar: bool = False):
-    """Construye el índice RAG para TICKER_FIJO si hay corpus disponible."""
+    """Construye el índice RAG para TICKER_FIJO de forma SÍNCRONA.
+
+    Mantenido para compatibilidad (caso `python app.py META --recrawl`),
+    pero por defecto usa `_construir_rag_async` desde el flujo web.
+    """
     if not TICKER_FIJO:
         return None
     if (not forzar and _RAG_INDEX["ticker"] == TICKER_FIJO
@@ -3067,10 +3095,64 @@ def _construir_rag_si_procede(forzar: bool = False):
         idx = _rag.indexar_ticker(TICKER_FIJO, forzar=forzar)
         _RAG_INDEX["ticker"] = TICKER_FIJO
         _RAG_INDEX["index"] = idx
+        _RAG_INDEX["en_construccion"] = False
+        _RAG_INDEX["progreso"] = f"OK · {len(idx.chunks)} fragmentos"
         return idx
     except Exception as e:
         _logging.getLogger("dfin.rag").exception("Fallo construyendo RAG: %s", e)
+        _RAG_INDEX["en_construccion"] = False
+        _RAG_INDEX["progreso"] = f"Error: {e}"
         return None
+
+
+def _construir_rag_async(forzar: bool = False):
+    """Lanza la indexación RAG en un hilo separado para no bloquear la UI.
+
+    El usuario puede usar la app inmediatamente; el RAG estará vacío hasta
+    que termine la indexación, momento en que entran en juego los chunks.
+    El endpoint `/rag/status` permite al frontend mostrar progreso.
+    """
+    if not TICKER_FIJO:
+        return
+    ticker_objetivo = TICKER_FIJO
+    if (not forzar and _RAG_INDEX["ticker"] == ticker_objetivo
+            and _RAG_INDEX["index"] is not None):
+        return  # ya está
+    log = _logging.getLogger("dfin.rag")
+    _RAG_INDEX["en_construccion"] = True
+    _RAG_INDEX["progreso"] = f"Iniciando indexación de {ticker_objetivo}…"
+    log.info("Lanzando indexación RAG asíncrona de %s", ticker_objetivo)
+
+    def _trabajo():
+        try:
+            idx = _rag.indexar_ticker(ticker_objetivo, forzar=forzar)
+            # Si el usuario cambió a otra empresa mientras tanto, descartamos.
+            if TICKER_FIJO != ticker_objetivo:
+                log.info(
+                    "RAG de %s descartado: usuario cambió a %s",
+                    ticker_objetivo, TICKER_FIJO,
+                )
+                return
+            _RAG_INDEX["ticker"] = ticker_objetivo
+            _RAG_INDEX["index"] = idx
+            _RAG_INDEX["progreso"] = f"OK · {len(idx.chunks)} fragmentos"
+            import time as _t
+            _RAG_INDEX["completado_en"] = _t.time()
+            log.info(
+                "RAG asíncrono de %s terminado: %d chunks",
+                ticker_objetivo, len(idx.chunks),
+            )
+        except Exception as e:
+            log.exception("Fallo en indexación asíncrona de %s: %s",
+                          ticker_objetivo, e)
+            _RAG_INDEX["progreso"] = f"Error: {e}"
+        finally:
+            _RAG_INDEX["en_construccion"] = False
+
+    t = _threading.Thread(
+        target=_trabajo, daemon=True, name=f"rag-{ticker_objetivo}",
+    )
+    t.start()
 
 
 def _cargar_datos_ticker_fijo():
@@ -3605,7 +3687,7 @@ def _persistir_conversaciones():
         _logging.getLogger("dfin.ir.memoria").warning("No se pudo persistir conversaciones.json: %s", e)
 
 
-def _leer_bandeja_gmail(prefijo, horas_max=2, limite=50):
+def _leer_bandeja_gmail(prefijo, horas_max=24, limite=50):
     """Lee la INBOX de Gmail por IMAP, filtra y devuelve correos.
 
     Filtros:
@@ -4031,13 +4113,35 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
         bloque_fuentes = "Fuentes consultadas (documentación corporativa):\n" + rag_resumen_fuentes
         parsed["nota_interna"] = (nota_previa + "\n\n" + bloque_fuentes).strip() if nota_previa else bloque_fuentes
 
+    # Capa A + C: verificación contra alucinaciones. Solo si el borrador
+    # contiene algo sustancioso (no si se quedó vacío por puede_resolver=False).
+    cuerpo_para_verificar = parsed.get("cuerpo_respuesta") or ""
+    if cuerpo_para_verificar.strip():
+        fuentes_para_verificar = []
+        if lineas_maestras:
+            fuentes_para_verificar.append(lineas_maestras)
+        if rag_chunks_texto:
+            fuentes_para_verificar.append(rag_chunks_texto)
+        if incluir_yahoo:
+            fuentes_para_verificar.append(tabla)
+        try:
+            parsed["verificacion"] = _verificar_borrador(
+                cuerpo_para_verificar, fuentes_para_verificar,
+            )
+        except Exception as e:
+            _logging.getLogger("dfin.critic").warning("Verificación falló: %s", e)
+            parsed["verificacion"] = {"severidad": "ninguna", "alucinaciones": [], "cifras_huerfanas": []}
+    else:
+        parsed["verificacion"] = {"severidad": "ninguna", "alucinaciones": [], "cifras_huerfanas": []}
+
     log_res.info(
-        "Correo id=%s resuelto: puede_resolver=%s tipo=%s modelo=%s lat=%.2fs rag_chunks=%d",
+        "Correo id=%s resuelto: puede_resolver=%s tipo=%s modelo=%s lat=%.2fs rag_chunks=%d verif=%s",
         correo.get("id", "?"),
         parsed.get("puede_resolver"),
         parsed.get("tipo_inversor"),
         modelo, _latencia,
         len(rag_resumen_fuentes.splitlines()) if rag_resumen_fuentes else 0,
+        parsed.get("verificacion", {}).get("severidad", "?"),
     )
     return parsed
 
@@ -4060,6 +4164,208 @@ _PATRONES_TABLA = [
     r"\n\s*-{3,}\s*\|",         # separadores `---|`
     r"\n\s*\|?\s*:?-{3,}:?",    # separadores tipo `:---:`
 ]
+
+
+# --- Capa de verificación contra alucinaciones (A + C) ---------------------
+
+_RE_CIFRA = re.compile(
+    # Captura cifras sustantivas en formato europeo, americano o crudo.
+    # Cubre: 1.234,56 / 1,234.56 / 6,59 / 6.59 / 134902000000 / 45%.
+    # El objetivo es comparar después por valor numérico normalizado, así
+    # que aceptamos los tres formatos.
+    r"\b\d{1,3}(?:[.,]\d{3})+(?:[.,]\d+)?\b"      # con separador de miles
+    r"|\b\d+[.,]\d+\b"                             # decimales (X,Y o X.Y)
+    r"|\b\d{4,}\b",                                # enteros largos sin separador
+    re.IGNORECASE,
+)
+
+
+def _normalizar_cifra(s):
+    """Quita separadores y deja solo dígitos para comparar formatos distintos.
+
+    Devuelve None si no hay dígitos significativos. Ejemplos:
+        "1.234,56"   → "1234.56"
+        "6,59 USD"   → "6.59"
+        "120 M"      → "120"
+        "(45,2%)"    → "45.2"
+    """
+    if not s:
+        return None
+    import re as _re
+    cifra = _re.sub(r"[^\d,.]", "", s)
+    # En formato europeo "." es separador de miles, "," decimal.
+    if "," in cifra:
+        cifra = cifra.replace(".", "").replace(",", ".")
+    elif cifra.count(".") > 1:
+        # "1.234.567" sin coma → quitar puntos de miles
+        cifra = cifra.replace(".", "")
+    try:
+        return f"{float(cifra):.6g}"
+    except ValueError:
+        return None
+
+
+_ESCALAS_MAGNITUD = (1, 1_000, 1_000_000, 1_000_000_000)
+
+
+def _verificar_cifras_en_borrador(borrador, fuentes_textos):
+    """Capa A: cifras del borrador que no aparecen en ninguna fuente.
+
+    Compara por valor numérico normalizado con tolerancia del 1% y probando
+    cuatro escalas de magnitud (unidades, miles, millones, miles de
+    millones). Esto evita falsos positivos por formato: una cifra "134.902
+    millones" del borrador se considera respaldada si en las fuentes hay
+    "134902000000".
+    """
+    if not borrador:
+        return []
+    matches = set(_RE_CIFRA.findall(borrador))
+    if not matches:
+        return []
+    # Conjunto de valores numéricos presentes en las fuentes.
+    fuentes_valores = set()
+    for tx in fuentes_textos:
+        for m in _RE_CIFRA.findall(tx or ""):
+            n = _normalizar_cifra(m)
+            if n is None:
+                continue
+            try:
+                fuentes_valores.add(float(n))
+            except ValueError:
+                pass
+    if not fuentes_valores:
+        return list(matches)
+
+    def _esta_respaldada(valor):
+        # Comparamos el valor en todas las escalas razonables vs todas las
+        # cifras de las fuentes con tolerancia del 1%.
+        for esc in _ESCALAS_MAGNITUD:
+            v_esc = valor * esc
+            for fv in fuentes_valores:
+                if abs(fv) < 1e-9:
+                    if abs(v_esc) < 1e-9:
+                        return True
+                    continue
+                if abs(v_esc - fv) / abs(fv) < 0.01:
+                    return True
+        return False
+
+    huerfanas = []
+    for m in matches:
+        n = _normalizar_cifra(m)
+        if n is None:
+            continue
+        try:
+            v = float(n)
+        except ValueError:
+            continue
+        # Las cifras < 10 suelen ser ratios/porcentajes derivados (1,8x,
+        # 2,3% interanual) y dan demasiados falsos positivos. Las ignoramos.
+        if abs(v) < 10:
+            continue
+        if _esta_respaldada(v):
+            continue
+        huerfanas.append(m)
+    return huerfanas
+
+
+_PROMPT_CRITIC = """Eres un VERIFICADOR de calidad de respuestas. Recibes un
+BORRADOR y un conjunto de FUENTES. Tu única tarea es detectar afirmaciones del
+borrador que NO estén respaldadas por ninguna fuente.
+
+Reglas:
+- Una afirmación está respaldada si su contenido sustantivo (cifras concretas,
+  hechos, eventos, nombres de personas/productos) aparece literalmente o de
+  forma obvia en alguna fuente.
+- Las cifras derivadas (ratios calculados, porcentajes deducidos) están
+  respaldadas si los datos base sí están en las fuentes.
+- Las frases de cortesía o estructura de correo (saludos, agradecimientos,
+  firma, cierres) NO son alucinaciones.
+- Lo que SÍ es alucinación: cifras concretas no presentes en las fuentes,
+  eventos inventados, acuerdos inexistentes, nombres de personas o
+  competidores que no aparecen en las fuentes.
+
+BORRADOR:
+{borrador}
+
+FUENTES DISPONIBLES (texto literal):
+---
+{fuentes}
+---
+
+Devuelve EXCLUSIVAMENTE un objeto JSON con esta estructura, sin texto antes
+ni después, sin acentos graves:
+
+{{
+  "severidad": "alta" | "media" | "baja" | "ninguna",
+  "alucinaciones": [
+    {{"texto": "fragmento exacto del borrador", "razon": "explicación corta"}}
+  ]
+}}
+
+Criterio de severidad:
+- "alta": al menos una cifra concreta inventada o un hecho/evento falso.
+- "media": afirmaciones generales sin respaldo claro pero sin cifras erróneas.
+- "baja": pequeñas atribuciones débiles o ligeros adornos sin respaldo.
+- "ninguna": todo el contenido sustantivo está respaldado.
+"""
+
+
+def _revisar_con_critic(borrador, fuentes_textos, max_borrador=8000, max_fuentes=12000):
+    """Capa C: llamada al critic LLM (Haiku) para detectar alucinaciones.
+
+    Devuelve dict con `severidad` y lista de `alucinaciones`. Si la llamada
+    falla, devuelve estructura vacía sin romper el flujo.
+    """
+    if not borrador or not borrador.strip():
+        return {"severidad": "ninguna", "alucinaciones": []}
+    fuentes_join = "\n---\n".join(t for t in fuentes_textos if t)
+    prompt = _PROMPT_CRITIC.format(
+        borrador=borrador[:max_borrador],
+        fuentes=fuentes_join[:max_fuentes],
+    )
+    try:
+        texto, _ = llamar_ia_con_reintentos(
+            prompt, max_tokens=1500,
+            modelo="claude-haiku-4-5-20251001",
+            permitir_busqueda=False,
+            modulo="critic",
+        )
+    except Exception as e:
+        _logging.getLogger("dfin.critic").warning("Critic LLM falló: %s", e)
+        return {"severidad": "ninguna", "alucinaciones": [], "error": str(e)}
+    bloque = re.search(r"\{.*\}", texto or "", re.DOTALL)
+    if not bloque:
+        return {"severidad": "ninguna", "alucinaciones": []}
+    try:
+        import json as _json
+        parsed = _json.loads(bloque.group(0), strict=False)
+    except _json.JSONDecodeError:
+        return {"severidad": "ninguna", "alucinaciones": []}
+    sev = (parsed.get("severidad") or "").lower()
+    if sev not in ("alta", "media", "baja", "ninguna"):
+        sev = "ninguna"
+    return {
+        "severidad": sev,
+        "alucinaciones": parsed.get("alucinaciones") or [],
+    }
+
+
+def _verificar_borrador(borrador, fuentes_textos):
+    """Combina capa A (cifras determinístico) + capa C (critic LLM)."""
+    cifras_huerfanas = _verificar_cifras_en_borrador(borrador, fuentes_textos)
+    critic = _revisar_con_critic(borrador, fuentes_textos)
+    # Si hay cifras huérfanas y el critic no detectó nada, elevamos severidad
+    # a "media" como mínimo para que el usuario revise.
+    severidad = critic.get("severidad", "ninguna")
+    if cifras_huerfanas and severidad in ("ninguna", "baja"):
+        severidad = "media"
+    return {
+        "severidad": severidad,
+        "cifras_huerfanas": cifras_huerfanas,
+        "alucinaciones": critic.get("alucinaciones", []),
+        "n_problemas": len(cifras_huerfanas) + len(critic.get("alucinaciones", [])),
+    }
 
 
 def _validar_borrador_ir(parsed, correo):
@@ -4123,7 +4429,7 @@ def relacion_inversores():
             prefijo=_prefijo_asunto_actual(),
         )
     try:
-        correos = _leer_bandeja_gmail(_prefijo_asunto_actual(), horas_max=2)
+        correos = _leer_bandeja_gmail(_prefijo_asunto_actual(), horas_max=24)
     except Exception as e:
         return render_template(
             "relacion_inversores_no_config.html",
@@ -4873,32 +5179,46 @@ if __name__ == "__main__":
         _LOG_LEVEL,
     )
     if TICKER_FIJO:
-        # Modo compatibilidad: se pasó ticker por argv. Precargamos.
-        print(f"\n[DFin AI] Precargando datos de Yahoo Finance para {TICKER_FIJO}…")
+        # Modo "directo": el usuario ya indicó la empresa por argv. Saltamos
+        # el selector. Precargamos Yahoo (rápido) y la memoria de IR, y
+        # lanzamos el RAG en background (o síncrono si se pidió --recrawl).
+        print(f"\n[DFin AI] Modo directo: empresa fijada a {TICKER_FIJO}")
+        print(f"[DFin AI] Precargando datos de Yahoo Finance para {TICKER_FIJO}…")
         try:
             _cargar_datos_ticker_fijo()
             nombre = _BRANDING["empresa"]
-            print(f"[DFin AI] Aplicación dedicada a: {nombre} ({TICKER_FIJO})\n")
+            print(f"[DFin AI] Aplicación dedicada a: {nombre} ({TICKER_FIJO})")
             _arranque_logger.info("Datos de Yahoo precargados: %s (%s)", nombre, TICKER_FIJO)
         except Exception as _e:
-            print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}\n")
+            print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}")
             _arranque_logger.exception("Fallo al precargar Yahoo para %s", TICKER_FIJO)
 
-        print(f"[DFin AI] Indexando corpus RAG de {TICKER_FIJO}"
-              f"{' (--recrawl forzado)' if RECRAWL_AL_ARRANCAR else ''}…")
-        try:
-            idx = _construir_rag_si_procede(forzar=RECRAWL_AL_ARRANCAR)
-            n = len(idx.chunks) if idx else 0
-            print(f"[DFin AI] RAG: {n} fragmentos indexados.\n")
-        except Exception as _e:
-            print(f"[DFin AI] AVISO: fallo indexando corpus RAG: {_e}\n")
-            _arranque_logger.exception("Fallo en RAG para %s", TICKER_FIJO)
-
         _cargar_memoria_ir()
+
+        if RECRAWL_AL_ARRANCAR:
+            # --recrawl: queremos garantizar el corpus fresco antes de servir.
+            print(f"[DFin AI] Indexando corpus RAG de {TICKER_FIJO} (--recrawl forzado)…")
+            try:
+                idx = _construir_rag_si_procede(forzar=True)
+                n = len(idx.chunks) if idx else 0
+                print(f"[DFin AI] RAG: {n} fragmentos indexados.")
+            except Exception as _e:
+                print(f"[DFin AI] AVISO: fallo indexando corpus RAG: {_e}")
+                _arranque_logger.exception("Fallo en RAG para %s", TICKER_FIJO)
+        else:
+            # Sin --recrawl: en background para no bloquear el arranque.
+            print(f"[DFin AI] Indexando corpus RAG de {TICKER_FIJO} en background…")
+            try:
+                _construir_rag_async(forzar=False)
+            except Exception as _e:
+                print(f"[DFin AI] AVISO: fallo lanzando RAG: {_e}")
+                _arranque_logger.exception("Fallo en RAG async para %s", TICKER_FIJO)
+
+        print("[DFin AI] Servidor listo. Abre http://localhost:5000\n")
     else:
-        # Modo normal: sin ticker, el usuario lo elegirá en la web.
-        print("\n[DFin AI] Aplicación lista. Abre http://localhost:5000 y "
-              "selecciona la empresa.\n")
+        # Modo "selector": sin ticker, el usuario lo elegirá en la web.
+        print("\n[DFin AI] Aplicación lista. Abre http://localhost:5000 "
+              "y selecciona la empresa en el selector inicial.\n")
         _arranque_logger.info("Arranque sin TICKER_FIJO: selección desde la web.")
 
     app.run(debug=True, host="0.0.0.0", port=5000)

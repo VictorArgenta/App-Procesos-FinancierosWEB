@@ -359,6 +359,23 @@
         white-space: pre-wrap;
     }
     .ir-nota-interna strong { color: #BF360C; }
+
+    /* Panel de verificación A + C contra alucinaciones. */
+    .ir-verificacion {
+        margin-top: 0.8rem;
+        padding: 0.7rem 0.9rem;
+        border-radius: 3px;
+        font-size: 0.84rem;
+        line-height: 1.45;
+        border: 1px solid var(--gray-border);
+    }
+    .ir-verificacion.ok        { background: #E8F5E9; border-color: #A5D6A7; color: #1B5E20; }
+    .ir-verificacion.baja      { background: #F1F8E9; border-color: #C5E1A5; color: #33691E; }
+    .ir-verificacion.media     { background: #FFF3E0; border-color: #FFCC80; color: #BF360C; }
+    .ir-verificacion.alta      { background: #FFEBEE; border-color: #EF9A9A; color: #B71C1C; }
+    .ir-verificacion strong    { color: inherit; }
+    .ir-verificacion ul        { margin: 0.4rem 0 0; padding-left: 1.1rem; font-size: 0.82rem; }
+    .ir-verificacion li        { margin-bottom: 0.2rem; }
     .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 </style>
 
@@ -373,7 +390,7 @@
         <h1>Relación con Inversores</h1>
         <p class="lead">
             <span class="tag tag-green" style="margin-right: 0.4rem;">Bandeja en vivo · Gmail</span>
-            Consultas dirigidas al equipo de IR de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}, recibidas en <strong>{{ gmail_user }}</strong> en las últimas <strong>2 horas</strong> cuyo asunto empieza por <code>{{ prefijo }}</code>. El botón <strong>Enviar</strong> remitirá la respuesta <strong>real</strong> al inversor.
+            Consultas dirigidas al equipo de IR de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}, recibidas en <strong>{{ gmail_user }}</strong> en las últimas <strong>24 horas</strong> cuyo asunto empieza por <code>{{ prefijo }}</code>. El botón <strong>Enviar</strong> remitirá la respuesta <strong>real</strong> al inversor.
         </p>
         <p style="font-size: 0.85rem; color: var(--gray-10); margin-top: 0.4rem;">
             <a href="/relacion-inversores">↻ Refrescar bandeja</a> · {{ correos|length }} correo{{ '' if correos|length == 1 else 's' }} pendiente{{ '' if correos|length == 1 else 's' }}
@@ -383,7 +400,7 @@
 
 {% if correos|length == 0 %}
 <div class="alert alert-info">
-    No hay correos en <strong>{{ gmail_user }}</strong> recibidos en las últimas 2 horas cuyo asunto empiece por <code>{{ prefijo }}</code>. Envía un correo de prueba y pulsa "Refrescar bandeja".
+    No hay correos en <strong>{{ gmail_user }}</strong> recibidos en las últimas 24 horas cuyo asunto empiece por <code>{{ prefijo }}</code>. Envía un correo de prueba y pulsa "Refrescar bandeja".
 </div>
 {% endif %}
 
@@ -547,6 +564,7 @@
                     <button type="button" class="btn btn-secondary btn-refinar">Refinar con IA</button>
                     <button type="button" class="btn btn-secondary btn-descartar">Descartar borrador</button>
                 </div>
+                <div class="ir-verificacion" hidden></div>
                 <div class="ir-nota-interna" hidden></div>
                 <div class="ir-status enviado" hidden></div>
                 <div class="ir-status error" hidden></div>
@@ -822,6 +840,7 @@
         const stEnviado = $(card, '.ir-status.enviado');
         const stError = $(card, '.ir-status.error');
         const notaInterna = $(card, '.ir-nota-interna');
+        const verifBox = $(card, '.ir-verificacion');
 
         const inputAsunto = $(card, '.ir-input-asunto');
         const inputCuerpo = $(card, '.ir-input-cuerpo');
@@ -932,6 +951,54 @@
                     }
                 }
 
+                // Panel de verificación A+C
+                if (verifBox) {
+                    const v = j.verificacion || {severidad: 'ninguna', alucinaciones: [], cifras_huerfanas: []};
+                    verifBox.classList.remove('ok','baja','media','alta');
+                    verifBox.hidden = false;
+                    const aluc = (v.alucinaciones || []).slice(0, 8);
+                    const cifras = (v.cifras_huerfanas || []).slice(0, 12);
+                    let html = '';
+                    if (v.severidad === 'ninguna' && !cifras.length) {
+                        verifBox.classList.add('ok');
+                        html = '<strong>✓ Verificación de calidad:</strong> el borrador no muestra cifras ni hechos sin respaldo en las fuentes disponibles.';
+                    } else if (v.severidad === 'baja' && !cifras.length) {
+                        verifBox.classList.add('baja');
+                        html = '<strong>✓ Verificación con observaciones menores:</strong>';
+                        if (aluc.length) {
+                            html += '<ul>' + aluc.map(a => `<li><em>"${(a.texto||'').replace(/[<>]/g, '')}"</em> — ${(a.razon||'').replace(/[<>]/g,'')}</li>`).join('') + '</ul>';
+                        }
+                    } else if (v.severidad === 'media') {
+                        verifBox.classList.add('media');
+                        html = '<strong>⚠ Revisa antes de enviar:</strong> hemos detectado contenido sin respaldo claro en las fuentes.';
+                        if (cifras.length) {
+                            html += '<div style="margin-top:.3rem;"><strong>Cifras que no aparecen en las fuentes:</strong><ul>'
+                                + cifras.map(c => `<li><code>${c}</code></li>`).join('') + '</ul></div>';
+                        }
+                        if (aluc.length) {
+                            html += '<div style="margin-top:.3rem;"><strong>Afirmaciones señaladas:</strong><ul>'
+                                + aluc.map(a => `<li><em>"${(a.texto||'').replace(/[<>]/g,'')}"</em> — ${(a.razon||'').replace(/[<>]/g,'')}</li>`).join('') + '</ul></div>';
+                        }
+                    } else if (v.severidad === 'alta') {
+                        verifBox.classList.add('alta');
+                        html = '<strong>⚠⚠ Posibles alucinaciones graves:</strong> el borrador contiene cifras concretas o hechos que no encontramos en las fuentes. Revísalo a fondo antes de enviar.';
+                        if (cifras.length) {
+                            html += '<div style="margin-top:.3rem;"><strong>Cifras sospechosas:</strong><ul>'
+                                + cifras.map(c => `<li><code>${c}</code></li>`).join('') + '</ul></div>';
+                        }
+                        if (aluc.length) {
+                            html += '<div style="margin-top:.3rem;"><strong>Afirmaciones sin respaldo:</strong><ul>'
+                                + aluc.map(a => `<li><em>"${(a.texto||'').replace(/[<>]/g,'')}"</em> — ${(a.razon||'').replace(/[<>]/g,'')}</li>`).join('') + '</ul></div>';
+                        }
+                    } else {
+                        verifBox.classList.add('ok');
+                        html = '<strong>✓ Verificación:</strong> sin observaciones.';
+                    }
+                    verifBox.innerHTML = html;
+                    // Si severidad alta, exigimos confirmación al pulsar Enviar.
+                    card.dataset.verifSeveridad = v.severidad || 'ninguna';
+                }
+
                 const tipoIA = (j.tipo_inversor || '').toLowerCase();
                 if (tipoIA === 'minorista' || tipoIA === 'mayorista') {
                     card.classList.remove('minorista', 'mayorista');
@@ -1009,6 +1076,16 @@
         });
 
         btnEnviar.addEventListener('click', async () => {
+            // Si la verificación marcó alta severidad, pedimos confirmación.
+            if (card.dataset.verifSeveridad === 'alta') {
+                const ok = confirm(
+                    '⚠ La verificación automática ha detectado contenido sin '
+                    + 'respaldo en las fuentes (posibles alucinaciones).\n\n'
+                    + 'Asegúrate de haber revisado el borrador. ¿Confirmas que '
+                    + 'quieres enviarlo igualmente?'
+                );
+                if (!ok) return;
+            }
             btnEnviar.disabled = true;
             btnRefinar.disabled = true;
             btnDescartar.disabled = true;
