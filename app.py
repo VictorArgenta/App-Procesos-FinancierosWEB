@@ -396,6 +396,14 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GMAIL_USER = os.getenv("GMAIL_USER")
 GMAIL_APP_PASSWORD = os.getenv("GMAIL_APP_PASSWORD")
 IR_PREFIJO_ASUNTO = os.getenv("IR_PREFIJO_ASUNTO", "Inversores")
+# Modelo usado por la capa C del verificador anti-alucinaciones. Sonnet por
+# defecto: más preciso que Haiku a la hora de detectar respaldos sutiles
+# (citas literales, variaciones de formato) a un coste todavía bajo.
+CRITIC_MODEL = os.getenv("CRITIC_MODEL", "claude-sonnet-4-6")
+# Tamaños máximos pasados al critic en caracteres. Subidos para reducir
+# falsos positivos por contexto truncado.
+CRITIC_MAX_BORRADOR = int(os.getenv("CRITIC_MAX_BORRADOR", "12000"))
+CRITIC_MAX_FUENTES = int(os.getenv("CRITIC_MAX_FUENTES", "60000"))
 
 
 def _prefijo_asunto_actual():
@@ -4115,15 +4123,54 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
 
     # Capa A + C: verificación contra alucinaciones. Solo si el borrador
     # contiene algo sustancioso (no si se quedó vacío por puede_resolver=False).
+    # Pasamos al critic el corpus COMPLETO (no solo los chunks recuperados
+    # por BM25) para reducir falsos positivos cuando un dato real está en
+    # una zona del documento que la consulta no recuperó.
     cuerpo_para_verificar = parsed.get("cuerpo_respuesta") or ""
     if cuerpo_para_verificar.strip():
         fuentes_para_verificar = []
-        if lineas_maestras:
-            fuentes_para_verificar.append(lineas_maestras)
-        if rag_chunks_texto:
-            fuentes_para_verificar.append(rag_chunks_texto)
+        if lineas_maestras and fuentes_activas.get("lineas", True):
+            fuentes_para_verificar.append(
+                "[LÍNEAS MAESTRAS]\n" + lineas_maestras
+            )
+        # Texto completo de TODOS los chunks indexados del corpus
+        # (no solo los top-K que el LLM principal vio).
+        if rag_idx is not None and rag_idx.chunks and (
+            fuentes_activas.get("docs", True) or fuentes_activas.get("web", True)
+        ):
+            docs_ficheros_activos = fuentes_activas.get("docs_ficheros")
+            corpus_local_textos = []
+            corpus_web_textos = []
+            for ch in rag_idx.chunks:
+                meta = ch.get("meta", {})
+                tipo = meta.get("fuente_tipo", "")
+                es_local = tipo in ("pdf_local", "docx_local", "html_local",
+                                     "txt_local", "md_local")
+                es_web = tipo in ("web", "pdf_web")
+                if es_local and not fuentes_activas.get("docs", True):
+                    continue
+                if es_web and not fuentes_activas.get("web", True):
+                    continue
+                if es_local and docs_ficheros_activos is not None:
+                    if meta.get("fuente_nombre", "") not in docs_ficheros_activos:
+                        continue
+                etiqueta = meta.get("fuente_nombre") or meta.get("fuente_url") or "?"
+                if es_local:
+                    corpus_local_textos.append(f"[{etiqueta}]\n{ch['texto']}")
+                else:
+                    corpus_web_textos.append(f"[{etiqueta}]\n{ch['texto']}")
+            if corpus_local_textos:
+                fuentes_para_verificar.append(
+                    "[DOCUMENTOS LOCALES — TEXTO COMPLETO INDEXADO]\n\n"
+                    + "\n\n---\n\n".join(corpus_local_textos)
+                )
+            if corpus_web_textos:
+                fuentes_para_verificar.append(
+                    "[CRAWL WEB CORPORATIVA — TEXTO COMPLETO INDEXADO]\n\n"
+                    + "\n\n---\n\n".join(corpus_web_textos)
+                )
         if incluir_yahoo:
-            fuentes_para_verificar.append(tabla)
+            fuentes_para_verificar.append("[YAHOO FINANCE]\n" + tabla)
         try:
             parsed["verificacion"] = _verificar_borrador(
                 cuerpo_para_verificar, fuentes_para_verificar,
@@ -4269,21 +4316,60 @@ def _verificar_cifras_en_borrador(borrador, fuentes_textos):
     return huerfanas
 
 
-_PROMPT_CRITIC = """Eres un VERIFICADOR de calidad de respuestas. Recibes un
-BORRADOR y un conjunto de FUENTES. Tu única tarea es detectar afirmaciones del
-borrador que NO estén respaldadas por ninguna fuente.
+_PROMPT_CRITIC = """Eres un VERIFICADOR de calidad. Recibes un BORRADOR de
+respuesta y un conjunto de FUENTES (puede incluir PDFs corporativos, datos
+de Yahoo Finance, líneas maestras y resultados de crawl web). Tu única
+tarea es detectar afirmaciones del borrador que NO estén respaldadas por
+ninguna fuente.
 
-Reglas:
-- Una afirmación está respaldada si su contenido sustantivo (cifras concretas,
-  hechos, eventos, nombres de personas/productos) aparece literalmente o de
-  forma obvia en alguna fuente.
-- Las cifras derivadas (ratios calculados, porcentajes deducidos) están
-  respaldadas si los datos base sí están en las fuentes.
-- Las frases de cortesía o estructura de correo (saludos, agradecimientos,
-  firma, cierres) NO son alucinaciones.
-- Lo que SÍ es alucinación: cifras concretas no presentes en las fuentes,
-  eventos inventados, acuerdos inexistentes, nombres de personas o
-  competidores que no aparecen en las fuentes.
+REGLAS DE INTERPRETACIÓN (críticas, léelas con atención):
+
+1. La duda razonable favorece al borrador. Si un dato PODRÍA estar
+   respaldado por alguna fuente (aunque tengas que leer con atención
+   para verlo), NO lo marques. Solo marca lo que tengas certeza de que
+   no aparece.
+
+2. Las fuentes pueden estar en español, inglés u otro idioma; el
+   borrador casi siempre estará en castellano. Una cifra está
+   respaldada si aparece en cualquier idioma de las fuentes. Ejemplo:
+   borrador dice "BPA 6,59 USD" → fuente en inglés dice "Basic EPS 6.59"
+   → ESTÁ respaldada.
+
+3. Variaciones de FORMATO no cuentan como alucinación si el valor
+   numérico es el mismo:
+   - "1,09 €" ≡ "1.09 EUR" ≡ "EUR 1.09" ≡ "1,09 euros brutos por acción"
+   - "11,7%" ≡ "11.7%" ≡ "11.7 percent" ≡ "incremento del 11,7"
+   - "134.902 M USD" ≡ "$134.902 million" ≡ "$134,902,000,000"
+   - "Deuda Neta / EBITDA 1,8x" ≡ "Net Debt to EBITDA 1.8"
+
+4. Las CIFRAS DERIVADAS por cálculo están respaldadas si los datos
+   base están en las fuentes. Ej: si las fuentes tienen ingresos y
+   coste de ventas, el "margen bruto" calculado está respaldado.
+
+5. Las paráfrasis están respaldadas. Si el borrador dice "Mapfre
+   propone repartir 1,09 €/acción con cargo a 2025" y la fuente dice
+   "Se propone a la Junta General Ordinaria la distribución de un
+   dividendo de 1,09 euros brutos por acción", ESTÁ respaldada.
+
+6. Estructura habitual de correo (saludos, agradecimientos, fórmulas
+   de cortesía, firma) NO son alucinaciones, ignóralas.
+
+7. Frases generales sobre contexto obvio del sector ("el sector
+   asegurador europeo", "el mercado en general") NO son
+   alucinaciones, ignóralas.
+
+LO QUE SÍ es alucinación (marca con severidad alta):
+- Cifras concretas que no aparecen ni siquiera con interpretación
+  flexible: ej. dices "10.000 millones" cuando ninguna fuente menciona
+  esa cifra ni nada cercano.
+- Eventos o hechos inventados: ej. dices "Mapfre adquirió X en 2024" y
+  ninguna fuente lo menciona.
+- Nombres de personas o competidores no presentes en fuentes.
+- Citas literales atribuidas que no aparecen.
+
+ANTES DE MARCAR una alucinación, busca activamente el dato en las
+fuentes. Si no lo encuentras a primera vista, búscalo con paráfrasis o
+en idioma original. SOLO si tras esa búsqueda no aparece, marca.
 
 BORRADOR:
 {borrador}
@@ -4293,78 +4379,137 @@ FUENTES DISPONIBLES (texto literal):
 {fuentes}
 ---
 
-Devuelve EXCLUSIVAMENTE un objeto JSON con esta estructura, sin texto antes
-ni después, sin acentos graves:
+Devuelve EXCLUSIVAMENTE un objeto JSON con esta estructura, sin texto
+antes ni después, sin acentos graves:
 
 {{
   "severidad": "alta" | "media" | "baja" | "ninguna",
   "alucinaciones": [
-    {{"texto": "fragmento exacto del borrador", "razon": "explicación corta"}}
+    {{"texto": "fragmento exacto del borrador", "razon": "explicación corta y específica de por qué no está en las fuentes"}}
   ]
 }}
 
-Criterio de severidad:
-- "alta": al menos una cifra concreta inventada o un hecho/evento falso.
-- "media": afirmaciones generales sin respaldo claro pero sin cifras erróneas.
-- "baja": pequeñas atribuciones débiles o ligeros adornos sin respaldo.
-- "ninguna": todo el contenido sustantivo está respaldado.
+Criterio de severidad (sé conservador):
+- "alta": tienes CERTEZA de que hay al menos una cifra concreta
+  inventada o un hecho/evento falso. Si tienes dudas, baja a "media".
+- "media": afirmaciones generales sin respaldo claro pero sin cifras
+  erróneas verificadas.
+- "baja": pequeñas atribuciones débiles que no perjudican al usuario.
+- "ninguna": todo el contenido sustantivo está respaldado o es
+  cortesía. Esta debe ser la respuesta más frecuente.
 """
 
 
-def _revisar_con_critic(borrador, fuentes_textos, max_borrador=8000, max_fuentes=12000):
-    """Capa C: llamada al critic LLM (Haiku) para detectar alucinaciones.
+def _revisar_con_critic(borrador, fuentes_textos,
+                         max_borrador=None, max_fuentes=None, modelo=None):
+    """Capa C: llamada al critic LLM (Sonnet por defecto) para detectar alucinaciones.
 
-    Devuelve dict con `severidad` y lista de `alucinaciones`. Si la llamada
-    falla, devuelve estructura vacía sin romper el flujo.
+    Devuelve dict con `severidad`, lista de `alucinaciones`, el `modelo` que
+    se usó y el `contexto_fuentes` real que vio el critic (para que la UI
+    pueda mostrar al usuario lo que estaba evaluándose).
     """
     if not borrador or not borrador.strip():
-        return {"severidad": "ninguna", "alucinaciones": []}
+        return {"severidad": "ninguna", "alucinaciones": [],
+                "modelo": None, "contexto_fuentes": ""}
+    if max_borrador is None:
+        max_borrador = CRITIC_MAX_BORRADOR
+    if max_fuentes is None:
+        max_fuentes = CRITIC_MAX_FUENTES
+    if modelo is None:
+        modelo = CRITIC_MODEL
+
     fuentes_join = "\n---\n".join(t for t in fuentes_textos if t)
+    contexto_fuentes = fuentes_join[:max_fuentes]
+    borrador_truncado = borrador[:max_borrador]
+    truncado_borrador = len(borrador) > max_borrador
+    truncado_fuentes = len(fuentes_join) > max_fuentes
+
     prompt = _PROMPT_CRITIC.format(
-        borrador=borrador[:max_borrador],
-        fuentes=fuentes_join[:max_fuentes],
+        borrador=borrador_truncado,
+        fuentes=contexto_fuentes,
     )
     try:
         texto, _ = llamar_ia_con_reintentos(
-            prompt, max_tokens=1500,
-            modelo="claude-haiku-4-5-20251001",
+            prompt, max_tokens=1800,
+            modelo=modelo,
             permitir_busqueda=False,
             modulo="critic",
         )
     except Exception as e:
         _logging.getLogger("dfin.critic").warning("Critic LLM falló: %s", e)
-        return {"severidad": "ninguna", "alucinaciones": [], "error": str(e)}
+        return {
+            "severidad": "ninguna", "alucinaciones": [], "error": str(e),
+            "modelo": modelo, "contexto_fuentes": contexto_fuentes,
+            "truncado_borrador": truncado_borrador,
+            "truncado_fuentes": truncado_fuentes,
+        }
     bloque = re.search(r"\{.*\}", texto or "", re.DOTALL)
     if not bloque:
-        return {"severidad": "ninguna", "alucinaciones": []}
+        return {
+            "severidad": "ninguna", "alucinaciones": [],
+            "modelo": modelo, "contexto_fuentes": contexto_fuentes,
+            "truncado_borrador": truncado_borrador,
+            "truncado_fuentes": truncado_fuentes,
+        }
     try:
         import json as _json
         parsed = _json.loads(bloque.group(0), strict=False)
     except _json.JSONDecodeError:
-        return {"severidad": "ninguna", "alucinaciones": []}
+        return {
+            "severidad": "ninguna", "alucinaciones": [],
+            "modelo": modelo, "contexto_fuentes": contexto_fuentes,
+            "truncado_borrador": truncado_borrador,
+            "truncado_fuentes": truncado_fuentes,
+        }
     sev = (parsed.get("severidad") or "").lower()
     if sev not in ("alta", "media", "baja", "ninguna"):
         sev = "ninguna"
     return {
         "severidad": sev,
         "alucinaciones": parsed.get("alucinaciones") or [],
+        "modelo": modelo,
+        "contexto_fuentes": contexto_fuentes,
+        "truncado_borrador": truncado_borrador,
+        "truncado_fuentes": truncado_fuentes,
     }
 
 
 def _verificar_borrador(borrador, fuentes_textos):
-    """Combina capa A (cifras determinístico) + capa C (critic LLM)."""
+    """Combina capa A (cifras determinístico) + capa C (critic LLM).
+
+    Regla 6: la severidad "alta" requiere que AMBAS capas estén de acuerdo
+    (capa A detectó cifras huérfanas Y capa C marcó alta). Si solo una de
+    las dos eleva, el resultado se queda en "media" como aviso pero no
+    bloqueante. Esto reduce los falsos positivos del critic cuando capa A
+    no encuentra problemas en las cifras.
+    """
     cifras_huerfanas = _verificar_cifras_en_borrador(borrador, fuentes_textos)
     critic = _revisar_con_critic(borrador, fuentes_textos)
-    # Si hay cifras huérfanas y el critic no detectó nada, elevamos severidad
-    # a "media" como mínimo para que el usuario revise.
-    severidad = critic.get("severidad", "ninguna")
-    if cifras_huerfanas and severidad in ("ninguna", "baja"):
+    sev_critic = critic.get("severidad", "ninguna")
+
+    # Combinación de severidades de las dos capas:
+    if cifras_huerfanas and sev_critic == "alta":
+        severidad = "alta"
+    elif sev_critic == "alta" and not cifras_huerfanas:
+        # El critic dice alta pero capa A no encontró cifras inventadas:
+        # probable falso positivo del critic. Degradamos a media.
         severidad = "media"
+    elif cifras_huerfanas:
+        severidad = sev_critic if sev_critic == "media" else "media"
+    else:
+        severidad = sev_critic
+
     return {
         "severidad": severidad,
+        "severidad_capa_a": "alta" if cifras_huerfanas else "ninguna",
+        "severidad_capa_c": sev_critic,
         "cifras_huerfanas": cifras_huerfanas,
         "alucinaciones": critic.get("alucinaciones", []),
         "n_problemas": len(cifras_huerfanas) + len(critic.get("alucinaciones", [])),
+        "modelo_critic": critic.get("modelo"),
+        "contexto_fuentes": critic.get("contexto_fuentes", ""),
+        "truncado_borrador": critic.get("truncado_borrador", False),
+        "truncado_fuentes": critic.get("truncado_fuentes", False),
     }
 
 
