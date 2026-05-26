@@ -1532,143 +1532,6 @@ en la conclusión narrativa, sin listado de URLs ni "Fuentes consultadas".)"""
     return respuesta, memoria_nueva, citas
 
 
-# Nombre del sistema externo simulado para la detección de incoherencias.
-SISTEMA_NOTA_OFICIAL = "Workiva"
-
-
-def _extraer_json_incoherencias(texto_crudo):
-    """Localiza el primer array JSON en la respuesta y lo parsea.
-
-    El LLM a veces envuelve el JSON en prosa o en un bloque ```json```;
-    aceptamos cualquiera de esas variantes.
-    """
-    if not texto_crudo:
-        return []
-    texto = texto_crudo.strip()
-    # Bloque ```json ... ```
-    m = re.search(r"```(?:json)?\s*(\[.*?\])\s*```", texto, re.DOTALL)
-    if m:
-        candidato = m.group(1)
-    else:
-        # Primer array que aparezca en el texto
-        m2 = re.search(r"\[\s*\{.*\}\s*\]", texto, re.DOTALL)
-        candidato = m2.group(0) if m2 else texto
-    try:
-        data = json.loads(candidato)
-    except (json.JSONDecodeError, TypeError):
-        return []
-    if not isinstance(data, list):
-        return []
-    incoherencias = []
-    for item in data:
-        if not isinstance(item, dict):
-            continue
-        incoherencias.append({
-            "tipo": str(item.get("tipo", "")).strip() or "Discrepancia",
-            "severidad": str(item.get("severidad", "")).strip().lower() or "media",
-            "informe": str(item.get("informe", "")).strip() or "Informe corporativo",
-            "extracto_ia": str(item.get("extracto_ia", "")).strip(),
-            "extracto_oficial": str(item.get("extracto_oficial", "")).strip(),
-            "explicacion": str(item.get("explicacion", "")).strip(),
-        })
-    return incoherencias
-
-
-# Catálogo de informes narrativos simulados disponibles en el repositorio
-# corporativo. El LLM debe atribuir cada incoherencia a uno de estos
-# documentos para que la simulación sea coherente.
-_INFORMES_WORKIVA = [
-    "Informe de gestión",
-    "Informe al consejo de administración",
-    "Informe de evolución del negocio",
-    "Informe trimestral de resultados",
-    "Memoria abreviada de cuentas anuales",
-    "Presentación a inversores",
-    "Informe de auditoría interna",
-    "Comentario de la dirección sobre los resultados (MD&A)",
-]
-
-
-def detectar_incoherencias_memoria(datos, memoria, modelo):
-    """Simula la detección de incoherencias entre la nota IA y un conjunto
-    de informes narrativos corporativos almacenados en Workiva.
-
-    Los informes no existen: pedimos al LLM que invente entre 4 y 6
-    discrepancias verosímiles, ancladas en los datos y el texto reales,
-    y atribuya cada una a un informe distinto del catálogo simulado.
-    """
-    tabla_texto = _texto_datos_para_prompt(datos)
-    memoria_trunc = (memoria or "").strip()
-    if len(memoria_trunc) > 6000:
-        memoria_trunc = memoria_trunc[:6000] + "\n[...]"
-
-    catalogo_informes = "\n".join(f"  - {n}" for n in _INFORMES_WORKIVA)
-
-    prompt = f"""Eres un revisor financiero senior. Estás comparando la NOTA EXPLICATIVA
-de la cuenta de Pérdidas y Ganancias generada automáticamente por IA contra
-un CONJUNTO DE INFORMES NARRATIVOS CORPORATIVOS almacenados en el repositorio
-{SISTEMA_NOTA_OFICIAL}. Cada informe del repositorio aborda, total o
-parcialmente, la misma información financiera que la nota IA, pero ha sido
-redactado por equipos distintos (dirección financiera, auditoría, relaciones
-con inversores, etc.), por lo que es habitual encontrar pequeñas
-divergencias entre ellos.
-
-CATÁLOGO DE INFORMES DEL REPOSITORIO (SIMULADO — escoge entre estos nombres
-literales para el campo "informe", usa AL MENOS 3 informes distintos a lo
-largo de las incoherencias que reportes):
-{catalogo_informes}
-
-Tu tarea: identificar entre 4 y 6 incoherencias VEROSÍMILES entre la nota
-IA y los distintos informes del repositorio. Cada incoherencia debe estar
-ANCLADA en los datos financieros y en el texto real de la versión IA (cita
-extractos cortos exactos de la versión IA). La redacción del informe
-corporativo es SIMULADA: invéntala con sentido financiero — cifras parecidas
-pero ligeramente distintas, otro número de decimales, otro driver atribuido,
-otro año destacado, otro signo de tendencia, otro reparto del margen, etc.
-Asegúrate de que el extracto del informe es ESTILÍSTICAMENTE COHERENTE con
-el tipo de informe del que procede (p. ej. el "Informe al consejo" usa tono
-ejecutivo y agregado; la "Presentación a inversores" es más promocional;
-el "Informe de auditoría interna" es más técnico y prudente).
-
-Tipos de incoherencia que debes cubrir (al menos 3 tipos distintos entre las
-4-6 que reportes):
-- "Cifra": las dos versiones reportan un importe diferente para la misma
-  métrica (p. ej. ingresos FY2024).
-- "Decimales": misma magnitud con distinta precisión (1 vs 2 decimales, o
-  redondeo distinto).
-- "Driver": ambas atribuyen la variación a causas distintas (p. ej. la IA
-  habla de tipo de cambio y el informe corporativo de volumen).
-- "Periodo": una destaca otro ejercicio como pico o valle.
-- "Signo/tendencia": una habla de mejora interanual y la otra de empeoramiento
-  marginal.
-- "Unidad/escala": miles vs millones, o moneda local vs reporting.
-
-DEVUELVE EXCLUSIVAMENTE un array JSON válido (sin texto fuera del array, sin
-bloques de código markdown). Cada elemento del array tiene exactamente estas
-claves:
-  - "tipo": una de las categorías de arriba (string corto).
-  - "severidad": "alta" | "media" | "baja".
-  - "informe": nombre LITERAL del informe del catálogo de arriba.
-  - "extracto_ia": fragmento literal (máx 220 caracteres) de la versión IA.
-  - "extracto_oficial": fragmento inventado (máx 220 caracteres) tal como
-    aparecería en el informe corporativo indicado.
-  - "explicacion": 1-2 frases explicando por qué difieren y qué implicación
-    tiene para el lector.
-
-Datos financieros (referencia común a todos los documentos):
-{tabla_texto}
-
-VERSIÓN IA (íntegra):
-{memoria_trunc}
-"""
-
-    texto, _citas = llamar_ia_con_reintentos(
-        prompt, max_tokens=2500, modelo=modelo, permitir_busqueda=False,
-        modulo="informe.incoherencias",
-    )
-    return _extraer_json_incoherencias(texto)
-
-
 def generar_analisis_comparativo(datos_empresas, modelo):
     """Genera un análisis comparativo de hasta 3 empresas con el modelo elegido."""
     texto = ""
@@ -3324,7 +3187,12 @@ def _listar_informes_descargados():
     d = _dir_descargas_ticker()
     items = []
     if d and d.exists():
-        for ruta in sorted(d.iterdir(), reverse=True):
+        def _mtime(p):
+            try:
+                return p.stat().st_mtime
+            except OSError:
+                return 0.0
+        for ruta in sorted(d.iterdir(), key=_mtime, reverse=True):
             if ruta.suffix.lower() not in (".docx", ".pdf"):
                 continue
             try:
@@ -3493,6 +3361,13 @@ def generar_informe():
         "extension": extension,
     })
 
+    meta_informe = {
+        "tipo": tipo_informe,
+        "enfoques": enfoques_pred,
+        "enfoque_libre": enfoque_libre,
+        "extension": extension,
+    }
+
     return render_template(
         "resultado.html",
         datos=datos,
@@ -3506,12 +3381,9 @@ def generar_informe():
         instrucciones_iniciales=instrucciones,
         busqueda_activa_inicial=buscar_noticias,
         metricas_relevantes=metricas_relevantes,
-        meta_informe={
-            "tipo": tipo_informe,
-            "enfoques": enfoques_pred,
-            "enfoque_libre": enfoque_libre,
-            "extension": extension,
-        },
+        meta_informe=meta_informe,
+        nombre_sugerido=_nombre_sugerido_informe(datos, meta_informe),
+        informes_previos=_listar_informes_descargados(),
     )
 
 
@@ -3572,48 +3444,6 @@ def chat_memoria():
         "chat_reply": respuesta_chat,
         "memoria_html": memoria_fragmento,
         "memoria_updated": memoria_nueva is not None,
-    })
-
-
-@app.route("/detectar_incoherencias", methods=["POST"])
-def detectar_incoherencias():
-    """Simula la conexión con Workiva y devuelve incoherencias inventadas
-    entre la nota IA y la supuesta nota oficial del equipo financiero.
-    """
-    from flask import jsonify
-
-    data = request.get_json(silent=True) or {}
-    cache_id = (data.get("cache_id") or "").strip()
-    cached = _download_cache.get(cache_id)
-    if not cached or "datos" not in cached or "nota" not in cached:
-        return jsonify({
-            "error": "La sesión ha caducado. Genera la memoria de nuevo.",
-        }), 400
-
-    modelo = _normalizar_modelo(
-        data.get("modelo") or cached.get("modelo") or MODELO_POR_DEFECTO
-    )
-
-    try:
-        incoherencias = detectar_incoherencias_memoria(
-            cached["datos"], cached["nota"], modelo,
-        )
-    except Exception as e:
-        return jsonify({"error": f"Error consultando {SISTEMA_NOTA_OFICIAL}: {str(e)}"}), 500
-
-    if not incoherencias:
-        return jsonify({
-            "sistema": SISTEMA_NOTA_OFICIAL,
-            "incoherencias": [],
-            "mensaje": (
-                f"No se han detectado incoherencias relevantes entre la nota IA y "
-                f"la versión oficial recuperada de {SISTEMA_NOTA_OFICIAL}."
-            ),
-        })
-
-    return jsonify({
-        "sistema": SISTEMA_NOTA_OFICIAL,
-        "incoherencias": incoherencias,
     })
 
 
@@ -4751,20 +4581,76 @@ def _dir_descargas_ticker():
     return d
 
 
-def _guardar_descarga_en_empresa(buffer, datos, extension):
+_TIPOS_INFORME_ETIQUETA = {
+    "nota_memoria": "Nota de Memoria",
+    "consejo": "Informe al Consejo",
+    "interno": "Informe Interno",
+    "accionista": "Explicacion a accionista",
+}
+_EXTENSIONES_INFORME_ETIQUETA = {
+    "breve": "Breve",
+    "estandar": "Estandar",
+    "extensa": "Extensa",
+}
+
+
+def _sanitizar_nombre_fichero(nombre, por_defecto="informe"):
+    """Convierte un nombre libre en uno seguro: solo letras, dígitos, '.', '-', '_'.
+
+    Quita una extensión .docx/.pdf si el usuario la incluyó (la añade quien
+    descarga). El resultado es servible luego por /descargar-archivado, cuya
+    validación es ^[\\w.\\-]+$.
+    """
+    s = (nombre or "").strip()
+    s = re.sub(r"\.(docx|pdf)$", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"[\s/\\]+", "_", s)
+    s = re.sub(r"[^\w.\-]", "", s)
+    s = s.strip("._-")
+    return s[:120] or por_defecto
+
+
+def _nombre_sugerido_informe(datos, meta):
+    """Nombre base descriptivo (sin extensión) a partir de las opciones elegidas."""
+    from datetime import datetime as _dt
+    meta = meta or {}
+    partes = [_TIPOS_INFORME_ETIQUETA.get(meta.get("tipo"), "Informe")]
+    ticker = (datos or {}).get("ticker") or TICKER_FIJO or ""
+    if ticker:
+        partes.append(ticker)
+    enfoques = meta.get("enfoques") or []
+    if enfoques:
+        partes.append("-".join(enfoques[:2]))
+    ext = _EXTENSIONES_INFORME_ETIQUETA.get(meta.get("extension"))
+    if ext:
+        partes.append(ext)
+    partes.append(_dt.now().strftime("%Y-%m-%d"))
+    return _sanitizar_nombre_fichero("_".join(p for p in partes if p))
+
+
+def _guardar_descarga_en_empresa(buffer, datos, extension, nombre=None):
     """Guarda una copia del documento generado en Empresas/{TICKER}/descargas/.
 
-    Devuelve la ruta absoluta del fichero guardado (o None si no hay
-    TICKER_FIJO o falla la escritura). El buffer se rebobina al final.
+    Si `nombre` viene informado, se usa (saneado) como nombre de fichero; en
+    caso de colisión se añade un sufijo numérico. Si no, se cae al patrón
+    `{timestamp}_{ticker}_informe`. Devuelve la ruta absoluta del fichero
+    guardado (o None si no hay TICKER_FIJO o falla la escritura). El buffer se
+    rebobina al final.
     """
     dst = _dir_descargas_ticker()
     if not dst:
         return None
     from datetime import datetime as _dt
-    ticker = (datos or {}).get("ticker") or TICKER_FIJO or "informe"
-    ts = _dt.now().strftime("%Y-%m-%d_%H-%M-%S")
-    nombre = f"{ts}_{ticker}_informe.{extension}"
-    ruta = dst / nombre
+    if nombre:
+        base = _sanitizar_nombre_fichero(nombre)
+        ruta = dst / f"{base}.{extension}"
+        contador = 2
+        while ruta.exists():
+            ruta = dst / f"{base}_{contador}.{extension}"
+            contador += 1
+    else:
+        ticker = (datos or {}).get("ticker") or TICKER_FIJO or "informe"
+        ts = _dt.now().strftime("%Y-%m-%d_%H-%M-%S")
+        ruta = dst / f"{ts}_{ticker}_informe.{extension}"
     try:
         buffer.seek(0)
         ruta.write_bytes(buffer.read())
@@ -5239,13 +5125,16 @@ def descargar_word():
 
     datos = cached["datos"]
     nota = cached["nota"]
+    nombre = _sanitizar_nombre_fichero(
+        request.form.get("nombre", ""), por_defecto=f"informe_{datos['ticker']}"
+    )
     try:
         buffer = crear_documento_word(datos, nota)
-        _guardar_descarga_en_empresa(buffer, datos, "docx")
+        _guardar_descarga_en_empresa(buffer, datos, "docx", nombre=nombre)
         return send_file(
             buffer,
             as_attachment=True,
-            download_name=f"informe_{datos['ticker']}.docx",
+            download_name=f"{nombre}.docx",
             mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         )
     except Exception as e:
@@ -5283,13 +5172,16 @@ def descargar_pdf():
 
     datos = cached["datos"]
     nota = cached["nota"]
+    nombre = _sanitizar_nombre_fichero(
+        request.form.get("nombre", ""), por_defecto=f"informe_{datos['ticker']}"
+    )
     try:
         buffer = crear_documento_pdf(datos, nota)
-        _guardar_descarga_en_empresa(buffer, datos, "pdf")
+        _guardar_descarga_en_empresa(buffer, datos, "pdf", nombre=nombre)
         return send_file(
             buffer,
             as_attachment=True,
-            download_name=f"informe_{datos['ticker']}.pdf",
+            download_name=f"{nombre}.pdf",
             mimetype="application/pdf",
         )
     except Exception as e:
