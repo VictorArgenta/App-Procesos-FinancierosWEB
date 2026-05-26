@@ -12,6 +12,7 @@
 </div>
 
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.2rem;">
+    {% if EMPRESA_COTIZA %}
     <div class="card" style="border-top: 3px solid #86BC25;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <h2>Generar Informe Narrativo</h2>
@@ -26,6 +27,7 @@
         </ul>
         <div style="margin-top: 1rem;"><a href="/analisis" class="btn btn-primary">Acceder</a></div>
     </div>
+    {% endif %}
 
     <div class="card" style="border-top: 3px solid #86BC25;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">

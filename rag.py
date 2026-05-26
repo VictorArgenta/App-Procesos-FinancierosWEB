@@ -472,6 +472,9 @@ class BM25Index:
 # --- Pipeline completo por ticker ------------------------------------------
 
 
+_CLAVES_CONFIG_EMPRESA = {"cotiza", "ticker"}
+
+
 def _leer_urls_inversores(ruta_txt: Path) -> list[str]:
     if not ruta_txt.exists():
         return []
@@ -480,6 +483,12 @@ def _leer_urls_inversores(ruta_txt: Path) -> list[str]:
         s = linea.strip()
         if not s or s.startswith("#"):
             continue
+        # El fichero comparte config de empresa (cotiza=, ticker=) con las URLs;
+        # esas líneas no son crawleables.
+        if "://" not in s and "=" in s:
+            clave = s.split("=", 1)[0].strip().lower()
+            if clave in _CLAVES_CONFIG_EMPRESA:
+                continue
         urls.append(s)
     return urls
 
