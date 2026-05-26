@@ -5489,11 +5489,39 @@ if __name__ == "__main__":
                 print(f"[DFin AI] AVISO: fallo lanzando RAG: {_e}")
                 _arranque_logger.exception("Fallo en RAG async para %s", TICKER_FIJO)
 
-        print("[DFin AI] Servidor listo. Abre http://localhost:5000\n")
+        print("[DFin AI] Preparando el servidor…\n")
     else:
         # Modo "selector": sin ticker, el usuario lo elegirá en la web.
-        print("\n[DFin AI] Aplicación lista. Abre http://localhost:5000 "
-              "y selecciona la empresa en el selector inicial.\n")
         _arranque_logger.info("Arranque sin TICKER_FIJO: selección desde la web.")
+
+    _modo_selector = not TICKER_FIJO
+
+    def _anunciar_app_lista():
+        url = "http://127.0.0.1:5000"
+        borde = "=" * 60
+        lineas = [
+            "", borde, "",
+            "   APLICACION LISTA",
+            "",
+            "   Ya puede acceder desde su navegador en:",
+            "",
+            "       " + url,
+        ]
+        if _modo_selector:
+            lineas += ["", "   Elija la empresa en el selector inicial."]
+        lineas += [
+            "",
+            "   Para detener la aplicacion, pulse CTRL+C en esta ventana.",
+            "", borde, "",
+        ]
+        print("\n".join(lineas), flush=True)
+
+    # Con el reloader de Flask (debug=True) el arranque corre en dos procesos;
+    # solo el que sirve de verdad tiene WERKZEUG_RUN_MAIN=true. Programamos el
+    # aviso ~2 s después de levantar el servidor para que salga LIMPIO, debajo
+    # del ruido de arranque de Werkzeug, y una sola vez.
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        import threading as _th_run
+        _th_run.Timer(2.0, _anunciar_app_lista).start()
 
     app.run(debug=True, host="0.0.0.0", port=5000)
