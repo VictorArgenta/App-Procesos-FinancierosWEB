@@ -20,17 +20,38 @@
         </p>
     </div>
     <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-        <form method="POST" action="/descargar_word" style="display: inline;" onsubmit="return downloadFile(this)">
-            <input type="hidden" name="cache_id" value="{{ cache_id }}">
-            <button type="submit" class="btn btn-dark">Exportar Word</button>
-        </form>
-        <form method="POST" action="/descargar_pdf" style="display: inline;" onsubmit="return downloadFile(this)">
-            <input type="hidden" name="cache_id" value="{{ cache_id }}">
-            <button type="submit" class="btn btn-primary">Exportar PDF</button>
-        </form>
+        <button type="button" class="btn btn-dark" onclick="abrirExport('word')">Exportar Word</button>
+        <button type="button" class="btn btn-primary" onclick="abrirExport('pdf')">Exportar PDF</button>
         <a href="/analisis" class="btn btn-secondary">Nuevo análisis</a>
+        <form id="formExportWord" method="POST" action="/descargar_word" style="display:none;" onsubmit="return downloadFile(this)">
+            <input type="hidden" name="cache_id" value="{{ cache_id }}">
+            <input type="hidden" name="nombre" id="nombreExportWord">
+        </form>
+        <form id="formExportPdf" method="POST" action="/descargar_pdf" style="display:none;" onsubmit="return downloadFile(this)">
+            <input type="hidden" name="cache_id" value="{{ cache_id }}">
+            <input type="hidden" name="nombre" id="nombreExportPdf">
+        </form>
     </div>
 </div>
+
+<dialog id="exportDialog" class="export-modal">
+    <div class="export-modal-head">
+        <h2 style="margin:0;">Exportar informe</h2>
+        <button type="button" class="export-modal-close" onclick="document.getElementById('exportDialog').close()" aria-label="Cerrar">&times;</button>
+    </div>
+    <p style="color: var(--gray-10); font-size: 0.88rem; margin: 0.4rem 0 0.9rem;">
+        Elige el nombre con el que se guardará el documento. Te proponemos uno con las opciones del informe; puedes editarlo.
+    </p>
+    <label for="exportNombre" style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:4px;">Nombre del fichero</label>
+    <div style="display:flex; align-items:center; gap:6px;">
+        <input type="text" id="exportNombre" style="flex:1; padding:8px 10px; border:1px solid var(--gray-border); border-radius:3px; font-size:0.92rem;">
+        <span id="exportExt" style="color: var(--gray-10); font-weight:600;">.docx</span>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.2rem;">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('exportDialog').close()">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="descargarConNombre()">Descargar</button>
+    </div>
+</dialog>
 
 <div class="resultado-layout">
 <div class="col-main">
@@ -90,36 +111,6 @@
     </div>
 </div>
 
-<div class="card incoherencias-card" id="incoherenciasCard">
-    <div class="incoherencias-header">
-        <div>
-            <h2>Control de consistencia documental</h2>
-            <p class="incoherencias-lead">
-                Compara la nota generada por IA con el conjunto de informes
-                narrativos corporativos almacenados en <strong>Workiva</strong>
-                (informe de gestión, informe al consejo, evolución del negocio,
-                presentación a inversores, etc.) y detecta discrepancias de
-                cifras, decimales, drivers o periodos.
-            </p>
-        </div>
-        <button type="button" id="btnIncoherencias" class="btn btn-primary">
-            Detectar incoherencias con informes en Workiva
-        </button>
-    </div>
-
-    <div class="incoherencias-progress" id="incoherenciasProgress" hidden>
-        <div class="spinner" aria-hidden="true"></div>
-        <div class="incoherencias-progress-msg" id="incoherenciasProgressMsg">
-            Conectando con Workiva…
-        </div>
-    </div>
-
-    <div class="incoherencias-result" id="incoherenciasResult" hidden>
-        <div class="incoherencias-summary" id="incoherenciasSummary"></div>
-        <ul class="incoherencias-list" id="incoherenciasList"></ul>
-    </div>
-</div>
-
 </div><!-- /.col-main -->
 
 <aside class="col-chat">
@@ -150,6 +141,40 @@
 </aside>
 
 </div><!-- /.resultado-layout -->
+
+{% if informes_previos %}
+<div class="card" style="margin-top: 1.4rem;">
+    <h2 style="margin-bottom: 0.4rem;">Informes generados anteriormente</h2>
+    <p style="color: var(--gray-10); font-size: 0.88rem; margin-bottom: 0.9rem;">
+        Histórico de los informes que has descargado de <strong>{{ datos.nombre }}</strong> ({{ datos.ticker }}).
+        Cada vez que exportas un informe en Word o PDF se guarda una copia aquí automáticamente.
+    </p>
+    <div class="table-scroll">
+        <table class="data-table" style="width:100%; font-size:0.88rem;">
+            <thead>
+                <tr>
+                    <th>Fichero</th>
+                    <th style="width:80px;">Formato</th>
+                    <th style="width:100px; text-align:right;">Tamaño</th>
+                    <th style="width:160px;">Generado</th>
+                    <th style="width:140px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for it in informes_previos %}
+                <tr>
+                    <td>{{ it.nombre }}</td>
+                    <td><span class="tag {% if it.extension == 'PDF' %}tag-red{% else %}tag-blue{% endif %}">{{ it.extension }}</span></td>
+                    <td style="text-align:right;">{{ it.tamano_kb }} KB</td>
+                    <td>{{ it.fecha }}</td>
+                    <td><a href="{{ it.url }}" class="btn btn-secondary btn-sm">Descargar</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
@@ -376,159 +401,40 @@
     }
     .memoria-refreshing #memoriaBody { opacity: 0.5; transition: opacity 0.2s; }
 
-    /* Detección de incoherencias (Workiva) */
-    .incoherencias-card { border-top: 3px solid var(--deloitte-green); }
-    .incoherencias-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 1rem;
-        flex-wrap: wrap;
+    /* Diálogo de exportación con nombre editable */
+    dialog.export-modal {
+        border: none; border-radius: 6px; padding: 1.4rem 1.5rem;
+        max-width: 480px; width: calc(100% - 2rem);
+        box-shadow: 0 10px 40px rgba(0,0,0,0.25);
     }
-    .incoherencias-header h2 { margin: 0 0 0.3rem; }
-    .incoherencias-lead {
-        color: var(--gray-10);
-        font-size: 0.85rem;
-        margin: 0;
-        max-width: 560px;
-    }
-    .incoherencias-progress {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-top: 1.1rem;
-        padding: 0.9rem 1rem;
-        background: var(--gray-bg);
-        border: 1px solid var(--gray-border);
-        border-radius: 3px;
-    }
-    .incoherencias-progress[hidden],
-    .incoherencias-result[hidden] {
-        display: none !important;
-    }
-    .incoherencias-progress-msg {
-        font-size: 0.9rem;
-        color: var(--gray-11);
-        font-weight: 500;
-    }
-    .spinner {
-        width: 18px;
-        height: 18px;
-        border: 2px solid var(--gray-border);
-        border-top-color: var(--deloitte-green-dark);
-        border-radius: 50%;
-        animation: incoh-spin 0.9s linear infinite;
-        flex-shrink: 0;
-    }
-    @keyframes incoh-spin { to { transform: rotate(360deg); } }
-    .incoherencias-result { margin-top: 1.1rem; }
-    .incoherencias-summary {
-        font-size: 0.88rem;
-        color: var(--gray-11);
-        margin-bottom: 0.8rem;
-        padding: 0.7rem 0.9rem;
-        background: var(--deloitte-green-soft, #f1f8e3);
-        border-left: 3px solid var(--deloitte-green);
-        border-radius: 3px;
-    }
-    .incoherencias-summary.empty {
-        background: var(--gray-bg);
-        border-left-color: var(--gray-7);
-    }
-    .incoherencias-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 0.7rem;
-    }
-    .incoh-item {
-        border: 1px solid var(--gray-border);
-        border-left: 4px solid var(--gray-7);
-        border-radius: 3px;
-        padding: 0.85rem 1rem;
-        background: var(--white);
-    }
-    .incoh-item.sev-alta { border-left-color: var(--danger, #DA291C); }
-    .incoh-item.sev-media { border-left-color: var(--orange, #ED8B00); }
-    .incoh-item.sev-baja { border-left-color: var(--deloitte-green-dark, #43B02A); }
-    .incoh-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 0.5rem;
-    }
-    .incoh-tipo {
-        font-weight: 700;
-        font-size: 0.82rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--black);
-    }
-    .incoh-informe {
-        font-size: 0.78rem;
-        font-weight: 600;
-        color: var(--gray-11);
-        background: var(--gray-bg);
-        border: 1px solid var(--gray-border);
-        padding: 2px 9px;
-        border-radius: 10px;
-        flex: 1 1 auto;
-        min-width: 0;
-    }
-    .incoh-sev {
-        font-size: 0.7rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        padding: 2px 8px;
-        border-radius: 10px;
-        background: var(--gray-bg);
-        color: var(--gray-11);
-        border: 1px solid var(--gray-border);
-    }
-    .incoh-sev.sev-alta { background: #fdecec; color: #7a1818; border-color: #f0b4b4; }
-    .incoh-sev.sev-media { background: #fff4e0; color: #8a4a00; border-color: #f3c98b; }
-    .incoh-sev.sev-baja { background: #ecf6dd; color: #3d6310; border-color: #c6dfa0; }
-    .incoh-quotes {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0.5rem;
-        margin: 0.4rem 0 0.55rem;
-    }
-    @media (min-width: 720px) {
-        .incoh-quotes { grid-template-columns: 1fr 1fr; }
-    }
-    .incoh-quote {
-        background: var(--gray-bg);
-        border: 1px solid var(--gray-border);
-        border-radius: 3px;
-        padding: 0.55rem 0.7rem;
-        font-size: 0.83rem;
-        line-height: 1.45;
-        color: var(--black);
-    }
-    .incoh-quote .incoh-source {
-        display: block;
-        font-size: 0.68rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--gray-10);
-        font-weight: 700;
-        margin-bottom: 4px;
-    }
-    .incoh-quote.ia .incoh-source { color: var(--deloitte-green-dark, #43B02A); }
-    .incoh-quote.oficial .incoh-source { color: var(--black); }
-    .incoh-expl {
-        font-size: 0.84rem;
-        color: var(--gray-11);
-        line-height: 1.5;
+    dialog.export-modal::backdrop { background: rgba(0,0,0,0.45); }
+    .export-modal-head { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; }
+    .export-modal-close {
+        background:none; border:none; font-size:1.6rem; line-height:1;
+        cursor:pointer; color: var(--gray-10);
     }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+    let _exportFormato = 'word';
+    function abrirExport(fmt) {
+        _exportFormato = fmt;
+        document.getElementById('exportExt').textContent = fmt === 'pdf' ? '.pdf' : '.docx';
+        document.getElementById('exportNombre').value = {{ nombre_sugerido|tojson }};
+        const d = document.getElementById('exportDialog');
+        if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+    }
+    function descargarConNombre() {
+        const nombre = document.getElementById('exportNombre').value.trim();
+        const form = _exportFormato === 'pdf'
+            ? document.getElementById('formExportPdf')
+            : document.getElementById('formExportWord');
+        form.querySelector('input[name="nombre"]').value = nombre;
+        const dlg = document.getElementById('exportDialog');
+        if (dlg.open) dlg.close();
+        downloadFile(form);
+    }
+</script>
 <script>
 (function() {
     const datos = {{ graficos|tojson }};
@@ -697,160 +603,6 @@
             input.focus();
         }
     });
-
-    // --- Detección de incoherencias (simulación Workiva) ---
-    const btnIncoh = document.getElementById('btnIncoherencias');
-    const progressEl = document.getElementById('incoherenciasProgress');
-    const progressMsgEl = document.getElementById('incoherenciasProgressMsg');
-    const resultEl = document.getElementById('incoherenciasResult');
-    const summaryEl = document.getElementById('incoherenciasSummary');
-    const listEl = document.getElementById('incoherenciasList');
-
-    const PROGRESS_STEPS = [
-        { msg: 'Conectando con Workiva…', delay: 850 },
-        { msg: 'Autenticando con el repositorio corporativo…', delay: 800 },
-        { msg: 'Indexando informes narrativos disponibles…', delay: 1000 },
-        { msg: 'Recuperando informe de gestión y MD&A…', delay: 900 },
-        { msg: 'Recuperando informe al consejo y presentación a inversores…', delay: 950 },
-        { msg: 'Cotejando cifras y narrativas contra la nota IA…', delay: 1100 },
-        { msg: 'Identificando discrepancias relevantes…', delay: 900 },
-    ];
-
-    function escapeHtml(str) {
-        return String(str || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function normalizarSeveridad(sev) {
-        const s = String(sev || '').toLowerCase();
-        if (s.startsWith('alt')) return 'alta';
-        if (s.startsWith('baj')) return 'baja';
-        return 'media';
-    }
-
-    function renderIncoherencias(payload) {
-        listEl.innerHTML = '';
-        summaryEl.classList.remove('empty');
-        const sistema = payload.sistema || 'Workiva';
-        const items = Array.isArray(payload.incoherencias) ? payload.incoherencias : [];
-
-        if (!items.length) {
-            summaryEl.classList.add('empty');
-            summaryEl.textContent = payload.mensaje
-                || ('No se han detectado incoherencias relevantes en los informes de ' + sistema + '.');
-            resultEl.hidden = false;
-            return;
-        }
-
-        const informesUnicos = Array.from(new Set(items.map(function(i) {
-            return (i.informe || '').trim();
-        }).filter(Boolean)));
-
-        summaryEl.innerHTML = 'Se han detectado <strong>' + items.length
-            + '</strong> incoherencia' + (items.length === 1 ? '' : 's')
-            + ' entre la nota generada por IA y <strong>' + informesUnicos.length
-            + '</strong> informe' + (informesUnicos.length === 1 ? '' : 's')
-            + ' del repositorio <strong>' + escapeHtml(sistema) + '</strong>'
-            + (informesUnicos.length
-                ? ': ' + informesUnicos.map(escapeHtml).join(' · ')
-                : '') + '.';
-
-        items.forEach(function(it) {
-            const sev = normalizarSeveridad(it.severidad);
-            const informe = (it.informe || 'Informe corporativo').trim();
-            const li = document.createElement('li');
-            li.className = 'incoh-item sev-' + sev;
-            li.innerHTML =
-                '<div class="incoh-head">' +
-                    '<span class="incoh-tipo">' + escapeHtml(it.tipo || 'Discrepancia') + '</span>' +
-                    '<span class="incoh-informe">' + escapeHtml(informe) + '</span>' +
-                    '<span class="incoh-sev sev-' + sev + '">' + sev + '</span>' +
-                '</div>' +
-                '<div class="incoh-quotes">' +
-                    '<div class="incoh-quote ia">' +
-                        '<span class="incoh-source">Nota IA</span>' +
-                        escapeHtml(it.extracto_ia || '—') +
-                    '</div>' +
-                    '<div class="incoh-quote oficial">' +
-                        '<span class="incoh-source">' + escapeHtml(informe) +
-                        ' · ' + escapeHtml(sistema) + '</span>' +
-                        escapeHtml(it.extracto_oficial || '—') +
-                    '</div>' +
-                '</div>' +
-                '<div class="incoh-expl">' + escapeHtml(it.explicacion || '') + '</div>';
-            listEl.appendChild(li);
-        });
-
-        resultEl.hidden = false;
-    }
-
-    let progressTimers = [];
-    function clearProgressTimers() {
-        progressTimers.forEach(function(t) { clearTimeout(t); });
-        progressTimers = [];
-    }
-
-    function runProgressMessages() {
-        let acc = 0;
-        PROGRESS_STEPS.forEach(function(step, i) {
-            const t = setTimeout(function() {
-                if (progressMsgEl) progressMsgEl.textContent = step.msg;
-            }, acc);
-            progressTimers.push(t);
-            acc += step.delay;
-        });
-        return acc;
-    }
-
-    if (btnIncoh) {
-        btnIncoh.addEventListener('click', async function() {
-            btnIncoh.disabled = true;
-            btnIncoh.textContent = 'Detectando incoherencias…';
-            resultEl.hidden = true;
-            listEl.innerHTML = '';
-            summaryEl.textContent = '';
-            progressEl.hidden = false;
-            if (progressMsgEl) progressMsgEl.textContent = PROGRESS_STEPS[0].msg;
-
-            const totalProgress = runProgressMessages();
-            const minDelay = new Promise(function(r) { setTimeout(r, totalProgress); });
-
-            const fetchPromise = fetch('/detectar_incoherencias', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cache_id: cacheId, modelo: modeloActual }),
-            }).then(async function(res) {
-                let data;
-                try { data = await res.json(); }
-                catch (_) { throw new Error('Respuesta no válida del servidor'); }
-                if (!res.ok || data.error) {
-                    throw new Error(data.error || ('Error ' + res.status));
-                }
-                return data;
-            });
-
-            try {
-                const [data] = await Promise.all([fetchPromise, minDelay]);
-                clearProgressTimers();
-                progressEl.hidden = true;
-                renderIncoherencias(data);
-            } catch (err) {
-                clearProgressTimers();
-                progressEl.hidden = true;
-                summaryEl.classList.remove('empty');
-                summaryEl.innerHTML = '<strong>Error:</strong> ' + escapeHtml(err.message || String(err));
-                listEl.innerHTML = '';
-                resultEl.hidden = false;
-            } finally {
-                btnIncoh.disabled = false;
-                btnIncoh.textContent = 'Volver a comprobar incoherencias';
-            }
-        });
-    }
 })();
 </script>
 {% endblock %}
