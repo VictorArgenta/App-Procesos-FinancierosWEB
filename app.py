@@ -3666,6 +3666,38 @@ def _persistir_conversaciones():
         _logging.getLogger("dfin.ir.memoria").warning("No se pudo persistir conversaciones.json: %s", e)
 
 
+def _mensaje_error_gmail(e, accion="leer la bandeja de"):
+    """Traduce una excepción de IMAP/SMTP a un mensaje claro y accionable."""
+    texto = str(e).strip() or e.__class__.__name__
+    bajo = texto.lower()
+    es_red = isinstance(e, (TimeoutError, OSError)) or any(
+        s in bajo for s in (
+            "timed out", "10060", "10061", "getaddrinfo", "failed to respond",
+            "no se pudo conectar", "connection", "network is unreachable",
+            "name or service not known", "temporary failure in name resolution",
+        )
+    )
+    if es_red:
+        return (
+            f"No se pudo conectar con el servidor de Gmail para {accion} correos "
+            "(imap.gmail.com:993 / smtp.gmail.com:465). Esto NO es un problema de "
+            "credenciales, sino de red: normalmente un cortafuegos, antivirus, proxy "
+            "o red corporativa/VPN está bloqueando el puerto. Qué probar: 1) conéctate "
+            "desde otra red (p. ej. compartiendo datos del móvil) para descartar el "
+            "bloqueo; 2) revisa el firewall/antivirus del equipo; 3) si estás en una "
+            "red de empresa, pide a IT que permita el acceso saliente a "
+            "imap.gmail.com:993 y smtp.gmail.com:465."
+        )
+    if "authenticationfailed" in bajo or "invalid credentials" in bajo or "username and password not accepted" in bajo:
+        return (
+            "Gmail rechazó las credenciales. Revisa GMAIL_USER y GMAIL_APP_PASSWORD en "
+            "el archivo .env: la contraseña debe ser una «contraseña de aplicación» de "
+            "16 caracteres generada en tu cuenta de Google, no la contraseña normal del "
+            "correo."
+        )
+    return f"No se pudo {accion} Gmail: {texto}"
+
+
 def _leer_bandeja_gmail(prefijo, horas_max=24, limite=50):
     """Lee la INBOX de Gmail por IMAP, filtra y devuelve correos.
 
@@ -3693,7 +3725,7 @@ def _leer_bandeja_gmail(prefijo, horas_max=24, limite=50):
     _t0 = _time.time()
 
     correos = []
-    with imaplib.IMAP4_SSL("imap.gmail.com", 993) as M:
+    with imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=20) as M:
         M.login(GMAIL_USER, GMAIL_APP_PASSWORD)
         M.select("INBOX")
         criterio = f'(SUBJECT "{prefijo}" SINCE "{desde_imap_dia}")'
@@ -3800,7 +3832,7 @@ def _enviar_correo_smtp(destinatario_email, destinatario_nombre, asunto,
     import time as _t
     _t0 = _t.time()
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
             server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
             server.send_message(msg)
     except Exception as e:
@@ -4186,11 +4218,14 @@ def relacion_inversores():
     try:
         correos = _leer_bandeja_gmail(_prefijo_asunto_actual(), horas_max=24)
     except Exception as e:
+        _logging.getLogger("dfin.ir.bandeja").warning(
+            "No se pudo leer la bandeja de Gmail: %s", e,
+        )
         return render_template(
             "relacion_inversores_no_config.html",
             prefijo=_prefijo_asunto_actual(),
             gmail_user=GMAIL_USER,
-            error=f"No se pudo leer la bandeja de Gmail: {e}",
+            error=_mensaje_error_gmail(e, accion="leer la bandeja de"),
         )
 
     # Anotar cada correo con su estado de envío en esta sesión.
