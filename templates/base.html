@@ -787,7 +787,9 @@
                 <li class="has-dropdown">
                     <button type="button" aria-haspopup="true">Análisis <span class="caret"></span></button>
                     <div class="dropdown-menu">
+                        {% if EMPRESA_COTIZA %}
                         <a href="/analisis">Generar Informe Narrativo<small>Informe individual con IA + datos de Yahoo</small></a>
+                        {% endif %}
                         <a href="/informes-generados">Informes generados<small>Histórico de informes Word / PDF</small></a>
                         <a href="/relacion-inversores">Relación con Inversores<small>Bandeja de consultas con IA</small></a>
                         <a href="/consulta-documental">Consulta Documental<small>Chat con tus PDFs, Word y notas internas</small></a>
@@ -877,7 +879,9 @@
             <div>
                 <h4>Producto</h4>
                 <ul>
+                    {% if EMPRESA_COTIZA %}
                     <li><a href="/analisis">Informe Narrativo</a></li>
+                    {% endif %}
                     <li><a href="/relacion-inversores">Relación con Inversores</a></li>
                     <li><a href="/consulta-documental">Consulta Documental</a></li>
                     <li><a href="/presupuesto">Presupuesto ML</a></li>

@@ -335,6 +335,67 @@ def _ruta_logo_deloitte():
     return None
 
 
+# --- Configuración por empresa (cotiza / ticker de Yahoo) -------------------
+#
+# Se guarda JUNTO a las URLs de inversores, en `Empresas/{TICKER}/docs/
+# url_inversores.txt`, como líneas `clave=valor` (el resto de líneas son URLs
+# a crawlear). Claves reconocidas:
+#
+#   cotiza   sí/no  → si la empresa cotiza en bolsa. Por defecto sí (para no
+#                     romper las empresas ya existentes). Si es "no" se oculta
+#                     el módulo "Generar Informe Narrativo" (depende de Yahoo).
+#   ticker   símbolo bursátil de Yahoo Finance. Por defecto, el nombre de la
+#            carpeta. Útil cuando la carpeta usa un nombre y el símbolo difiere.
+#
+# El nombre de la carpeta (TICKER_FIJO) sigue siendo el identificador de la
+# empresa para rutas, branding y prefijo de asuntos de IR.
+
+_CONFIG_EMPRESA_CLAVES = {"cotiza", "ticker"}
+_VALORES_VERDADEROS = {"si", "sí", "true", "1", "yes", "y"}
+
+
+def _cargar_config_empresa():
+    """Lee las líneas `clave=valor` de docs/url_inversores.txt.
+
+    Devuelve {'cotiza': bool, 'ticker_yahoo': str|None}. Por defecto
+    cotiza=True para mantener el comportamiento de las empresas existentes.
+    """
+    cfg = {"cotiza": True, "ticker_yahoo": None}
+    if not TICKER_FIJO:
+        return cfg
+    ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "docs" / "url_inversores.txt"
+    if not ruta.exists():
+        return cfg
+    try:
+        lineas = ruta.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return cfg
+    for linea in lineas:
+        s = linea.strip()
+        if not s or s.startswith("#") or "=" not in s or "://" in s:
+            continue
+        clave, _, valor = s.partition("=")
+        clave = clave.strip().lower()
+        valor = valor.strip()
+        if clave not in _CONFIG_EMPRESA_CLAVES:
+            continue
+        if clave == "cotiza":
+            cfg["cotiza"] = valor.lower() in _VALORES_VERDADEROS
+        elif clave == "ticker" and valor:
+            cfg["ticker_yahoo"] = valor.upper()
+    return cfg
+
+
+def _empresa_cotiza():
+    """True si la empresa activa cotiza (o si no hay config: por defecto sí)."""
+    return _cargar_config_empresa()["cotiza"]
+
+
+def _ticker_yahoo():
+    """Símbolo bursátil para Yahoo: el de la config o, si no, el nombre de carpeta."""
+    return _cargar_config_empresa()["ticker_yahoo"] or TICKER_FIJO
+
+
 @app.context_processor
 def _inyectar_branding():
     ruta_emp = _ruta_logo_empresa()
@@ -360,6 +421,7 @@ def _inyectar_branding():
         "TICKER_FIJO": TICKER_FIJO,
         "EMPRESA_NOMBRE": _BRANDING["empresa"],
         "TENANT_NOMBRE": _BRANDING["tenant_sufijo"],
+        "EMPRESA_COTIZA": _empresa_cotiza(),
         "EMPRESA_LOGO_DISPONIBLE": ruta_emp is not None,
         "EMPRESA_LOGO_URL": empresa_url,
         "DELOITTE_LOGO_DISPONIBLE": ruta_del is not None,
@@ -3238,9 +3300,11 @@ def _construir_rag_async(forzar: bool = False, relanzar: bool = False):
 def _cargar_datos_ticker_fijo():
     if not TICKER_FIJO:
         return None
+    if not _empresa_cotiza():
+        return None
     if _TICKER_FIJO_DATOS.get("ticker") == TICKER_FIJO and _TICKER_FIJO_DATOS.get("datos"):
         return _TICKER_FIJO_DATOS["datos"]
-    datos = obtener_datos_financieros(TICKER_FIJO)
+    datos = obtener_datos_financieros(_ticker_yahoo())
     _TICKER_FIJO_DATOS["ticker"] = TICKER_FIJO
     _TICKER_FIJO_DATOS["datos"] = datos
     if datos and datos.get("nombre"):
@@ -3307,6 +3371,11 @@ def analisis():
     de selección de ticker y el POST procesa el ticker introducido.
     """
     modelo_default = MODELO_POR_DEFECTO
+
+    # Las empresas no cotizadas no tienen datos en Yahoo: el módulo no aplica.
+    if TICKER_FIJO and not _empresa_cotiza():
+        from flask import redirect
+        return redirect("/")
 
     if TICKER_FIJO:
         try:
@@ -5493,15 +5562,19 @@ if __name__ == "__main__":
         # el selector. Precargamos Yahoo (rápido) y la memoria de IR, y
         # lanzamos el RAG en background (o síncrono si se pidió --recrawl).
         print(f"\n[DFin AI] Modo directo: empresa fijada a {TICKER_FIJO}")
-        print(f"[DFin AI] Precargando datos de Yahoo Finance para {TICKER_FIJO}…")
-        try:
-            _cargar_datos_ticker_fijo()
-            nombre = _BRANDING["empresa"]
-            print(f"[DFin AI] Aplicación dedicada a: {nombre} ({TICKER_FIJO})")
-            _arranque_logger.info("Datos de Yahoo precargados: %s (%s)", nombre, TICKER_FIJO)
-        except Exception as _e:
-            print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}")
-            _arranque_logger.exception("Fallo al precargar Yahoo para %s", TICKER_FIJO)
+        if not _empresa_cotiza():
+            print(f"[DFin AI] {TICKER_FIJO} es una empresa no cotizada: se omite Yahoo Finance y el Informe Narrativo.")
+            _arranque_logger.info("Empresa no cotizada %s: se omite Yahoo.", TICKER_FIJO)
+        else:
+            print(f"[DFin AI] Precargando datos de Yahoo Finance para {TICKER_FIJO}…")
+            try:
+                _cargar_datos_ticker_fijo()
+                nombre = _BRANDING["empresa"]
+                print(f"[DFin AI] Aplicación dedicada a: {nombre} ({TICKER_FIJO})")
+                _arranque_logger.info("Datos de Yahoo precargados: %s (%s)", nombre, TICKER_FIJO)
+            except Exception as _e:
+                print(f"[DFin AI] AVISO: no se pudieron precargar datos de {TICKER_FIJO}: {_e}")
+                _arranque_logger.exception("Fallo al precargar Yahoo para %s", TICKER_FIJO)
 
         _cargar_memoria_ir()
 
