@@ -7,7 +7,9 @@
     <div>
         <span class="eyebrow">{{ EMPRESA_NOMBRE }}{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %} · Área Finanzas &amp; Controlling</span>
         <h1>{% if TICKER_FIJO %}Plataforma financiera de {{ EMPRESA_NOMBRE }}{% else %}Un portfolio completo para el área financiera{% endif %}</h1>
-        <p class="lead">{% if TICKER_FIJO %}Esta instancia está dedicada al análisis financiero de <strong>{{ EMPRESA_NOMBRE }}</strong> ({{ TICKER_FIJO }}). Seleccione el módulo que desee utilizar.{% else %}Seleccione el módulo que desee utilizar. Las funcionalidades marcadas como <span class="tag tag-green">Preview</span> se encuentran en fase de rollout controlado para el tenant <strong>{{ TENANT_NOMBRE }}</strong>.{% endif %}</p>
+        {% if not TICKER_FIJO %}
+        <p class="lead">Seleccione el módulo que desee utilizar. Las funcionalidades marcadas como <span class="tag tag-green">Preview</span> se encuentran en fase de rollout controlado para el tenant <strong>{{ TENANT_NOMBRE }}</strong>.</p>
+        {% endif %}
     </div>
 </div>
 
@@ -216,9 +218,9 @@
         <h3>📈 Evolución (últimos 5 ejercicios)</h3>
         <div class="dh-chart-wrap">
             <canvas id="dh-evolucion"
-                    data-labels="{{ dashboard_home.evolucion.labels|tojson }}"
-                    data-ingresos="{{ dashboard_home.evolucion.ingresos|tojson }}"
-                    data-bn="{{ dashboard_home.evolucion.beneficio_neto|tojson }}"
+                    data-labels='{{ dashboard_home.evolucion.labels|tojson }}'
+                    data-ingresos='{{ dashboard_home.evolucion.ingresos|tojson }}'
+                    data-bn='{{ dashboard_home.evolucion.beneficio_neto|tojson }}'
                     data-moneda="{{ dashboard_home.moneda }}"></canvas>
         </div>
     </div>
@@ -227,7 +229,7 @@
         {% if dashboard_home.composicion_pyg %}
         <div class="dh-chart-wrap">
             <canvas id="dh-composicion"
-                    data-pyg="{{ dashboard_home.composicion_pyg|tojson }}"></canvas>
+                    data-pyg='{{ dashboard_home.composicion_pyg|tojson }}'></canvas>
         </div>
         {% else %}
         <p style="color: var(--gray-10); font-size: 0.84rem; padding: 1.2rem 0;">No hay suficientes datos de Yahoo para componer el gráfico.</p>
@@ -257,8 +259,8 @@
             <span class="dh-prev" data-raw="{{ t.anterior if t.anterior is not none else '' }}">—</span>
         </div>
         <canvas class="dh-chart"
-                data-serie="{{ t.serie|tojson }}"
-                data-labels="{{ dashboard_home.labels|tojson }}"
+                data-serie='{{ t.serie|tojson }}'
+                data-labels='{{ dashboard_home.labels|tojson }}'
                 data-color="{{ t.color }}"></canvas>
     </div>
     {% endfor %}
