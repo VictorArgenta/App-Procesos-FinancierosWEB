@@ -92,10 +92,18 @@ logger.info(
 # cambian precios. Si un modelo no está mapeado, se usa el default Sonnet.
 
 _PRECIOS_TOKENS_USD_M = {
+    # --- Claude 5 family (actual a 1 nov 2026) ---
+    # Precios estimados en línea con la generación anterior. VERIFICA en el
+    # panel de Anthropic y ajusta si cambian.
+    "claude-opus-5-5":              {"input": 15.00, "output": 75.00},
+    "claude-sonnet-5-5":            {"input":  3.00, "output": 15.00},
+    "claude-haiku-5-5":             {"input":  0.80, "output":  4.00},
+    # --- Claude 4 family (compatibilidad: siguen disponibles por ahora) ---
     "claude-opus-4-7":              {"input": 15.00, "output": 75.00},
     "claude-opus-4-6":              {"input": 15.00, "output": 75.00},
     "claude-sonnet-4-6":            {"input":  3.00, "output": 15.00},
     "claude-haiku-4-5-20251001":    {"input":  0.80, "output":  4.00},
+    # --- Google Gemini (verifica si hay versión 3.x disponible) ---
     "gemini-2.5-flash":             {"input":  0.30, "output":  2.50},
     "gemini-2.5-flash-lite":        {"input":  0.10, "output":  0.40},
 }
@@ -468,6 +476,8 @@ def _inyectar_branding():
         "TENANT_NOMBRE": _BRANDING["tenant_sufijo"],
         "EMPRESA_COTIZA": _empresa_cotiza(),
         "SECTOR_EMPRESA": _cargar_sector_empresa(),
+        "MODELOS_ORDENADOS": MODELOS_ORDENADOS,
+        "MODELO_POR_DEFECTO": MODELO_POR_DEFECTO,
         "EMPRESA_LOGO_DISPONIBLE": ruta_emp is not None,
         "EMPRESA_LOGO_URL": empresa_url,
         "DELOITTE_LOGO_DISPONIBLE": ruta_del is not None,
@@ -515,7 +525,15 @@ def _prefijo_asunto_actual():
 if GOOGLE_API_KEY:
     genai.configure(api_key=GOOGLE_API_KEY)
 
+# Catálogo de modelos. El orden del selector lo da `MODELOS_ORDENADOS` más
+# abajo (listas conservan el orden; los sets solo sirven para pertenencia).
 MODELOS_ANTHROPIC = {
+    # Familia Claude 5 (actual a nov 2026)
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
+    # Familia Claude 4 (compatibilidad: aún disponibles)
+    "claude-opus-4-7",
     "claude-opus-4-6",
     "claude-sonnet-4-6",
     "claude-haiku-4-5-20251001",
@@ -525,7 +543,24 @@ MODELOS_GOOGLE = {
     "gemini-2.5-flash-lite",
 }
 MODELOS_DISPONIBLES = MODELOS_ANTHROPIC | MODELOS_GOOGLE
-MODELO_POR_DEFECTO = "claude-sonnet-4-6"
+
+# Orden canónico para los selectores (de más potente a más económico, dentro
+# de cada familia). Lo usan las plantillas que pintan el <select>.
+MODELOS_ORDENADOS = [
+    # Anthropic (de más potente a más económico)
+    ("claude-opus-5-5",            "claude-opus-5-5 — Máxima calidad"),
+    ("claude-sonnet-5-5",          "claude-sonnet-5-5 — Recomendado"),
+    ("claude-haiku-5-5",           "claude-haiku-5-5 — Más económico"),
+    ("claude-opus-4-7",            "claude-opus-4-7 — Generación anterior"),
+    ("claude-opus-4-6",            "claude-opus-4-6 — Generación anterior"),
+    ("claude-sonnet-4-6",          "claude-sonnet-4-6 — Generación anterior"),
+    ("claude-haiku-4-5-20251001",  "claude-haiku-4-5 — Generación anterior"),
+    # Google Gemini
+    ("gemini-2.5-flash",           "gemini-2.5-flash — Gratuito recomendado"),
+    ("gemini-2.5-flash-lite",      "gemini-2.5-flash-lite — Gratuito ligero"),
+]
+
+MODELO_POR_DEFECTO = "claude-sonnet-5-5"
 
 # Regex compartidas para detectar tablas Markdown producidas por la IA
 _RE_TABLA_SEP_MD = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$")
