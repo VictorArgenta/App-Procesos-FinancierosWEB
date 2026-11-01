@@ -544,23 +544,26 @@ MODELOS_GOOGLE = {
 }
 MODELOS_DISPONIBLES = MODELOS_ANTHROPIC | MODELOS_GOOGLE
 
-# Orden canónico para los selectores (de más potente a más económico, dentro
-# de cada familia). Lo usan las plantillas que pintan el <select>.
+# Orden canónico para los selectores. Lo usan las plantillas que pintan el
+# <select>. Primero los modelos que SE SABE que funcionan en tu cuenta; al
+# final los nuevos (familia 5.x) a modo de "verifica antes de usar como
+# default", porque los IDs exactos de la API pueden variar según el SDK.
 MODELOS_ORDENADOS = [
-    # Anthropic (de más potente a más económico)
-    ("claude-opus-5-5",            "claude-opus-5-5 — Máxima calidad"),
-    ("claude-sonnet-5-5",          "claude-sonnet-5-5 — Recomendado"),
-    ("claude-haiku-5-5",           "claude-haiku-5-5 — Más económico"),
-    ("claude-opus-4-7",            "claude-opus-4-7 — Generación anterior"),
-    ("claude-opus-4-6",            "claude-opus-4-6 — Generación anterior"),
-    ("claude-sonnet-4-6",          "claude-sonnet-4-6 — Generación anterior"),
-    ("claude-haiku-4-5-20251001",  "claude-haiku-4-5 — Generación anterior"),
+    # Anthropic — generación 4 (confirmada operativa)
+    ("claude-opus-4-7",            "claude-opus-4-7 — Máxima calidad"),
+    ("claude-opus-4-6",            "claude-opus-4-6 — Alta calidad"),
+    ("claude-sonnet-4-6",          "claude-sonnet-4-6 — Recomendado"),
+    ("claude-haiku-4-5-20251001",  "claude-haiku-4-5 — Más económico"),
+    # Anthropic — generación 5 (verifica disponibilidad en tu cuenta/SDK)
+    ("claude-opus-5-5",            "claude-opus-5-5 — Nuevo (verifica)"),
+    ("claude-sonnet-5-5",          "claude-sonnet-5-5 — Nuevo (verifica)"),
+    ("claude-haiku-5-5",           "claude-haiku-5-5 — Nuevo (verifica)"),
     # Google Gemini
     ("gemini-2.5-flash",           "gemini-2.5-flash — Gratuito recomendado"),
     ("gemini-2.5-flash-lite",      "gemini-2.5-flash-lite — Gratuito ligero"),
 ]
 
-MODELO_POR_DEFECTO = "claude-sonnet-5-5"
+MODELO_POR_DEFECTO = "claude-sonnet-4-6"
 
 # Regex compartidas para detectar tablas Markdown producidas por la IA
 _RE_TABLA_SEP_MD = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$")
