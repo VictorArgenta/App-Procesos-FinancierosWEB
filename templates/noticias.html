@@ -136,14 +136,40 @@
     .nt-compositor .estado-envio.ok { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
     .nt-compositor .estado-envio.err { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
 
-    .nt-sin-config {
-        background: #FFF8E1; border: 1px solid #FFE082; color: #5D4037;
+    /* Formulario inline de configuración del sector */
+    .nt-sector-form {
+        background: #FFF8E1; border: 1px solid #FFE082;
         padding: 0.9rem 1.1rem; border-radius: 3px; margin-bottom: 1rem;
-        font-size: 0.88rem; line-height: 1.5;
     }
-    .nt-sin-config code {
-        background: #fff; padding: 1px 6px; border-radius: 3px; font-size: 0.82rem;
+    .nt-sector-form .nt-sector-form-head {
+        margin-bottom: 0.6rem; color: #5D4037; font-size: 0.9rem; line-height: 1.4;
     }
+    .nt-sector-form .nt-sector-form-head small {
+        display: block; color: #7A5C2A; font-size: 0.78rem; font-weight: 400; margin-top: 2px;
+    }
+    .nt-sector-form .nt-sector-form-head code {
+        background: #fff; padding: 1px 6px; border-radius: 3px; font-size: 0.78rem;
+    }
+    .nt-sector-form .fila {
+        display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap;
+    }
+    .nt-sector-form .fila label {
+        font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.6px;
+        color: #5D4037; font-weight: 700; min-width: 110px;
+    }
+    .nt-sector-form .fila input[type="text"] {
+        flex: 1; padding: 7px 10px; border: 1px solid #E6CA7B; border-radius: 3px;
+        font-size: 0.88rem; min-width: 240px; background: #fff;
+    }
+    .nt-sector-form-acciones {
+        display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.6rem;
+    }
+    .nt-sector-form-estado {
+        margin-top: 0.5rem; padding: 6px 10px; border-radius: 3px;
+        font-size: 0.82rem; line-height: 1.4;
+    }
+    .nt-sector-form-estado.err { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
+    .nt-sector-form-estado.ok  { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
 
     .spin {
         width: 14px; height: 14px; display: inline-block; vertical-align: middle;
@@ -166,16 +192,21 @@
             Actualidad reciente del sector de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}
             y noticias específicas de la empresa. Fuente: búsqueda web del modelo elegido.
         </p>
-        {% if SECTOR_EMPRESA.sector %}
-        <div style="margin-top: 6px;">
-            <span class="nt-sector-tag">Sector: {{ SECTOR_EMPRESA.sector }}</span>
-            {% if SECTOR_EMPRESA.subsectores %}
-            <div class="nt-sector-sub">
-                Subsectores: {{ SECTOR_EMPRESA.subsectores | join(" · ") }}
+        <div class="nt-sector-config" style="margin-top: 6px;">
+            <div class="nt-sector-vista" id="nt-sector-vista" {% if not SECTOR_EMPRESA.sector %}hidden{% endif %}>
+                {% if SECTOR_EMPRESA.sector %}
+                <span class="nt-sector-tag">Sector: {{ SECTOR_EMPRESA.sector }}</span>
+                {% if SECTOR_EMPRESA.subsectores %}
+                <div class="nt-sector-sub">
+                    Subsectores: {{ SECTOR_EMPRESA.subsectores | join(" · ") }}
+                </div>
+                {% endif %}
+                <button type="button" class="btn btn-secondary btn-sm" id="nt-sector-editar" style="margin-top: 6px;">
+                    ✎ Editar sector
+                </button>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
-        {% endif %}
     </div>
     <div class="nt-controls">
         <div>
@@ -197,16 +228,36 @@
     </div>
 </div>
 
-{% if not SECTOR_EMPRESA.sector %}
-<div class="nt-sin-config">
-    <strong>Sector no configurado.</strong>
-    Para activar las noticias del sector crea el fichero
-    <code>Empresas/{{ TICKER_FIJO }}/sector.txt</code> con el siguiente contenido:
-    <pre style="margin: 8px 0 0; background: #fff; padding: 8px 10px; border: 1px solid #FFE082; border-radius: 3px; font-size: 0.82rem;">sector=Nombre del sector principal
-subsectores=sub1, sub2, sub3   # opcional</pre>
-    Mientras tanto, puedes usar el bloque de "Noticias de la empresa" sin problema.
+<!-- Formulario para dar de alta o editar el sector desde la propia pantalla -->
+<div class="nt-sector-form" id="nt-sector-form" {% if SECTOR_EMPRESA.sector %}hidden{% endif %}>
+    <div class="nt-sector-form-head">
+        <strong>{% if SECTOR_EMPRESA.sector %}Editar sector{% else %}Configura el sector para activar las noticias del sector{% endif %}</strong>
+        <small>Se guarda en <code>Empresas/{{ TICKER_FIJO }}/sector.txt</code>. Puedes editarlo luego a mano si lo prefieres.</small>
+    </div>
+    <div class="fila">
+        <label for="nt-sector-input">Sector *</label>
+        <input type="text" id="nt-sector-input"
+               value="{{ SECTOR_EMPRESA.sector }}"
+               placeholder="p. ej. Utilities / Energía"
+               autocomplete="off" maxlength="120">
+    </div>
+    <div class="fila">
+        <label for="nt-subsectores-input">Subsectores</label>
+        <input type="text" id="nt-subsectores-input"
+               value="{{ SECTOR_EMPRESA.subsectores | join(', ') }}"
+               placeholder="separados por comas, p. ej. Renovables, Redes, Comercialización"
+               autocomplete="off" maxlength="400">
+    </div>
+    <div class="nt-sector-form-acciones">
+        {% if SECTOR_EMPRESA.sector %}
+        <button type="button" class="btn btn-secondary btn-sm" id="nt-sector-cancelar">Cancelar</button>
+        {% endif %}
+        <button type="button" class="btn btn-primary btn-sm" id="nt-sector-guardar">
+            {% if SECTOR_EMPRESA.sector %}Guardar cambios{% else %}Guardar sector{% endif %}
+        </button>
+    </div>
+    <div class="nt-sector-form-estado" id="nt-sector-estado" hidden></div>
 </div>
-{% endif %}
 
 <div class="nt-bloques">
     <!-- BLOQUE 1: NOTICIAS DEL SECTOR -->
@@ -317,6 +368,69 @@ subsectores=sub1, sub2, sub3   # opcional</pre>
 
     const $ = (sel, root) => (root || document).querySelector(sel);
     const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+    // --- Formulario inline de configuración del sector --------------------
+    const elSectorVista = $('#nt-sector-vista');
+    const elSectorForm = $('#nt-sector-form');
+    const btnSectorEditar = $('#nt-sector-editar');
+    const btnSectorCancelar = $('#nt-sector-cancelar');
+    const btnSectorGuardar = $('#nt-sector-guardar');
+    const inpSector = $('#nt-sector-input');
+    const inpSubs = $('#nt-subsectores-input');
+    const elSectorEstado = $('#nt-sector-estado');
+
+    if (btnSectorEditar) {
+        btnSectorEditar.addEventListener('click', () => {
+            if (elSectorForm) elSectorForm.hidden = false;
+            if (elSectorVista) elSectorVista.hidden = true;
+            if (inpSector) inpSector.focus();
+        });
+    }
+    if (btnSectorCancelar) {
+        btnSectorCancelar.addEventListener('click', () => {
+            if (elSectorForm) elSectorForm.hidden = true;
+            if (elSectorVista) elSectorVista.hidden = false;
+            if (elSectorEstado) elSectorEstado.hidden = true;
+        });
+    }
+    if (btnSectorGuardar) {
+        btnSectorGuardar.addEventListener('click', async () => {
+            const sector = (inpSector.value || '').trim();
+            const subs = (inpSubs.value || '').trim();
+            if (!sector) {
+                elSectorEstado.className = 'nt-sector-form-estado err';
+                elSectorEstado.textContent = 'El sector no puede estar vacío.';
+                elSectorEstado.hidden = false;
+                inpSector.focus();
+                return;
+            }
+            btnSectorGuardar.disabled = true;
+            const txtPrev = btnSectorGuardar.textContent;
+            btnSectorGuardar.innerHTML = '<span class="spin"></span>Guardando…';
+            try {
+                const r = await fetch('/noticias/sector', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ sector, subsectores: subs }),
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error || `Error ${r.status}`);
+                elSectorEstado.className = 'nt-sector-form-estado ok';
+                elSectorEstado.textContent = '✓ Sector guardado. Refrescando la pantalla…';
+                elSectorEstado.hidden = false;
+                // Recarga simple: así se rehidrata el context processor y los dos
+                // bloques quedan en el estado correcto (botón "Buscar" habilitado,
+                // badge pintado, etc.).
+                setTimeout(() => window.location.reload(), 500);
+            } catch (e) {
+                elSectorEstado.className = 'nt-sector-form-estado err';
+                elSectorEstado.textContent = e.message;
+                elSectorEstado.hidden = false;
+                btnSectorGuardar.disabled = false;
+                btnSectorGuardar.textContent = txtPrev;
+            }
+        });
+    }
 
     const bloques = $$('.nt-bloque');
     const compositor = $('#nt-compositor');

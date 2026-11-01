@@ -5567,6 +5567,49 @@ def _parsear_noticias_llm(texto):
     return saneadas
 
 
+_SECTOR_MAX_LEN_SECTOR = 120
+_SECTOR_MAX_LEN_SUBLINEA = 400
+
+
+def _guardar_sector_empresa(sector, subsectores):
+    """Escribe (o sobrescribe) `Empresas/{TICKER}/sector.txt`.
+
+    `subsectores` acepta lista o string separado por comas. Devuelve el dict
+    normalizado tal como lo leería `_cargar_sector_empresa` después.
+    """
+    if not TICKER_FIJO:
+        raise RuntimeError("No hay empresa activa.")
+    sector = (sector or "").strip()
+    if not sector:
+        raise ValueError("El sector no puede estar vacío.")
+    if len(sector) > _SECTOR_MAX_LEN_SECTOR:
+        raise ValueError(
+            f"El nombre del sector no puede superar {_SECTOR_MAX_LEN_SECTOR} caracteres."
+        )
+    if isinstance(subsectores, (list, tuple)):
+        subs = [str(x).strip() for x in subsectores if str(x).strip()]
+    else:
+        subs = [p.strip() for p in (subsectores or "").split(",") if p.strip()]
+    linea_subs = ", ".join(subs)
+    if len(linea_subs) > _SECTOR_MAX_LEN_SUBLINEA:
+        raise ValueError(
+            f"La lista de subsectores supera {_SECTOR_MAX_LEN_SUBLINEA} caracteres."
+        )
+
+    ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "sector.txt"
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    contenido = "# Sector de la empresa (editable desde la UI)\n"
+    contenido += f"sector={sector}\n"
+    if subs:
+        contenido += f"subsectores={linea_subs}\n"
+    ruta.write_text(contenido, encoding="utf-8")
+    _logging.getLogger("dfin.noticias").info(
+        "Sector guardado para %s: sector=%r, subsectores=%d",
+        TICKER_FIJO, sector, len(subs),
+    )
+    return _cargar_sector_empresa()
+
+
 @app.route("/noticias")
 def noticias():
     """Página de Noticias del Sector + Noticias de la Empresa.
@@ -5581,6 +5624,22 @@ def noticias():
         gmail_configurado=bool(GMAIL_USER and GMAIL_APP_PASSWORD),
         gmail_user=GMAIL_USER or "",
     )
+
+
+@app.route("/noticias/sector", methods=["POST"])
+def noticias_guardar_sector():
+    """Guarda (o actualiza) `Empresas/{TICKER}/sector.txt` desde la UI."""
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    try:
+        cfg = _guardar_sector_empresa(data.get("sector"), data.get("subsectores"))
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"No se pudo guardar: {e}"}), 500
+    return jsonify({"ok": True, "sector_empresa": cfg})
 
 
 @app.route("/noticias/buscar", methods=["POST"])
