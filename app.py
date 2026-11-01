@@ -396,6 +396,51 @@ def _ticker_yahoo():
     return _cargar_config_empresa()["ticker_yahoo"] or TICKER_FIJO
 
 
+# --- Sector de la empresa (para el módulo "Noticias del Sector") ------------
+#
+# Fichero `Empresas/{TICKER}/sector.txt`, formato `clave=valor`. Claves:
+#
+#   sector        Nombre del sector principal (p.ej. "Seguros", "Energía").
+#   subsectores   Lista de subsectores separada por comas. Opcional.
+#
+# Si no existe, el módulo de noticias avisará al usuario y mostrará
+# instrucciones para crearlo. No afecta a otros módulos.
+
+_SECTOR_CLAVES = {"sector", "subsectores"}
+
+
+def _cargar_sector_empresa():
+    """Lee Empresas/{TICKER}/sector.txt si existe.
+
+    Devuelve {"sector": str, "subsectores": [str, ...]}. Si no hay fichero
+    o está vacío, devuelve {"sector": "", "subsectores": []}.
+    """
+    cfg = {"sector": "", "subsectores": []}
+    if not TICKER_FIJO:
+        return cfg
+    ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "sector.txt"
+    if not ruta.exists():
+        return cfg
+    try:
+        lineas = ruta.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return cfg
+    for linea in lineas:
+        s = linea.strip()
+        if not s or s.startswith("#") or "=" not in s:
+            continue
+        clave, _, valor = s.partition("=")
+        clave = clave.strip().lower()
+        valor = valor.strip()
+        if clave not in _SECTOR_CLAVES:
+            continue
+        if clave == "sector":
+            cfg["sector"] = valor
+        elif clave == "subsectores":
+            cfg["subsectores"] = [p.strip() for p in valor.split(",") if p.strip()]
+    return cfg
+
+
 @app.context_processor
 def _inyectar_branding():
     ruta_emp = _ruta_logo_empresa()
@@ -422,6 +467,7 @@ def _inyectar_branding():
         "EMPRESA_NOMBRE": _BRANDING["empresa"],
         "TENANT_NOMBRE": _BRANDING["tenant_sufijo"],
         "EMPRESA_COTIZA": _empresa_cotiza(),
+        "SECTOR_EMPRESA": _cargar_sector_empresa(),
         "EMPRESA_LOGO_DISPONIBLE": ruta_emp is not None,
         "EMPRESA_LOGO_URL": empresa_url,
         "DELOITTE_LOGO_DISPONIBLE": ruta_del is not None,
@@ -3666,6 +3712,38 @@ def _persistir_conversaciones():
         _logging.getLogger("dfin.ir.memoria").warning("No se pudo persistir conversaciones.json: %s", e)
 
 
+def _mensaje_error_gmail(e, accion="leer la bandeja de"):
+    """Traduce una excepción de IMAP/SMTP a un mensaje claro y accionable."""
+    texto = str(e).strip() or e.__class__.__name__
+    bajo = texto.lower()
+    es_red = isinstance(e, (TimeoutError, OSError)) or any(
+        s in bajo for s in (
+            "timed out", "10060", "10061", "getaddrinfo", "failed to respond",
+            "no se pudo conectar", "connection", "network is unreachable",
+            "name or service not known", "temporary failure in name resolution",
+        )
+    )
+    if es_red:
+        return (
+            f"No se pudo conectar con el servidor de Gmail para {accion} correos "
+            "(imap.gmail.com:993 / smtp.gmail.com:465). Esto NO es un problema de "
+            "credenciales, sino de red: normalmente un cortafuegos, antivirus, proxy "
+            "o red corporativa/VPN está bloqueando el puerto. Qué probar: 1) conéctate "
+            "desde otra red (p. ej. compartiendo datos del móvil) para descartar el "
+            "bloqueo; 2) revisa el firewall/antivirus del equipo; 3) si estás en una "
+            "red de empresa, pide a IT que permita el acceso saliente a "
+            "imap.gmail.com:993 y smtp.gmail.com:465."
+        )
+    if "authenticationfailed" in bajo or "invalid credentials" in bajo or "username and password not accepted" in bajo:
+        return (
+            "Gmail rechazó las credenciales. Revisa GMAIL_USER y GMAIL_APP_PASSWORD en "
+            "el archivo .env: la contraseña debe ser una «contraseña de aplicación» de "
+            "16 caracteres generada en tu cuenta de Google, no la contraseña normal del "
+            "correo."
+        )
+    return f"No se pudo {accion} Gmail: {texto}"
+
+
 def _leer_bandeja_gmail(prefijo, horas_max=24, limite=50):
     """Lee la INBOX de Gmail por IMAP, filtra y devuelve correos.
 
@@ -3693,7 +3771,7 @@ def _leer_bandeja_gmail(prefijo, horas_max=24, limite=50):
     _t0 = _time.time()
 
     correos = []
-    with imaplib.IMAP4_SSL("imap.gmail.com", 993) as M:
+    with imaplib.IMAP4_SSL("imap.gmail.com", 993, timeout=20) as M:
         M.login(GMAIL_USER, GMAIL_APP_PASSWORD)
         M.select("INBOX")
         criterio = f'(SUBJECT "{prefijo}" SINCE "{desde_imap_dia}")'
@@ -3800,7 +3878,7 @@ def _enviar_correo_smtp(destinatario_email, destinatario_nombre, asunto,
     import time as _t
     _t0 = _t.time()
     try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
             server.login(GMAIL_USER, GMAIL_APP_PASSWORD)
             server.send_message(msg)
     except Exception as e:
@@ -4186,11 +4264,14 @@ def relacion_inversores():
     try:
         correos = _leer_bandeja_gmail(_prefijo_asunto_actual(), horas_max=24)
     except Exception as e:
+        _logging.getLogger("dfin.ir.bandeja").warning(
+            "No se pudo leer la bandeja de Gmail: %s", e,
+        )
         return render_template(
             "relacion_inversores_no_config.html",
             prefijo=_prefijo_asunto_actual(),
             gmail_user=GMAIL_USER,
-            error=f"No se pudo leer la bandeja de Gmail: {e}",
+            error=_mensaje_error_gmail(e, accion="leer la bandeja de"),
         )
 
     # Anotar cada correo con su estado de envío en esta sesión.
@@ -5388,47 +5469,337 @@ def radar_normativo():
     return render_template("radar_normativo.html", alertas=alertas)
 
 
+# ============================================================================
+# Módulo "Noticias del Sector"
+# ----------------------------------------------------------------------------
+# Dos bloques:
+#   - Noticias del sector (incluye subsectores si están configurados).
+#   - Noticias específicas de la empresa activa.
+# El sector se declara en `Empresas/{TICKER}/sector.txt`.
+# Fuente de noticias: búsqueda web del LLM (permitir_busqueda=True).
+# Debajo de cada bloque, un compositor de correo con destinatario manual.
+# ============================================================================
+
+_PROMPT_NOTICIAS_SECTOR = """Eres un analista financiero. Busca en internet las {n} noticias más RECIENTES y RELEVANTES ({dias_recientes} días o menos) sobre el siguiente sector:
+
+SECTOR PRINCIPAL: {sector}
+{bloque_subsectores}
+
+Cubre tanto el sector principal como los subsectores si los hay. Prioriza noticias con impacto corporativo, regulatorio, macro o de mercado para empresas de este sector. Idioma preferente: español; si una noticia relevante solo existe en inglés, inclúyela.
+
+DEVUELVE EXCLUSIVAMENTE un JSON válido con esta forma (sin texto fuera del JSON, sin bloques ```):
+
+{{
+  "noticias": [
+    {{
+      "titular": "...",
+      "fuente": "nombre del medio",
+      "fecha": "YYYY-MM-DD",
+      "url": "https://...",
+      "resumen": "2-3 frases de resumen con cifras concretas si las hay",
+      "categoria": "una de: M&A, Regulación, Mercados, Resultados, Tecnología, ESG, Macro, Corporate"
+    }}
+  ]
+}}
+
+Importante: solo noticias REALES que hayas encontrado en la búsqueda web, con URL verificable. No inventes."""
+
+
+_PROMPT_NOTICIAS_EMPRESA = """Eres un analista financiero. Busca en internet las {n} noticias más RECIENTES y RELEVANTES ({dias_recientes} días o menos) sobre esta compañía en concreto:
+
+EMPRESA: {empresa}{bloque_ticker}
+
+Prioriza: resultados financieros, operaciones corporativas (M&A, OPAs, splits), hechos relevantes a reguladores (CNMV/SEC), cambios en el equipo directivo, noticias de producto/estrategia, y recomendaciones de analistas sobre la propia empresa. Idioma preferente: español; si una noticia relevante solo existe en inglés, inclúyela.
+
+DEVUELVE EXCLUSIVAMENTE un JSON válido con esta forma (sin texto fuera del JSON, sin bloques ```):
+
+{{
+  "noticias": [
+    {{
+      "titular": "...",
+      "fuente": "nombre del medio",
+      "fecha": "YYYY-MM-DD",
+      "url": "https://...",
+      "resumen": "2-3 frases de resumen con cifras concretas si las hay",
+      "categoria": "una de: Resultados, M&A, Regulación, Mercados, Dividendos, Gobierno corporativo, Tecnología, ESG, Corporate"
+    }}
+  ]
+}}
+
+Importante: solo noticias REALES sobre {empresa}, con URL verificable. No inventes."""
+
+
+def _parsear_noticias_llm(texto):
+    """Extrae la lista `noticias` del JSON devuelto por el LLM.
+
+    Tolerante: si el modelo envuelve el JSON en prosa o en ```json ... ```,
+    lo recorta. Devuelve lista vacía si no logra parsear.
+    """
+    import json as _json
+    if not texto:
+        return []
+    t = texto.strip()
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", t, re.DOTALL)
+    if m:
+        candidato = m.group(1)
+    else:
+        m2 = re.search(r"\{.*\}", t, re.DOTALL)
+        candidato = m2.group(0) if m2 else t
+    try:
+        data = _json.loads(candidato)
+    except Exception:
+        return []
+    noticias = data.get("noticias") if isinstance(data, dict) else None
+    if not isinstance(noticias, list):
+        return []
+    saneadas = []
+    for n in noticias:
+        if not isinstance(n, dict):
+            continue
+        saneadas.append({
+            "titular": str(n.get("titular", "")).strip(),
+            "fuente": str(n.get("fuente", "")).strip(),
+            "fecha": str(n.get("fecha", "")).strip(),
+            "url": str(n.get("url", "")).strip(),
+            "resumen": str(n.get("resumen", "")).strip(),
+            "categoria": str(n.get("categoria", "")).strip() or "Corporate",
+        })
+    return saneadas
+
+
+_SECTOR_MAX_LEN_SECTOR = 120
+_SECTOR_MAX_LEN_SUBLINEA = 400
+
+
+def _guardar_sector_empresa(sector, subsectores):
+    """Escribe (o sobrescribe) `Empresas/{TICKER}/sector.txt`.
+
+    `subsectores` acepta lista o string separado por comas. Devuelve el dict
+    normalizado tal como lo leería `_cargar_sector_empresa` después.
+    """
+    if not TICKER_FIJO:
+        raise RuntimeError("No hay empresa activa.")
+    sector = (sector or "").strip()
+    if not sector:
+        raise ValueError("El sector no puede estar vacío.")
+    if len(sector) > _SECTOR_MAX_LEN_SECTOR:
+        raise ValueError(
+            f"El nombre del sector no puede superar {_SECTOR_MAX_LEN_SECTOR} caracteres."
+        )
+    if isinstance(subsectores, (list, tuple)):
+        subs = [str(x).strip() for x in subsectores if str(x).strip()]
+    else:
+        subs = [p.strip() for p in (subsectores or "").split(",") if p.strip()]
+    linea_subs = ", ".join(subs)
+    if len(linea_subs) > _SECTOR_MAX_LEN_SUBLINEA:
+        raise ValueError(
+            f"La lista de subsectores supera {_SECTOR_MAX_LEN_SUBLINEA} caracteres."
+        )
+
+    ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "sector.txt"
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    contenido = "# Sector de la empresa (editable desde la UI)\n"
+    contenido += f"sector={sector}\n"
+    if subs:
+        contenido += f"subsectores={linea_subs}\n"
+    ruta.write_text(contenido, encoding="utf-8")
+    _logging.getLogger("dfin.noticias").info(
+        "Sector guardado para %s: sector=%r, subsectores=%d",
+        TICKER_FIJO, sector, len(subs),
+    )
+    return _cargar_sector_empresa()
+
+
 @app.route("/noticias")
 def noticias():
-    noticias_lista = [
-        {
-            "categoria": "M&A", "tag": "tag-green", "banner": "#43B02A",
-            "fecha": "20/04/2026", "fuente": "Reuters",
-            "titular": "BlackRock lidera el consorcio que adquiere Klarna por 14,2B USD",
-            "resumen": "La operación convierte a la fintech sueca en la mayor OPA del sector BNPL en la última década.",
-        },
-        {
-            "categoria": "Regulación", "tag": "tag-blue", "banner": "#00A3E0",
-            "fecha": "19/04/2026", "fuente": "Bloomberg",
-            "titular": "La EBA publica la guía definitiva sobre el uso de IA en procesos KYC",
-            "resumen": "El marco europeo establece requisitos de auditabilidad, explicabilidad y supervisión humana sobre modelos generativos.",
-        },
-        {
-            "categoria": "Mercados", "tag": "tag-black", "banner": "#000000",
-            "fecha": "19/04/2026", "fuente": "Financial Times",
-            "titular": "Las fintechs europeas cierran la semana con un rally del 4,2%",
-            "resumen": "Adyen, Nu Holdings y Wise lideran las subidas tras los resultados del primer trimestre por encima del consenso.",
-        },
-        {
-            "categoria": "Tecnología", "tag": "tag-orange", "banner": "#ED8B00",
-            "fecha": "18/04/2026", "fuente": "Expansión",
-            "titular": "CaixaBank firma un acuerdo con Anthropic para generalizar Claude en su banca privada",
-            "resumen": "El despliegue cubrirá 3.200 gestores y se integrará con la plataforma propia de asesoramiento del banco.",
-        },
-        {
-            "categoria": "Corporate", "tag": "tag-green", "banner": "#86BC25",
-            "fecha": "17/04/2026", "fuente": "Cinco Días",
-            "titular": "Endesa presenta un plan ESG de 4,5B € hasta 2030 centrado en hidrógeno verde",
-            "resumen": "La compañía prevé triplicar su capacidad instalada renovable y emitir bonos verdes por 1,2B € en 2026.",
-        },
-        {
-            "categoria": "M&A", "tag": "tag-green", "banner": "#43B02A",
-            "fecha": "16/04/2026", "fuente": "Reuters",
-            "titular": "Telefónica y Orange exploran una fusión de sus redes móviles en España",
-            "resumen": "Fuentes próximas a la negociación indican que un eventual acuerdo se someterá a revisión por la CNMC.",
-        },
-    ]
-    return render_template("noticias.html", noticias=noticias_lista)
+    """Página de Noticias del Sector + Noticias de la Empresa.
+
+    La página se renderiza vacía; las dos secciones se cargan vía los
+    endpoints `/noticias/buscar` cuando el usuario pulsa el botón.
+    """
+    return render_template(
+        "noticias.html",
+        modelos_disponibles=sorted(MODELOS_DISPONIBLES),
+        modelo_default=MODELO_POR_DEFECTO,
+        gmail_configurado=bool(GMAIL_USER and GMAIL_APP_PASSWORD),
+        gmail_user=GMAIL_USER or "",
+    )
+
+
+@app.route("/noticias/sector", methods=["POST"])
+def noticias_guardar_sector():
+    """Guarda (o actualiza) `Empresas/{TICKER}/sector.txt` desde la UI."""
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    try:
+        cfg = _guardar_sector_empresa(data.get("sector"), data.get("subsectores"))
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"No se pudo guardar: {e}"}), 500
+    return jsonify({"ok": True, "sector_empresa": cfg})
+
+
+@app.route("/noticias/buscar", methods=["POST"])
+def noticias_buscar():
+    """Busca noticias usando la búsqueda web del LLM.
+
+    Body JSON: {tipo: 'sector'|'empresa', modelo: '...', n: 6, dias: 7}
+    Devuelve: {ok, noticias: [...], consulta_resumen: '...'}
+    """
+    from flask import jsonify
+
+    data = request.get_json(silent=True) or {}
+    tipo = (data.get("tipo") or "").strip().lower()
+    if tipo not in ("sector", "empresa"):
+        return jsonify({"ok": False, "error": "Parámetro 'tipo' debe ser 'sector' o 'empresa'."}), 400
+
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
+    try:
+        n = max(3, min(12, int(data.get("n", 6))))
+    except (TypeError, ValueError):
+        n = 6
+    try:
+        dias = max(1, min(60, int(data.get("dias", 7))))
+    except (TypeError, ValueError):
+        dias = 7
+
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+
+    if tipo == "sector":
+        sector_cfg = _cargar_sector_empresa()
+        if not sector_cfg.get("sector"):
+            return jsonify({
+                "ok": False,
+                "error": (
+                    "No hay sector configurado para esta empresa. Crea el fichero "
+                    f"Empresas/{TICKER_FIJO}/sector.txt con una línea `sector=NOMBRE` "
+                    "y, opcionalmente, `subsectores=sub1, sub2, sub3`."
+                ),
+            }), 400
+        bloque_subs = ""
+        if sector_cfg.get("subsectores"):
+            bloque_subs = "SUBSECTORES: " + ", ".join(sector_cfg["subsectores"])
+        prompt = _PROMPT_NOTICIAS_SECTOR.format(
+            n=n, dias_recientes=dias,
+            sector=sector_cfg["sector"],
+            bloque_subsectores=bloque_subs,
+        )
+        resumen = f"Noticias del sector «{sector_cfg['sector']}»"
+        if sector_cfg.get("subsectores"):
+            resumen += f" (incluye: {', '.join(sector_cfg['subsectores'])})"
+    else:  # empresa
+        empresa = _BRANDING.get("empresa") or TICKER_FIJO
+        ticker = _ticker_yahoo() or TICKER_FIJO
+        bloque_tk = f" (ticker {ticker})" if ticker and ticker != empresa else ""
+        prompt = _PROMPT_NOTICIAS_EMPRESA.format(
+            n=n, dias_recientes=dias,
+            empresa=empresa, bloque_ticker=bloque_tk,
+        )
+        resumen = f"Noticias de {empresa}"
+
+    log_n = _logging.getLogger("dfin.noticias")
+    try:
+        texto, _citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=3000, modelo=modelo,
+            permitir_busqueda=True, modulo=f"noticias.{tipo}",
+        )
+    except Exception as e:
+        log_n.exception("Fallo buscando noticias (%s): %s", tipo, e)
+        return jsonify({"ok": False, "error": f"Error consultando la IA: {e}"}), 500
+
+    noticias = _parsear_noticias_llm(texto)
+    log_n.info("Noticias %s: %d items (modelo=%s, n=%d, dias=%d)", tipo, len(noticias), modelo, n, dias)
+    return jsonify({
+        "ok": True,
+        "noticias": noticias,
+        "consulta_resumen": resumen,
+        "modelo": modelo,
+        "n_pedidas": n,
+        "dias": dias,
+    })
+
+
+def _construir_cuerpo_correo_noticias(tipo, noticias, consulta_resumen):
+    """Compone asunto + cuerpo del correo con las noticias seleccionadas."""
+    from datetime import datetime as _dt
+    empresa = _BRANDING.get("empresa") or TICKER_FIJO or "DFin AI"
+    hoy = _dt.now().strftime("%d/%m/%Y")
+    if tipo == "sector":
+        asunto = f"Resumen de noticias del sector — {empresa} ({hoy})"
+    else:
+        asunto = f"Noticias relevantes de {empresa} ({hoy})"
+
+    lineas = [consulta_resumen, "=" * len(consulta_resumen), ""]
+    for i, n in enumerate(noticias, start=1):
+        titular = n.get("titular", "(sin título)")
+        fuente = n.get("fuente", "")
+        fecha = n.get("fecha", "")
+        resumen = n.get("resumen", "")
+        url = n.get("url", "")
+        categoria = n.get("categoria", "")
+        meta = " · ".join(x for x in (categoria, fuente, fecha) if x)
+        lineas.append(f"{i}. {titular}")
+        if meta:
+            lineas.append(f"   {meta}")
+        if resumen:
+            lineas.append(f"   {resumen}")
+        if url:
+            lineas.append(f"   {url}")
+        lineas.append("")
+    lineas.append("---")
+    lineas.append(f"Enviado desde DFin AI · Instancia dedicada a {empresa}.")
+    return asunto, "\n".join(lineas)
+
+
+@app.route("/noticias/preparar-email", methods=["POST"])
+def noticias_preparar_email():
+    """Prepara (asunto + cuerpo) un correo con las noticias seleccionadas.
+
+    Body JSON: {tipo: 'sector'|'empresa', consulta_resumen: '...', noticias: [...]}
+    Devuelve: {ok, asunto, cuerpo}
+    """
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    tipo = (data.get("tipo") or "").strip().lower()
+    if tipo not in ("sector", "empresa"):
+        return jsonify({"ok": False, "error": "Parámetro 'tipo' debe ser 'sector' o 'empresa'."}), 400
+    noticias = data.get("noticias") or []
+    if not isinstance(noticias, list) or not noticias:
+        return jsonify({"ok": False, "error": "No hay noticias seleccionadas."}), 400
+    resumen = str(data.get("consulta_resumen") or ("Noticias del sector" if tipo == "sector" else "Noticias de la empresa"))
+    asunto, cuerpo = _construir_cuerpo_correo_noticias(tipo, noticias, resumen)
+    return jsonify({"ok": True, "asunto": asunto, "cuerpo": cuerpo})
+
+
+@app.route("/noticias/enviar", methods=["POST"])
+def noticias_enviar():
+    """Envía el correo preparado. Reutiliza `_enviar_correo_smtp` del módulo IR."""
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    destinatario = (data.get("destinatario") or "").strip()
+    destinatario_nombre = (data.get("destinatario_nombre") or "").strip()
+    asunto = (data.get("asunto") or "").strip()
+    cuerpo = (data.get("cuerpo") or "").strip()
+
+    if not destinatario or "@" not in destinatario:
+        return jsonify({"ok": False, "error": "Introduce un email de destinatario válido."}), 400
+    if not asunto:
+        return jsonify({"ok": False, "error": "El asunto no puede estar vacío."}), 400
+    if not cuerpo:
+        return jsonify({"ok": False, "error": "El cuerpo del correo está vacío."}), 400
+
+    try:
+        _enviar_correo_smtp(destinatario, destinatario_nombre, asunto, cuerpo)
+    except Exception as e:
+        return jsonify({
+            "ok": False,
+            "error": _mensaje_error_gmail(e, accion="enviar el correo a través de"),
+        }), 500
+    return jsonify({"ok": True, "destinatario": destinatario, "asunto": asunto})
 
 
 @app.route("/admin")

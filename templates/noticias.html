@@ -1,110 +1,640 @@
 {% extends "base.html" %}
 
-{% block title %}Noticias del Sector — DFin AI{% endblock %}
+{% block title %}Noticias del Sector — {{ EMPRESA_NOMBRE }}{% endblock %}
 
 {% block content %}
+<style>
+    [hidden] { display: none !important; }
+
+    .nt-header {
+        display: flex; justify-content: space-between; align-items: flex-end;
+        gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.2rem;
+    }
+    .nt-header h1 { margin: 0.2rem 0 0.3rem; }
+    .nt-controls {
+        display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap;
+    }
+    .nt-controls label {
+        font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.6px;
+        color: var(--gray-10); font-weight: 700; display: block; margin-bottom: 2px;
+    }
+    .nt-controls select, .nt-controls input[type="number"] {
+        padding: 7px 10px; border: 1px solid var(--gray-border);
+        border-radius: 3px; font-size: 0.88rem; min-width: 80px;
+    }
+
+    .nt-sector-tag {
+        display: inline-block; background: var(--deloitte-green-soft, #e8f2d5);
+        color: var(--deloitte-green-dark, #43B02A);
+        border: 1px solid var(--deloitte-green, #86BC25);
+        padding: 2px 10px; border-radius: 999px;
+        font-size: 0.78rem; font-weight: 700;
+    }
+    .nt-sector-sub { color: var(--gray-10); font-size: 0.82rem; margin-top: 4px; }
+
+    /* --- Dos bloques --- */
+    .nt-bloques { display: grid; grid-template-columns: 1fr; gap: 1.2rem; }
+    @media (min-width: 1100px) { .nt-bloques { grid-template-columns: 1fr 1fr; } }
+
+    .nt-bloque {
+        background: #fff; border: 1px solid var(--gray-border);
+        border-radius: 4px; overflow: hidden;
+    }
+    .nt-bloque-head {
+        padding: 0.9rem 1.1rem; border-bottom: 1px solid var(--gray-border);
+        background: var(--gray-bg); display: flex; justify-content: space-between;
+        align-items: center; gap: 0.6rem; flex-wrap: wrap;
+    }
+    .nt-bloque-head h2 { margin: 0; font-size: 1rem; }
+    .nt-bloque-head .acciones { display: flex; gap: 0.5rem; }
+
+    .nt-estado {
+        padding: 1.1rem 1.2rem; font-size: 0.88rem; color: var(--gray-10);
+        line-height: 1.6; min-height: 60px;
+    }
+    .nt-estado.error { color: #B71C1C; background: #FFEBEE; }
+    .nt-estado.ok    { color: #1B5E20; }
+
+    .nt-lista { padding: 0.3rem 0; }
+    .nt-item {
+        padding: 0.9rem 1.1rem;
+        border-bottom: 1px solid var(--gray-bg);
+        display: grid; grid-template-columns: auto 1fr; gap: 0.7rem;
+        align-items: flex-start;
+    }
+    .nt-item:last-child { border-bottom: none; }
+    .nt-item input[type="checkbox"] {
+        width: 16px; height: 16px; margin-top: 4px;
+        accent-color: var(--deloitte-green, #86BC25); cursor: pointer;
+    }
+    .nt-item .titular {
+        font-size: 0.94rem; font-weight: 600; line-height: 1.35; margin-bottom: 3px;
+        color: var(--black);
+    }
+    .nt-item .titular a { color: inherit; text-decoration: none; }
+    .nt-item .titular a:hover { text-decoration: underline; }
+    .nt-item .meta {
+        font-size: 0.74rem; color: var(--gray-10);
+        display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+        margin-bottom: 4px;
+    }
+    .nt-item .meta .cat {
+        display: inline-block; padding: 1px 8px; border-radius: 999px;
+        background: var(--gray-bg); border: 1px solid var(--gray-border);
+        font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+        font-size: 0.68rem; color: var(--gray-11);
+    }
+    .nt-item .resumen { font-size: 0.84rem; color: var(--gray-11); line-height: 1.5; }
+    .nt-item .url {
+        margin-top: 4px; font-size: 0.74rem;
+    }
+    .nt-item .url a { color: var(--deloitte-green-dark, #43B02A); word-break: break-all; }
+
+    /* --- Pie de bloque con botón de preparar correo --- */
+    .nt-bloque-pie {
+        padding: 0.7rem 1.1rem; border-top: 1px solid var(--gray-border);
+        background: var(--gray-bg); display: flex; justify-content: space-between;
+        align-items: center; gap: 0.6rem; flex-wrap: wrap; font-size: 0.82rem;
+        color: var(--gray-10);
+    }
+
+    /* --- Compositor de correo --- */
+    .nt-compositor {
+        background: #fff; border: 1px solid var(--gray-border); border-radius: 4px;
+        padding: 1.1rem 1.3rem; margin-top: 1.2rem;
+    }
+    .nt-compositor h2 { margin: 0 0 0.7rem; font-size: 1rem; }
+    .nt-compositor .fila { display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.6rem; flex-wrap: wrap; }
+    .nt-compositor label {
+        font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.6px;
+        color: var(--gray-10); font-weight: 700; min-width: 110px;
+    }
+    .nt-compositor input[type="text"], .nt-compositor input[type="email"] {
+        flex: 1; padding: 8px 10px; border: 1px solid var(--gray-border);
+        border-radius: 3px; font-size: 0.9rem; min-width: 240px;
+    }
+    .nt-compositor textarea {
+        width: 100%; min-height: 220px; padding: 10px 12px;
+        border: 1px solid var(--gray-border); border-radius: 3px;
+        font-family: 'Menlo', 'Consolas', monospace; font-size: 0.84rem;
+        line-height: 1.5; resize: vertical;
+    }
+    .nt-compositor .remite {
+        background: var(--gray-bg); padding: 6px 10px; border-radius: 3px;
+        font-size: 0.82rem; color: var(--gray-11); flex: 1;
+    }
+    .nt-compositor .acciones {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 0.6rem; margin-top: 0.6rem; flex-wrap: wrap;
+    }
+    .nt-compositor .acciones .izq { font-size: 0.78rem; color: var(--gray-10); }
+    .nt-compositor .acciones .btns { display: flex; gap: 0.5rem; }
+    .nt-compositor .estado-envio {
+        margin-top: 0.6rem; padding: 8px 10px; border-radius: 3px;
+        font-size: 0.84rem; line-height: 1.5;
+    }
+    .nt-compositor .estado-envio.ok { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
+    .nt-compositor .estado-envio.err { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
+
+    /* Formulario inline de configuración del sector */
+    .nt-sector-form {
+        background: #FFF8E1; border: 1px solid #FFE082;
+        padding: 0.9rem 1.1rem; border-radius: 3px; margin-bottom: 1rem;
+    }
+    .nt-sector-form .nt-sector-form-head {
+        margin-bottom: 0.6rem; color: #5D4037; font-size: 0.9rem; line-height: 1.4;
+    }
+    .nt-sector-form .nt-sector-form-head small {
+        display: block; color: #7A5C2A; font-size: 0.78rem; font-weight: 400; margin-top: 2px;
+    }
+    .nt-sector-form .nt-sector-form-head code {
+        background: #fff; padding: 1px 6px; border-radius: 3px; font-size: 0.78rem;
+    }
+    .nt-sector-form .fila {
+        display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap;
+    }
+    .nt-sector-form .fila label {
+        font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.6px;
+        color: #5D4037; font-weight: 700; min-width: 110px;
+    }
+    .nt-sector-form .fila input[type="text"] {
+        flex: 1; padding: 7px 10px; border: 1px solid #E6CA7B; border-radius: 3px;
+        font-size: 0.88rem; min-width: 240px; background: #fff;
+    }
+    .nt-sector-form-acciones {
+        display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.6rem;
+    }
+    .nt-sector-form-estado {
+        margin-top: 0.5rem; padding: 6px 10px; border-radius: 3px;
+        font-size: 0.82rem; line-height: 1.4;
+    }
+    .nt-sector-form-estado.err { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
+    .nt-sector-form-estado.ok  { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
+
+    .spin {
+        width: 14px; height: 14px; display: inline-block; vertical-align: middle;
+        border: 2px solid rgba(0,0,0,0.15); border-top-color: var(--deloitte-green-dark, #43B02A);
+        border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
 <div class="breadcrumbs">
     <a href="/">Inicio</a><span class="sep">/</span>
-    <span>Funcionalidades</span><span class="sep">/</span>
     <span class="current">Noticias del Sector</span>
 </div>
 
-<div class="page-header">
+<div class="nt-header">
     <div>
-        <span class="eyebrow">Módulo · Market Intelligence</span>
-        <h1>Buscador de Noticias del Sector</h1>
-        <p class="lead">Agregador inteligente de actualidad financiera y corporativa. Clustering temático, resumen por IA y alertas personalizadas sobre compañías, sectores y geografías.</p>
-    </div>
-    <span class="tag tag-orange">Preview</span>
-</div>
-
-<div class="card">
-    <h2>Buscador</h2>
-    <form onsubmit="event.preventDefault(); buscar();">
-        <div style="display:grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 0.7rem; align-items:end;">
-            <div class="form-group" style="margin:0;">
-                <label>Palabras clave</label>
-                <input type="text" id="q" placeholder="Ej: fusión energía renovable" value="inteligencia artificial finanzas">
+        <span class="eyebrow">Módulo · Observatorio informativo</span>
+        <h1>Noticias del Sector</h1>
+        <p class="lead">
+            Actualidad reciente del sector de <strong>{{ EMPRESA_NOMBRE }}</strong>{% if TICKER_FIJO %} ({{ TICKER_FIJO }}){% endif %}
+            y noticias específicas de la empresa. Fuente: búsqueda web del modelo elegido.
+        </p>
+        <div class="nt-sector-config" style="margin-top: 6px;">
+            <div class="nt-sector-vista" id="nt-sector-vista" {% if not SECTOR_EMPRESA.sector %}hidden{% endif %}>
+                {% if SECTOR_EMPRESA.sector %}
+                <span class="nt-sector-tag">Sector: {{ SECTOR_EMPRESA.sector }}</span>
+                {% if SECTOR_EMPRESA.subsectores %}
+                <div class="nt-sector-sub">
+                    Subsectores: {{ SECTOR_EMPRESA.subsectores | join(" · ") }}
+                </div>
+                {% endif %}
+                <button type="button" class="btn btn-secondary btn-sm" id="nt-sector-editar" style="margin-top: 6px;">
+                    ✎ Editar sector
+                </button>
+                {% endif %}
             </div>
-            <div class="form-group" style="margin:0;">
-                <label>Sector</label>
-                <select id="sector">
-                    <option>Todos</option>
-                    <option selected>Tecnología / FinTech</option>
-                    <option>Banca</option>
-                    <option>Energía</option>
-                    <option>Consumo</option>
-                    <option>Industrial</option>
-                </select>
-            </div>
-            <div class="form-group" style="margin:0;">
-                <label>Ventana</label>
-                <select id="rango">
-                    <option>Últimas 24h</option>
-                    <option selected>Últimos 7 días</option>
-                    <option>Último mes</option>
-                </select>
-            </div>
-            <button type="submit" class="btn btn-primary">Buscar</button>
         </div>
-    </form>
-    <div style="margin-top: 0.8rem; display:flex; gap:0.4rem; flex-wrap:wrap;">
-        <span class="tag tag-green">142 resultados</span>
-        <span class="tag">Reuters (38)</span>
-        <span class="tag">Bloomberg (27)</span>
-        <span class="tag">Expansión (24)</span>
-        <span class="tag">Financial Times (19)</span>
-        <span class="tag">Cinco Días (17)</span>
-        <span class="tag">Otros (17)</span>
+    </div>
+    <div class="nt-controls">
+        <div>
+            <label for="nt-modelo">Modelo</label>
+            <select id="nt-modelo">
+                {% for m in modelos_disponibles %}
+                <option value="{{ m }}" {% if m == modelo_default %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="nt-n">Nº noticias</label>
+            <input type="number" id="nt-n" min="3" max="12" value="6">
+        </div>
+        <div>
+            <label for="nt-dias">Días recientes</label>
+            <input type="number" id="nt-dias" min="1" max="60" value="7">
+        </div>
     </div>
 </div>
 
-<div class="card">
-    <h2>Resumen ejecutivo · generado por IA</h2>
-    <div class="nota-memoria">
-        <h3>Síntesis semanal</h3>
-        <p>La actividad del sector <strong>Tecnología / FinTech</strong> durante los últimos 7 días ha estado marcada por tres clusters dominantes: (1) <strong>integración de IA generativa</strong> en plataformas de pagos y wealth management, (2) <strong>actividad M&amp;A</strong> en Europa del Este y LATAM, y (3) <strong>debate regulatorio</strong> en torno a stablecoins tras la nueva circular del BCE.</p>
-        <ul>
-            <li><strong>M&amp;A destacada:</strong> adquisición de Klarna por parte de un consorcio liderado por BlackRock valorada en 14,2B USD.</li>
-            <li><strong>Regulación:</strong> la Autoridad Bancaria Europea publica guía técnica sobre el uso de LLMs en procesos KYC.</li>
-            <li><strong>Mercados:</strong> las fintechs cotizadas cierran la semana con un +3,8% medio, lideradas por Adyen y Nu Holdings.</li>
-        </ul>
+<!-- Formulario para dar de alta o editar el sector desde la propia pantalla -->
+<div class="nt-sector-form" id="nt-sector-form" {% if SECTOR_EMPRESA.sector %}hidden{% endif %}>
+    <div class="nt-sector-form-head">
+        <strong>{% if SECTOR_EMPRESA.sector %}Editar sector{% else %}Configura el sector para activar las noticias del sector{% endif %}</strong>
+        <small>Se guarda en <code>Empresas/{{ TICKER_FIJO }}/sector.txt</code>. Puedes editarlo luego a mano si lo prefieres.</small>
     </div>
+    <div class="fila">
+        <label for="nt-sector-input">Sector *</label>
+        <input type="text" id="nt-sector-input"
+               value="{{ SECTOR_EMPRESA.sector }}"
+               placeholder="p. ej. Utilities / Energía"
+               autocomplete="off" maxlength="120">
+    </div>
+    <div class="fila">
+        <label for="nt-subsectores-input">Subsectores</label>
+        <input type="text" id="nt-subsectores-input"
+               value="{{ SECTOR_EMPRESA.subsectores | join(', ') }}"
+               placeholder="separados por comas, p. ej. Renovables, Redes, Comercialización"
+               autocomplete="off" maxlength="400">
+    </div>
+    <div class="nt-sector-form-acciones">
+        {% if SECTOR_EMPRESA.sector %}
+        <button type="button" class="btn btn-secondary btn-sm" id="nt-sector-cancelar">Cancelar</button>
+        {% endif %}
+        <button type="button" class="btn btn-primary btn-sm" id="nt-sector-guardar">
+            {% if SECTOR_EMPRESA.sector %}Guardar cambios{% else %}Guardar sector{% endif %}
+        </button>
+    </div>
+    <div class="nt-sector-form-estado" id="nt-sector-estado" hidden></div>
 </div>
 
-<div class="card">
-    <h2>Titulares recientes</h2>
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1rem;">
-        {% for n in noticias %}
-        <article style="border:1px solid var(--gray-border); border-radius:3px; background: var(--white); display:flex; flex-direction:column;">
-            <div style="background: {{ n.banner }}; height: 6px;"></div>
-            <div style="padding: 1.1rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-                    <span class="tag {{ n.tag }}">{{ n.categoria }}</span>
-                    <span style="color: var(--gray-10); font-size: 0.76rem;">{{ n.fecha }}</span>
-                </div>
-                <h3 style="margin-bottom: 0.4rem; line-height: 1.3;">{{ n.titular }}</h3>
-                <p style="color: var(--gray-11); font-size: 0.88rem; line-height: 1.55;">{{ n.resumen }}</p>
-                <div style="margin-top: 0.8rem; display:flex; justify-content:space-between; align-items:center;">
-                    <span style="color: var(--gray-10); font-size: 0.78rem; font-weight:600;">{{ n.fuente }}</span>
-                    <button class="btn btn-sm btn-secondary" onclick="alert('Abriendo artículo (demo): {{ n.titular | e }}')">Leer</button>
+<div class="nt-bloques">
+    <!-- BLOQUE 1: NOTICIAS DEL SECTOR -->
+    <section class="nt-bloque" data-tipo="sector">
+        <div class="nt-bloque-head">
+            <h2>📰 Noticias del sector</h2>
+            <div class="acciones">
+                <button type="button" class="btn btn-primary btn-sm" data-accion="buscar"
+                        {% if not SECTOR_EMPRESA.sector %}disabled title="Configura primero sector.txt"{% endif %}>
+                    Buscar noticias
+                </button>
+            </div>
+        </div>
+        <div class="nt-estado" data-rol="estado">
+            {% if SECTOR_EMPRESA.sector %}
+            Pulsa <strong>«Buscar noticias»</strong> para traer la actualidad reciente de este sector.
+            {% else %}
+            Configura primero el sector en <code>sector.txt</code>.
+            {% endif %}
+        </div>
+        <div class="nt-lista" data-rol="lista" hidden></div>
+        <div class="nt-bloque-pie" hidden data-rol="pie">
+            <span data-rol="contador">0 noticias seleccionadas</span>
+            <button type="button" class="btn btn-secondary btn-sm" data-accion="preparar-email">
+                ✉ Preparar correo con la selección
+            </button>
+        </div>
+    </section>
+
+    <!-- BLOQUE 2: NOTICIAS DE LA EMPRESA -->
+    <section class="nt-bloque" data-tipo="empresa">
+        <div class="nt-bloque-head">
+            <h2>🏢 Noticias de {{ EMPRESA_NOMBRE }}</h2>
+            <div class="acciones">
+                <button type="button" class="btn btn-primary btn-sm" data-accion="buscar">
+                    Buscar noticias
+                </button>
+            </div>
+        </div>
+        <div class="nt-estado" data-rol="estado">
+            Pulsa <strong>«Buscar noticias»</strong> para traer noticias recientes sobre {{ EMPRESA_NOMBRE }}.
+        </div>
+        <div class="nt-lista" data-rol="lista" hidden></div>
+        <div class="nt-bloque-pie" hidden data-rol="pie">
+            <span data-rol="contador">0 noticias seleccionadas</span>
+            <button type="button" class="btn btn-secondary btn-sm" data-accion="preparar-email">
+                ✉ Preparar correo con la selección
+            </button>
+        </div>
+    </section>
+</div>
+
+<!-- Compositor de correo (compartido entre los dos bloques) -->
+<div class="nt-compositor" id="nt-compositor" hidden>
+    <h2 id="nt-compositor-titulo">Preparar correo</h2>
+
+    <div class="fila">
+        <label for="nt-remite">Remitente</label>
+        {% if gmail_configurado %}
+        <span class="remite">{{ gmail_user }} <small style="color: var(--gray-10);">(configurado en .env)</small></span>
+        {% else %}
+        <span class="remite" style="color: #B71C1C;">
+            Gmail no configurado. Añade <code>GMAIL_USER</code> y <code>GMAIL_APP_PASSWORD</code> en .env para poder enviar.
+        </span>
+        {% endif %}
+    </div>
+
+    <div class="fila">
+        <label for="nt-destinatario">Destinatario *</label>
+        <input type="email" id="nt-destinatario" placeholder="email@ejemplo.com" autocomplete="off" required>
+    </div>
+
+    <div class="fila">
+        <label for="nt-destinatario-nombre">Nombre (opcional)</label>
+        <input type="text" id="nt-destinatario-nombre" placeholder="Nombre del destinatario (opcional)" autocomplete="off">
+    </div>
+
+    <div class="fila">
+        <label for="nt-asunto">Asunto</label>
+        <input type="text" id="nt-asunto" autocomplete="off">
+    </div>
+
+    <div>
+        <label for="nt-cuerpo" style="display:block; font-size:0.74rem; text-transform:uppercase; letter-spacing:0.6px; color: var(--gray-10); font-weight:700; margin-bottom:4px;">Cuerpo del mensaje</label>
+        <textarea id="nt-cuerpo"></textarea>
+    </div>
+
+    <div class="acciones">
+        <div class="izq">
+            Puedes editar libremente asunto y cuerpo antes de enviar.
+        </div>
+        <div class="btns">
+            <button type="button" class="btn btn-secondary btn-sm" id="nt-cerrar-compositor">Cancelar</button>
+            <button type="button" class="btn btn-primary btn-sm" id="nt-enviar"
+                    {% if not gmail_configurado %}disabled{% endif %}>
+                Enviar
+            </button>
+        </div>
+    </div>
+    <div class="estado-envio" id="nt-estado-envio" hidden></div>
+</div>
+
+<script>
+(function() {
+    const URL_BUSCAR = '/noticias/buscar';
+    const URL_PREPARAR = '/noticias/preparar-email';
+    const URL_ENVIAR = '/noticias/enviar';
+
+    const $ = (sel, root) => (root || document).querySelector(sel);
+    const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+    // --- Formulario inline de configuración del sector --------------------
+    const elSectorVista = $('#nt-sector-vista');
+    const elSectorForm = $('#nt-sector-form');
+    const btnSectorEditar = $('#nt-sector-editar');
+    const btnSectorCancelar = $('#nt-sector-cancelar');
+    const btnSectorGuardar = $('#nt-sector-guardar');
+    const inpSector = $('#nt-sector-input');
+    const inpSubs = $('#nt-subsectores-input');
+    const elSectorEstado = $('#nt-sector-estado');
+
+    if (btnSectorEditar) {
+        btnSectorEditar.addEventListener('click', () => {
+            if (elSectorForm) elSectorForm.hidden = false;
+            if (elSectorVista) elSectorVista.hidden = true;
+            if (inpSector) inpSector.focus();
+        });
+    }
+    if (btnSectorCancelar) {
+        btnSectorCancelar.addEventListener('click', () => {
+            if (elSectorForm) elSectorForm.hidden = true;
+            if (elSectorVista) elSectorVista.hidden = false;
+            if (elSectorEstado) elSectorEstado.hidden = true;
+        });
+    }
+    if (btnSectorGuardar) {
+        btnSectorGuardar.addEventListener('click', async () => {
+            const sector = (inpSector.value || '').trim();
+            const subs = (inpSubs.value || '').trim();
+            if (!sector) {
+                elSectorEstado.className = 'nt-sector-form-estado err';
+                elSectorEstado.textContent = 'El sector no puede estar vacío.';
+                elSectorEstado.hidden = false;
+                inpSector.focus();
+                return;
+            }
+            btnSectorGuardar.disabled = true;
+            const txtPrev = btnSectorGuardar.textContent;
+            btnSectorGuardar.innerHTML = '<span class="spin"></span>Guardando…';
+            try {
+                const r = await fetch('/noticias/sector', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ sector, subsectores: subs }),
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error || `Error ${r.status}`);
+                elSectorEstado.className = 'nt-sector-form-estado ok';
+                elSectorEstado.textContent = '✓ Sector guardado. Refrescando la pantalla…';
+                elSectorEstado.hidden = false;
+                // Recarga simple: así se rehidrata el context processor y los dos
+                // bloques quedan en el estado correcto (botón "Buscar" habilitado,
+                // badge pintado, etc.).
+                setTimeout(() => window.location.reload(), 500);
+            } catch (e) {
+                elSectorEstado.className = 'nt-sector-form-estado err';
+                elSectorEstado.textContent = e.message;
+                elSectorEstado.hidden = false;
+                btnSectorGuardar.disabled = false;
+                btnSectorGuardar.textContent = txtPrev;
+            }
+        });
+    }
+
+    const bloques = $$('.nt-bloque');
+    const compositor = $('#nt-compositor');
+    const compositorTitulo = $('#nt-compositor-titulo');
+    const elDestinatario = $('#nt-destinatario');
+    const elNombre = $('#nt-destinatario-nombre');
+    const elAsunto = $('#nt-asunto');
+    const elCuerpo = $('#nt-cuerpo');
+    const elEnvio = $('#nt-estado-envio');
+    const btnEnviar = $('#nt-enviar');
+    const btnCerrar = $('#nt-cerrar-compositor');
+
+    // Guardamos las noticias de cada bloque en memoria para construir el correo.
+    const estado = { sector: {noticias: [], resumen: ''}, empresa: {noticias: [], resumen: ''} };
+
+    function escapeHtml(s) {
+        return (s || '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
+    function renderLista(bloque, noticias) {
+        const lista = $('[data-rol="lista"]', bloque);
+        if (!noticias.length) {
+            lista.innerHTML = '<div class="nt-estado">No se han encontrado noticias para el período indicado.</div>';
+            lista.hidden = false;
+            return;
+        }
+        lista.innerHTML = noticias.map((n, i) => `
+            <div class="nt-item" data-i="${i}">
+                <input type="checkbox" checked data-rol="chk">
+                <div>
+                    <div class="titular">
+                        ${n.url
+                            ? `<a href="${escapeHtml(n.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(n.titular || '(sin título)')}</a>`
+                            : escapeHtml(n.titular || '(sin título)')}
+                    </div>
+                    <div class="meta">
+                        ${n.categoria ? `<span class="cat">${escapeHtml(n.categoria)}</span>` : ''}
+                        ${n.fuente ? `<span>${escapeHtml(n.fuente)}</span>` : ''}
+                        ${n.fecha ? `<span>· ${escapeHtml(n.fecha)}</span>` : ''}
+                    </div>
+                    ${n.resumen ? `<div class="resumen">${escapeHtml(n.resumen)}</div>` : ''}
+                    ${n.url ? `<div class="url"><a href="${escapeHtml(n.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(n.url)}</a></div>` : ''}
                 </div>
             </div>
-        </article>
-        {% endfor %}
-    </div>
-</div>
-{% endblock %}
+        `).join('');
+        lista.hidden = false;
+        actualizarContador(bloque);
+    }
 
-{% block scripts %}
-<script>
-function buscar() {
-    const btn = event.target.querySelector('button[type=submit]');
-    btn.disabled = true; btn.textContent = 'Buscando...';
-    setTimeout(() => {
-        btn.disabled = false; btn.textContent = 'Buscar';
-        alert('Búsqueda ejecutada. (Demo — los resultados mostrados son de muestra.)');
-    }, 800);
-}
+    function actualizarContador(bloque) {
+        const chks = $$('[data-rol="chk"]', bloque);
+        const sel = chks.filter(c => c.checked).length;
+        const span = $('[data-rol="contador"]', bloque);
+        if (span) span.textContent = `${sel} de ${chks.length} noticias seleccionadas`;
+    }
+
+    bloques.forEach(bloque => {
+        const tipo = bloque.dataset.tipo;
+        const btnBuscar = $('[data-accion="buscar"]', bloque);
+        const btnPreparar = $('[data-accion="preparar-email"]', bloque);
+        const elEstado = $('[data-rol="estado"]', bloque);
+        const elLista = $('[data-rol="lista"]', bloque);
+        const elPie = $('[data-rol="pie"]', bloque);
+
+        if (btnBuscar) btnBuscar.addEventListener('click', async () => {
+            btnBuscar.disabled = true;
+            const originalTxt = btnBuscar.textContent;
+            btnBuscar.innerHTML = '<span class="spin"></span>Buscando…';
+            elEstado.className = 'nt-estado';
+            elEstado.innerHTML = '<span class="spin"></span>Buscando noticias con el LLM (puede tardar 10-25 s).';
+            elEstado.hidden = false;
+            elLista.hidden = true;
+            elLista.innerHTML = '';
+            elPie.hidden = true;
+
+            try {
+                const r = await fetch(URL_BUSCAR, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        tipo: tipo,
+                        modelo: $('#nt-modelo').value,
+                        n: parseInt($('#nt-n').value, 10) || 6,
+                        dias: parseInt($('#nt-dias').value, 10) || 7,
+                    }),
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error || `Error ${r.status}`);
+                estado[tipo].noticias = j.noticias || [];
+                estado[tipo].resumen = j.consulta_resumen || '';
+                if (!estado[tipo].noticias.length) {
+                    elEstado.className = 'nt-estado';
+                    elEstado.textContent = 'No se han encontrado noticias relevantes. Prueba a ampliar el rango de días.';
+                } else {
+                    elEstado.hidden = true;
+                    renderLista(bloque, estado[tipo].noticias);
+                    elPie.hidden = false;
+                }
+            } catch (e) {
+                elEstado.className = 'nt-estado error';
+                elEstado.textContent = 'Error al buscar noticias: ' + e.message;
+            } finally {
+                btnBuscar.disabled = false;
+                btnBuscar.textContent = originalTxt;
+            }
+        });
+
+        elLista.addEventListener('change', (e) => {
+            if (e.target.matches('[data-rol="chk"]')) actualizarContador(bloque);
+        });
+
+        if (btnPreparar) btnPreparar.addEventListener('click', async () => {
+            // Recoger noticias seleccionadas (según índice del DOM)
+            const items = $$('.nt-item', bloque);
+            const seleccionadas = [];
+            items.forEach(item => {
+                const idx = parseInt(item.dataset.i, 10);
+                const chk = $('[data-rol="chk"]', item);
+                if (chk && chk.checked && estado[tipo].noticias[idx]) {
+                    seleccionadas.push(estado[tipo].noticias[idx]);
+                }
+            });
+            if (!seleccionadas.length) {
+                alert('Selecciona al menos una noticia para incluir en el correo.');
+                return;
+            }
+            btnPreparar.disabled = true;
+            const txtPrev = btnPreparar.textContent;
+            btnPreparar.innerHTML = '<span class="spin"></span>Preparando…';
+            try {
+                const r = await fetch(URL_PREPARAR, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        tipo: tipo,
+                        consulta_resumen: estado[tipo].resumen,
+                        noticias: seleccionadas,
+                    }),
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error || `Error ${r.status}`);
+                compositor.hidden = false;
+                compositorTitulo.textContent = tipo === 'sector'
+                    ? '✉ Preparar correo con las noticias del sector'
+                    : '✉ Preparar correo con las noticias de la empresa';
+                elAsunto.value = j.asunto || '';
+                elCuerpo.value = j.cuerpo || '';
+                elEnvio.hidden = true;
+                compositor.scrollIntoView({behavior: 'smooth', block: 'start'});
+                elDestinatario.focus();
+            } catch (e) {
+                alert('No se pudo preparar el correo: ' + e.message);
+            } finally {
+                btnPreparar.disabled = false;
+                btnPreparar.textContent = txtPrev;
+            }
+        });
+    });
+
+    btnCerrar.addEventListener('click', () => {
+        compositor.hidden = true;
+        elEnvio.hidden = true;
+    });
+
+    btnEnviar.addEventListener('click', async () => {
+        const destinatario = elDestinatario.value.trim();
+        if (!destinatario || !destinatario.includes('@')) {
+            elEnvio.className = 'estado-envio err';
+            elEnvio.textContent = 'Introduce un email de destinatario válido.';
+            elEnvio.hidden = false;
+            elDestinatario.focus();
+            return;
+        }
+        btnEnviar.disabled = true;
+        const txtPrev = btnEnviar.textContent;
+        btnEnviar.innerHTML = '<span class="spin"></span>Enviando…';
+        elEnvio.hidden = true;
+        try {
+            const r = await fetch(URL_ENVIAR, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    destinatario: destinatario,
+                    destinatario_nombre: elNombre.value.trim(),
+                    asunto: elAsunto.value.trim(),
+                    cuerpo: elCuerpo.value,
+                }),
+            });
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || `Error ${r.status}`);
+            elEnvio.className = 'estado-envio ok';
+            elEnvio.textContent = `✓ Correo enviado a ${j.destinatario}.`;
+            elEnvio.hidden = false;
+        } catch (e) {
+            elEnvio.className = 'estado-envio err';
+            elEnvio.textContent = e.message;
+            elEnvio.hidden = false;
+        } finally {
+            btnEnviar.disabled = false;
+            btnEnviar.textContent = txtPrev;
+        }
+    });
+})();
 </script>
 {% endblock %}
