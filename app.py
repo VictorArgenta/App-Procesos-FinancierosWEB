@@ -4168,6 +4168,14 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
         raise
 
     _latencia = _t.time() - _t0
+    # Log del texto crudo del LLM (truncado) para poder diagnosticar casos en
+    # los que el modelo decide no responder o devuelve algo que luego el
+    # validador descarta.
+    log_res.info(
+        "RAW LLM id=%s modelo=%s len=%d primeros_1000=%s",
+        correo.get("id", "?"), modelo, len(texto or ""),
+        (texto or "")[:1000],
+    )
     import json as _json
     bloque = re.search(r"\{.*\}", texto or "", re.DOTALL)
     if not bloque:
@@ -4200,8 +4208,10 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
         tipo = "mayorista"
     parsed["tipo_inversor"] = tipo
     parsed.setdefault("perfil_estimado", "")
-    # Guardamos el modelo usado para que el validador lo pueda loguear.
+    # Guardamos el modelo usado y el texto crudo para que el validador los
+    # pueda usar al componer la nota de diagnóstico.
     parsed["_modelo_usado"] = modelo
+    parsed["_texto_crudo_llm"] = (texto or "")[:2000]
     parsed = _validar_borrador_ir(parsed, correo)
 
     # Anexamos las fuentes RAG a la nota interna (solo se muestran al
@@ -4319,13 +4329,27 @@ def _validar_borrador_ir(parsed, correo):
         else:
             # El propio modelo marcó puede_resolver=false.
             nota_previa = parsed.get("nota_interna") or (
-                "La IA no encontró información suficiente en los datos "
-                "disponibles para redactar una respuesta con calidad. "
-                "Redacta manualmente."
+                "La IA marcó puede_resolver=false. Esto suele significar que "
+                "no encontró datos públicos suficientes para una respuesta "
+                "con calidad, o que decidió no responder por otro motivo. "
+                "Redacta manualmente o cambia a otro modelo."
             )
             if cuerpo_truncado:
-                nota_previa += "\n\n— BORRADOR ORIGINAL (descartado por la propia IA) —\n" + cuerpo_truncado
+                nota_previa += "\n\n— BORRADOR ORIGINAL (vacío o parcial) —\n" + cuerpo_truncado
+            # Si el cuerpo estaba vacío, exponemos el TEXTO CRUDO del LLM para
+            # diagnosticar: muchas veces la razón real está en el JSON que
+            # devolvió (campo nota_interna del modelo, o un mensaje fuera del
+            # JSON) o directamente en prosa antes del bloque JSON.
+            texto_crudo = parsed.get("_texto_crudo_llm", "") or ""
+            if not cuerpo_truncado and texto_crudo:
+                nota_previa += (
+                    "\n\n— RESPUESTA CRUDA DE LA IA (para diagnóstico) —\n"
+                    + texto_crudo[:1500]
+                )
             parsed["nota_interna"] = nota_previa
+    # Limpiamos la metadata interna antes de devolver al frontend.
+    parsed.pop("_texto_crudo_llm", None)
+    parsed.pop("_modelo_usado", None)
     return parsed
 
 
