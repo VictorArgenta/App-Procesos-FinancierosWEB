@@ -26,49 +26,69 @@
         background: #fff;
         border: 1px solid var(--gray-border);
         border-radius: 4px;
-        padding: 0.6rem 0.85rem;
+        padding: 0.5rem 0.7rem 0.4rem;
         display: flex;
         flex-direction: column;
-        gap: 2px;
-        min-height: 112px;
+        gap: 1px;
     }
     .dh-head {
         display: flex;
         justify-content: space-between;
-        align-items: baseline;
+        align-items: center;
         gap: 0.4rem;
     }
     .dh-label {
-        font-size: 0.68rem;
+        font-size: 0.66rem;
         text-transform: uppercase;
         letter-spacing: 0.6px;
         color: var(--gray-10);
         font-weight: 700;
     }
-    .dh-delta {
-        font-size: 0.72rem;
+    .dh-fy {
+        font-size: 0.62rem;
+        letter-spacing: 0.4px;
+        color: #0F4DA3;
+        background: #E3F2FD;
+        padding: 1px 6px;
+        border-radius: 3px;
         font-weight: 700;
-        padding: 1px 7px;
+    }
+    .dh-value-line {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+    .dh-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--black);
+        line-height: 1.15;
+    }
+    .dh-unit { font-size: 0.68rem; color: var(--gray-10); font-weight: 500; }
+    .dh-delta {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 1px 6px;
         border-radius: 999px;
+        margin-left: auto;
     }
     .dh-delta.up { background: #E8F5E9; color: #1B5E20; }
     .dh-delta.dn { background: #FFEBEE; color: #B71C1C; }
     .dh-delta.na { background: var(--gray-bg); color: var(--gray-10); }
 
-    .dh-value {
-        font-size: 1.35rem;
-        font-weight: 700;
-        color: var(--black);
-        line-height: 1.1;
+    .dh-detail {
+        font-size: 0.68rem;
+        color: var(--gray-10);
+        line-height: 1.3;
     }
-    .dh-value .unit { font-size: 0.72rem; color: var(--gray-10); font-weight: 500; margin-left: 3px; }
-    .dh-period { font-size: 0.7rem; color: var(--gray-10); }
+    .dh-detail strong { color: var(--gray-11); font-weight: 600; }
     .dh-chart {
         margin-top: 2px;
-        height: 40px !important;
+        height: 32px !important;
         width: 100% !important;
     }
-    .dh-strip canvas { height: 40px !important; }
+    .dh-strip canvas { height: 32px !important; }
 
     .dh-pie-caption {
         display: flex;
@@ -220,6 +240,11 @@
     <div class="dh-card">
         <div class="dh-head">
             <span class="dh-label">{{ t.titulo }}</span>
+            <span class="dh-fy">FY {{ dashboard_home.periodo_ultimo }}</span>
+        </div>
+        <div class="dh-value-line">
+            <span class="dh-value" data-raw="{{ t.actual if t.actual is not none else '' }}">—</span>
+            <span class="dh-unit">{{ dashboard_home.moneda }}</span>
             {% if t.delta is not none %}
                 {% set cls = "up" if t.delta >= 0 else "dn" %}
                 <span class="dh-delta {{ cls }}">{{ "%+.1f"|format(t.delta) }}%</span>
@@ -227,10 +252,10 @@
                 <span class="dh-delta na">—</span>
             {% endif %}
         </div>
-        <div class="dh-value" data-raw="{{ t.actual if t.actual is not none else '' }}">
-            {% if t.actual is not none %}··{% else %}—{% endif %}<span class="unit">{{ dashboard_home.moneda }}</span>
+        <div class="dh-detail">
+            vs FY <strong>{{ dashboard_home.periodo_anterior or '—' }}</strong>:
+            <span class="dh-prev" data-raw="{{ t.anterior if t.anterior is not none else '' }}">—</span>
         </div>
-        <div class="dh-period">{{ dashboard_home.periodo_ultimo }} · variación interanual</div>
         <canvas class="dh-chart"
                 data-serie="{{ t.serie|tojson }}"
                 data-labels="{{ dashboard_home.labels|tojson }}"
@@ -251,13 +276,21 @@
         if (abs >= 1e3) return fmt.format(v/1e3) + ' K';
         return fmt.format(v);
     }
-    // Pintar los valores grandes (ya con formato corto)
-    document.querySelectorAll('.dh-value').forEach(el => {
+    // Pintar los valores grandes y los "vs FY N-1" con formato corto
+    function _pintarValor(el) {
+        if (!el) return;
         const raw = el.dataset.raw;
         const val = raw === '' ? null : parseFloat(raw);
-        const unit = el.querySelector('.unit');
-        el.firstChild.textContent = corto(val);
-        if (unit && (val === null || isNaN(val))) unit.textContent = '';
+        el.textContent = corto(val);
+    }
+    document.querySelectorAll('.dh-value').forEach(_pintarValor);
+    document.querySelectorAll('.dh-prev').forEach(_pintarValor);
+    // Si el valor no está disponible, ocultamos también la unidad.
+    document.querySelectorAll('.dh-card').forEach(card => {
+        const v = card.querySelector('.dh-value');
+        const u = card.querySelector('.dh-unit');
+        if (!v || !u) return;
+        if ((v.dataset.raw || '').trim() === '') u.textContent = '';
     });
     // Sparklines
     document.querySelectorAll('.dh-chart').forEach(canvas => {
@@ -304,16 +337,27 @@
         } catch (e) { /* silencio: la franja es informativa */ }
     });
 
+    function _mostrarErrorChart(canvas, msg) {
+        const wrap = canvas && canvas.parentElement;
+        if (!wrap) return;
+        wrap.innerHTML = `<div style="padding:1rem;color:#B71C1C;font-size:0.82rem;line-height:1.5;">⚠ ${msg}</div>`;
+    }
+
     // --- Gráfico grande de evolución ---
     (function() {
         const el = document.getElementById('dh-evolucion');
         if (!el) return;
+        if (typeof Chart === 'undefined') {
+            _mostrarErrorChart(el, 'Chart.js no se pudo cargar (posible bloqueo de cdn.jsdelivr.net). Pide a IT que lo permita o descarga manualmente chart.umd.min.js a /static/.');
+            return;
+        }
         try {
             const labels = JSON.parse(el.dataset.labels || '[]');
             const ingresos = JSON.parse(el.dataset.ingresos || '[]');
             const bn = JSON.parse(el.dataset.bn || '[]');
-            if (!labels.length) return;
+            if (!labels.length) { _mostrarErrorChart(el, 'Sin datos para el gráfico.'); return; }
             new Chart(el, {
+                type: 'bar',  // tipo raíz necesario para mixed charts en Chart.js 4
                 data: {
                     labels: labels,
                     datasets: [
@@ -363,16 +407,20 @@
                     animation: false,
                 }
             });
-        } catch (e) { console.warn('evolucion chart:', e); }
+        } catch (e) { console.warn('evolucion chart:', e); _mostrarErrorChart(el, 'Error pintando el gráfico: ' + e.message); }
     })();
 
     // --- Gráfico de tarta: composición P&L ---
     (function() {
         const el = document.getElementById('dh-composicion');
         if (!el) return;
+        if (typeof Chart === 'undefined') {
+            _mostrarErrorChart(el, 'Chart.js no se pudo cargar.');
+            return;
+        }
         try {
             const pyg = JSON.parse(el.dataset.pyg || '[]');
-            if (!pyg.length) return;
+            if (!pyg.length) { _mostrarErrorChart(el, 'Sin datos de composición.'); return; }
             new Chart(el, {
                 type: 'doughnut',
                 data: {
@@ -403,7 +451,7 @@
                     animation: false,
                 }
             });
-        } catch (e) { console.warn('composicion chart:', e); }
+        } catch (e) { console.warn('composicion chart:', e); _mostrarErrorChart(el, 'Error pintando el gráfico: ' + e.message); }
     })();
 })();
 </script>

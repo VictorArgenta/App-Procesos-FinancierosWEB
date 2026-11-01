@@ -3301,10 +3301,13 @@ def _resumen_dashboard_home(datos):
 
     def _tarjeta(titulo, clave, color):
         serie = _serie(clave)
+        actual = serie[-1] if serie else None
+        anterior = serie[-2] if len(serie) >= 2 else None
         return {
             "titulo": titulo,
             "serie": serie,
-            "actual": serie[-1] if serie else None,
+            "actual": actual,
+            "anterior": anterior,
             "delta": _delta_yoy(serie),
             "color": color,
         }
@@ -3358,6 +3361,7 @@ def _resumen_dashboard_home(datos):
         "labels": labels,
         "moneda": datos.get("moneda") or "",
         "periodo_ultimo": labels[-1] if labels else "",
+        "periodo_anterior": labels[-2] if len(labels) >= 2 else "",
         "tarjetas": [
             _tarjeta("Ingresos", "ingresos", "#1976D2"),
             _tarjeta("Beneficio neto", "beneficio_neto", "#43B02A"),
@@ -3366,6 +3370,7 @@ def _resumen_dashboard_home(datos):
                 "titulo": "Flujo de caja operativo",
                 "serie": serie_ocf,
                 "actual": serie_ocf[-1] if serie_ocf else None,
+                "anterior": serie_ocf[-2] if len(serie_ocf) >= 2 else None,
                 "delta": delta_ocf,
                 "color": "#F57C00",
             },
