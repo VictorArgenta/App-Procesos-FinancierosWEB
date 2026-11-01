@@ -79,24 +79,28 @@
     }
     .dh-pie-caption span strong { color: var(--black); font-size: 0.78rem; }
 
-    /* --- Fila de cotizaciones live --- */
+    /* --- Fila de cotizaciones live estilo ticker bursátil (marquee) --- */
     .dh-quotes {
         display: flex;
         align-items: center;
-        gap: 0.6rem;
-        background: #fff;
+        gap: 0;
+        background: #0F1419;
+        color: #fff;
         border: 1px solid var(--gray-border);
         border-radius: 4px;
-        padding: 0.5rem 0.8rem;
+        padding: 0;
         margin-bottom: 1.1rem;
-        flex-wrap: wrap;
+        overflow: hidden;
     }
     .dh-quotes-head {
         display: flex; align-items: center; gap: 6px;
         font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.6px;
-        color: var(--gray-10); font-weight: 700;
-        padding-right: 10px; border-right: 1px solid var(--gray-border);
-        margin-right: 4px;
+        color: #fff; font-weight: 700;
+        padding: 10px 14px;
+        background: #1A1A1A;
+        border-right: 1px solid #333;
+        flex-shrink: 0;
+        z-index: 2;
     }
     .dh-quotes-head .dot {
         width: 8px; height: 8px; border-radius: 50%;
@@ -104,21 +108,52 @@
         animation: dh-pulse 2s ease-in-out infinite;
     }
     @keyframes dh-pulse { 50% { opacity: 0.45; } }
-    .dh-quote {
-        display: inline-flex; align-items: baseline; gap: 6px;
-        padding: 3px 10px; border-radius: 999px;
-        background: var(--gray-bg); border: 1px solid var(--gray-border);
-        font-size: 0.84rem;
+
+    .dh-quotes-viewport {
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+        padding: 10px 0;
     }
-    .dh-quote.principal { background: #E3F2FD; border-color: #90CAF9; }
-    .dh-quote .tk { font-weight: 700; }
-    .dh-quote .px { font-weight: 600; color: var(--black); }
-    .dh-quote .ch { font-size: 0.74rem; font-weight: 700; }
-    .dh-quote .ch.up { color: #1B5E20; }
-    .dh-quote .ch.dn { color: #B71C1C; }
-    .dh-quote .ch.na { color: var(--gray-10); }
+    .dh-quotes-track {
+        display: inline-flex;
+        gap: 2rem;
+        white-space: nowrap;
+        animation: dh-marquee 60s linear infinite;
+        padding-left: 2rem;
+        will-change: transform;
+    }
+    .dh-quotes-track:hover { animation-play-state: paused; }
+    @keyframes dh-marquee {
+        from { transform: translateX(0); }
+        /* -50% porque duplicamos los chips para loop sin saltos */
+        to   { transform: translateX(-50%); }
+    }
+
+    .dh-quote {
+        display: inline-flex; align-items: baseline; gap: 8px;
+        font-size: 0.9rem;
+        color: #fff;
+    }
+    .dh-quote.principal .tk { color: #42A5F5; }
+    .dh-quote .tk { font-weight: 700; letter-spacing: 0.3px; }
+    .dh-quote .px { font-weight: 600; color: #E0E0E0; }
+    .dh-quote .ch { font-size: 0.82rem; font-weight: 700; padding: 1px 6px; border-radius: 3px; }
+    .dh-quote .ch.up { color: #4CAF50; background: rgba(76,175,80,0.12); }
+    .dh-quote .ch.dn { color: #EF5350; background: rgba(239,83,80,0.14); }
+    .dh-quote .ch.na { color: #9E9E9E; }
+    .dh-quote-sep {
+        display: inline-block; width: 1px; align-self: stretch;
+        background: #333; margin: 0 0.4rem;
+    }
+
     .dh-quotes-updated {
-        margin-left: auto; font-size: 0.7rem; color: var(--gray-10);
+        padding: 10px 14px;
+        font-size: 0.7rem; color: #9E9E9E;
+        border-left: 1px solid #333;
+        flex-shrink: 0;
+        z-index: 2;
+        background: #1A1A1A;
     }
 
     /* --- Fila de gráficos grandes --- */
@@ -137,31 +172,43 @@
         font-size: 0.82rem; font-weight: 700; margin: 0 0 0.4rem;
         text-transform: uppercase; letter-spacing: 0.6px; color: var(--gray-11);
     }
-    .dh-chart-box canvas { max-height: 220px; }
+    /* Wrapper con altura fija: Chart.js responsive necesita que el padre
+       tenga dimensión definida; si no, el canvas se renderiza a 0 px y el
+       gráfico queda "invisible" (el bug que reportaste). */
+    .dh-chart-wrap { position: relative; height: 220px; width: 100%; }
+    .dh-chart-wrap canvas { position: absolute; inset: 0; }
 </style>
 
 {% if EMPRESA_COTIZA %}
 <div class="dh-quotes" id="dh-quotes">
     <span class="dh-quotes-head"><span class="dot"></span> Cotización en vivo</span>
-    <span class="dh-quote principal" data-rol="placeholder"><span class="tk">Cargando…</span></span>
-    <span class="dh-quotes-updated" id="dh-quotes-updated">Esperando datos…</span>
+    <div class="dh-quotes-viewport">
+        <div class="dh-quotes-track" id="dh-quotes-track">
+            <span class="dh-quote"><span class="tk">Cargando cotizaciones…</span></span>
+        </div>
+    </div>
+    <span class="dh-quotes-updated" id="dh-quotes-updated">—</span>
 </div>
 {% endif %}
 
 <div class="dh-charts-row">
     <div class="dh-chart-box">
         <h3>📈 Evolución (últimos 5 ejercicios)</h3>
-        <canvas id="dh-evolucion"
-                data-labels="{{ dashboard_home.evolucion.labels|tojson }}"
-                data-ingresos="{{ dashboard_home.evolucion.ingresos|tojson }}"
-                data-bn="{{ dashboard_home.evolucion.beneficio_neto|tojson }}"
-                data-moneda="{{ dashboard_home.moneda }}"></canvas>
+        <div class="dh-chart-wrap">
+            <canvas id="dh-evolucion"
+                    data-labels="{{ dashboard_home.evolucion.labels|tojson }}"
+                    data-ingresos="{{ dashboard_home.evolucion.ingresos|tojson }}"
+                    data-bn="{{ dashboard_home.evolucion.beneficio_neto|tojson }}"
+                    data-moneda="{{ dashboard_home.moneda }}"></canvas>
+        </div>
     </div>
     <div class="dh-chart-box">
         <h3>🥧 Composición P&amp;L ({{ dashboard_home.periodo_ultimo }})</h3>
         {% if dashboard_home.composicion_pyg %}
-        <canvas id="dh-composicion"
-                data-pyg="{{ dashboard_home.composicion_pyg|tojson }}"></canvas>
+        <div class="dh-chart-wrap">
+            <canvas id="dh-composicion"
+                    data-pyg="{{ dashboard_home.composicion_pyg|tojson }}"></canvas>
+        </div>
         {% else %}
         <p style="color: var(--gray-10); font-size: 0.84rem; padding: 1.2rem 0;">No hay suficientes datos de Yahoo para componer el gráfico.</p>
         {% endif %}
@@ -372,9 +419,21 @@
         const txt = fmt.format(v);
         return cur ? `${txt} ${cur}` : txt;
     }
-    const cont = document.getElementById('dh-quotes');
+    const track = document.getElementById('dh-quotes-track');
     const upd = document.getElementById('dh-quotes-updated');
-    if (!cont || !upd) return;
+    if (!track || !upd) return;
+
+    function chipHtml(q) {
+        const chCls = q.change_pct === null ? 'na' : (q.change_pct >= 0 ? 'up' : 'dn');
+        const chTxt = q.change_pct === null ? '—' :
+                      (q.change_pct >= 0 ? '+' : '') + q.change_pct.toFixed(2) + '%';
+        const cls = 'dh-quote' + (q.principal ? ' principal' : '');
+        return `<span class="${cls}">` +
+                 `<span class="tk">${q.ticker}</span>` +
+                 `<span class="px">${fmtPrecio(q.price, q.currency)}</span>` +
+                 `<span class="ch ${chCls}">${chTxt}</span>` +
+               `</span><span class="dh-quote-sep"></span>`;
+    }
 
     async function refrescar() {
         try {
@@ -382,32 +441,19 @@
             const j = await r.json();
             if (!j.ok) throw new Error(j.error || 'error');
             const quotes = j.cotizaciones || [];
-            // Reemplazamos todos los chips (menos la cabecera y el updated).
-            cont.querySelectorAll('.dh-quote, [data-rol="placeholder"]').forEach(e => e.remove());
-            const updEl = cont.querySelector('#dh-quotes-updated');
-            quotes.forEach(q => {
-                const chip = document.createElement('span');
-                chip.className = 'dh-quote' + (q.principal ? ' principal' : '');
-                const chCls = q.change_pct === null ? 'na' : (q.change_pct >= 0 ? 'up' : 'dn');
-                const chTxt = q.change_pct === null ? '—' :
-                              (q.change_pct >= 0 ? '+' : '') + q.change_pct.toFixed(2) + '%';
-                chip.innerHTML = `<span class="tk">${q.ticker}</span>` +
-                                 `<span class="px">${fmtPrecio(q.price, q.currency)}</span>` +
-                                 `<span class="ch ${chCls}">${chTxt}</span>`;
-                cont.insertBefore(chip, updEl);
-            });
             if (!quotes.length) {
-                const nada = document.createElement('span');
-                nada.className = 'dh-quote';
-                nada.setAttribute('data-rol', 'placeholder');
-                nada.innerHTML = '<span class="tk">sin datos</span>';
-                cont.insertBefore(nada, updEl);
+                track.innerHTML = '<span class="dh-quote"><span class="tk">Sin datos disponibles</span></span>';
+                upd.textContent = '—';
+                return;
             }
+            // Duplicamos los chips para que la animación -50% enlace sin salto.
+            const html = quotes.map(chipHtml).join('');
+            track.innerHTML = html + html;
             const d = new Date();
-            upd.textContent = 'Actualizado ' + d.toLocaleTimeString('es-ES') +
-                              (j.cacheado ? ' (caché)' : '');
+            upd.textContent = d.toLocaleTimeString('es-ES') + (j.cacheado ? ' · caché' : '');
         } catch (e) {
-            upd.textContent = 'Error al refrescar: ' + e.message;
+            upd.textContent = 'error';
+            // Mantenemos el contenido previo del track si lo hubiera.
         }
     }
 
