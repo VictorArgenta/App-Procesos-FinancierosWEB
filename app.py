@@ -4200,6 +4200,8 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
         tipo = "mayorista"
     parsed["tipo_inversor"] = tipo
     parsed.setdefault("perfil_estimado", "")
+    # Guardamos el modelo usado para que el validador lo pueda loguear.
+    parsed["_modelo_usado"] = modelo
     parsed = _validar_borrador_ir(parsed, correo)
 
     # Anexamos las fuentes RAG a la nota interna (solo se muestran al
@@ -4256,39 +4258,74 @@ def _validar_borrador_ir(parsed, correo):
     """
     cuerpo = parsed.get("cuerpo_respuesta") or ""
     razones = []
+    patrones_match = []  # patrón concreto que casó, para diagnosticar
     for patron in _PATRONES_RAZONAMIENTO:
-        if re.search(patron, cuerpo, flags=re.IGNORECASE):
+        m = re.search(patron, cuerpo, flags=re.IGNORECASE)
+        if m:
             razones.append("razonamiento expuesto en la respuesta")
+            patrones_match.append(f"RAZONAMIENTO: {m.group(0).strip()!r} (regex: {patron})")
             break
     for patron in _PATRONES_TABLA:
-        if re.search(patron, cuerpo):
+        m = re.search(patron, cuerpo)
+        if m:
             razones.append("tabla/columna detectada en la respuesta")
+            patrones_match.append(f"TABLA: {m.group(0).strip()[:60]!r} (regex: {patron})")
             break
 
     if razones or not parsed.get("puede_resolver"):
+        log_val = _logging.getLogger("dfin.ir.validador")
+        correo_id = correo.get("id", "?")
+        modelo_usado = parsed.get("_modelo_usado", "?")
         if razones:
-            _logging.getLogger("dfin.ir.validador").warning(
-                "Borrador descartado para id=%s: %s",
-                correo.get("id", "?"), "; ".join(razones),
+            log_val.warning(
+                "Borrador descartado para id=%s modelo=%s: %s | match=%s",
+                correo_id, modelo_usado, "; ".join(razones), " | ".join(patrones_match),
             )
+            log_val.warning(
+                "Borrador original descartado (id=%s, modelo=%s) [primeros 500 chars]:\n%s",
+                correo_id, modelo_usado, (cuerpo or "")[:500],
+            )
+        else:
+            log_val.info(
+                "Borrador no publicable (id=%s modelo=%s): la IA marcó puede_resolver=false",
+                correo_id, modelo_usado,
+            )
+        # Guardamos el borrador original (truncado) para que el usuario lo pueda
+        # ver en la nota_interna y decidir si recuperarlo tal cual o reescribirlo.
+        cuerpo_truncado = (cuerpo or "").strip()
+        if len(cuerpo_truncado) > 1200:
+            cuerpo_truncado = cuerpo_truncado[:1200] + "\n[…truncado…]"
+        parsed["cuerpo_descartado"] = cuerpo_truncado
+        parsed["razones_descarte"] = razones[:]
+        parsed["patrones_match"] = patrones_match[:]
+
         parsed["puede_resolver"] = False
         parsed["cuerpo_respuesta"] = ""
         if not parsed.get("asunto_respuesta"):
             parsed["asunto_respuesta"] = f"Re: {correo.get('asunto', '')}"
         if razones:
-            parsed["nota_interna"] = (
+            detalle = "; ".join(patrones_match) if patrones_match else ""
+            msg = (
                 "Borrador descartado tras validación: " + ", ".join(razones)
-                + ". Redáctalo manualmente."
+                + ". "
             )
-        else:
-            # Mantenemos la nota_interna que la IA ya hubiera puesto, o una
-            # genérica si no había.
-            if not parsed.get("nota_interna"):
-                parsed["nota_interna"] = (
-                    "La IA no encontró información suficiente en los datos "
-                    "disponibles para redactar una respuesta con calidad. "
-                    "Redacta manualmente."
+            if detalle:
+                msg += f"Patrón detectado: {detalle}. "
+            if cuerpo_truncado:
+                msg += (
+                    "\n\n— BORRADOR ORIGINAL (descartado) —\n" + cuerpo_truncado
                 )
+            parsed["nota_interna"] = msg
+        else:
+            # El propio modelo marcó puede_resolver=false.
+            nota_previa = parsed.get("nota_interna") or (
+                "La IA no encontró información suficiente en los datos "
+                "disponibles para redactar una respuesta con calidad. "
+                "Redacta manualmente."
+            )
+            if cuerpo_truncado:
+                nota_previa += "\n\n— BORRADOR ORIGINAL (descartado por la propia IA) —\n" + cuerpo_truncado
+            parsed["nota_interna"] = nota_previa
     return parsed
 
 
