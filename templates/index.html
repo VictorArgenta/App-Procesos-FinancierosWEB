@@ -78,7 +78,95 @@
         margin-top: 2px;
     }
     .dh-pie-caption span strong { color: var(--black); font-size: 0.78rem; }
+
+    /* --- Fila de cotizaciones live --- */
+    .dh-quotes {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        background: #fff;
+        border: 1px solid var(--gray-border);
+        border-radius: 4px;
+        padding: 0.5rem 0.8rem;
+        margin-bottom: 1.1rem;
+        flex-wrap: wrap;
+    }
+    .dh-quotes-head {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.6px;
+        color: var(--gray-10); font-weight: 700;
+        padding-right: 10px; border-right: 1px solid var(--gray-border);
+        margin-right: 4px;
+    }
+    .dh-quotes-head .dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: #43B02A; box-shadow: 0 0 6px #43B02A;
+        animation: dh-pulse 2s ease-in-out infinite;
+    }
+    @keyframes dh-pulse { 50% { opacity: 0.45; } }
+    .dh-quote {
+        display: inline-flex; align-items: baseline; gap: 6px;
+        padding: 3px 10px; border-radius: 999px;
+        background: var(--gray-bg); border: 1px solid var(--gray-border);
+        font-size: 0.84rem;
+    }
+    .dh-quote.principal { background: #E3F2FD; border-color: #90CAF9; }
+    .dh-quote .tk { font-weight: 700; }
+    .dh-quote .px { font-weight: 600; color: var(--black); }
+    .dh-quote .ch { font-size: 0.74rem; font-weight: 700; }
+    .dh-quote .ch.up { color: #1B5E20; }
+    .dh-quote .ch.dn { color: #B71C1C; }
+    .dh-quote .ch.na { color: var(--gray-10); }
+    .dh-quotes-updated {
+        margin-left: auto; font-size: 0.7rem; color: var(--gray-10);
+    }
+
+    /* --- Fila de gráficos grandes --- */
+    .dh-charts-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 0.9rem;
+        margin-bottom: 1.1rem;
+    }
+    @media (max-width: 900px) { .dh-charts-row { grid-template-columns: 1fr; } }
+    .dh-chart-box {
+        background: #fff; border: 1px solid var(--gray-border); border-radius: 4px;
+        padding: 0.7rem 0.9rem;
+    }
+    .dh-chart-box h3 {
+        font-size: 0.82rem; font-weight: 700; margin: 0 0 0.4rem;
+        text-transform: uppercase; letter-spacing: 0.6px; color: var(--gray-11);
+    }
+    .dh-chart-box canvas { max-height: 220px; }
 </style>
+
+{% if EMPRESA_COTIZA %}
+<div class="dh-quotes" id="dh-quotes">
+    <span class="dh-quotes-head"><span class="dot"></span> Cotización en vivo</span>
+    <span class="dh-quote principal" data-rol="placeholder"><span class="tk">Cargando…</span></span>
+    <span class="dh-quotes-updated" id="dh-quotes-updated">Esperando datos…</span>
+</div>
+{% endif %}
+
+<div class="dh-charts-row">
+    <div class="dh-chart-box">
+        <h3>📈 Evolución (últimos 5 ejercicios)</h3>
+        <canvas id="dh-evolucion"
+                data-labels="{{ dashboard_home.evolucion.labels|tojson }}"
+                data-ingresos="{{ dashboard_home.evolucion.ingresos|tojson }}"
+                data-bn="{{ dashboard_home.evolucion.beneficio_neto|tojson }}"
+                data-moneda="{{ dashboard_home.moneda }}"></canvas>
+    </div>
+    <div class="dh-chart-box">
+        <h3>🥧 Composición P&amp;L ({{ dashboard_home.periodo_ultimo }})</h3>
+        {% if dashboard_home.composicion_pyg %}
+        <canvas id="dh-composicion"
+                data-pyg="{{ dashboard_home.composicion_pyg|tojson }}"></canvas>
+        {% else %}
+        <p style="color: var(--gray-10); font-size: 0.84rem; padding: 1.2rem 0;">No hay suficientes datos de Yahoo para componer el gráfico.</p>
+        {% endif %}
+    </div>
+</div>
 
 <div class="dh-strip">
     {% for t in dashboard_home.tarjetas %}
@@ -168,6 +256,163 @@
             });
         } catch (e) { /* silencio: la franja es informativa */ }
     });
+
+    // --- Gráfico grande de evolución ---
+    (function() {
+        const el = document.getElementById('dh-evolucion');
+        if (!el) return;
+        try {
+            const labels = JSON.parse(el.dataset.labels || '[]');
+            const ingresos = JSON.parse(el.dataset.ingresos || '[]');
+            const bn = JSON.parse(el.dataset.bn || '[]');
+            if (!labels.length) return;
+            new Chart(el, {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Ingresos',
+                            data: ingresos,
+                            backgroundColor: 'rgba(25, 118, 210, 0.65)',
+                            borderColor: '#1976D2',
+                            borderWidth: 1,
+                            borderRadius: 3,
+                            yAxisID: 'y',
+                        },
+                        {
+                            type: 'line',
+                            label: 'Beneficio neto',
+                            data: bn,
+                            borderColor: '#43B02A',
+                            backgroundColor: '#43B02A',
+                            borderWidth: 2.5,
+                            tension: 0.28,
+                            pointRadius: 3,
+                            yAxisID: 'y',
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {mode: 'index', intersect: false},
+                    plugins: {
+                        legend: {position: 'bottom', labels: {boxWidth: 12, font: {size: 11}}},
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ctx.dataset.label + ': ' + corto(ctx.parsed.y),
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {callback: (v) => corto(v), font: {size: 10}},
+                            grid: {color: '#E4E4E2'},
+                        },
+                        x: { grid: {display: false}, ticks: {font: {size: 10}} },
+                    },
+                    animation: false,
+                }
+            });
+        } catch (e) { console.warn('evolucion chart:', e); }
+    })();
+
+    // --- Gráfico de tarta: composición P&L ---
+    (function() {
+        const el = document.getElementById('dh-composicion');
+        if (!el) return;
+        try {
+            const pyg = JSON.parse(el.dataset.pyg || '[]');
+            if (!pyg.length) return;
+            new Chart(el, {
+                type: 'doughnut',
+                data: {
+                    labels: pyg.map(p => p.label),
+                    datasets: [{
+                        data: pyg.map(p => p.valor),
+                        backgroundColor: pyg.map(p => p.color),
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '55%',
+                    plugins: {
+                        legend: {position: 'bottom', labels: {boxWidth: 10, font: {size: 10}}},
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                    const pct = total ? (ctx.parsed / total * 100).toFixed(1) : '0';
+                                    return `${ctx.label}: ${corto(ctx.parsed)} (${pct}%)`;
+                                }
+                            }
+                        }
+                    },
+                    animation: false,
+                }
+            });
+        } catch (e) { console.warn('composicion chart:', e); }
+    })();
+})();
+</script>
+{% endif %}
+
+{% if EMPRESA_COTIZA %}
+<script>
+(function() {
+    // --- Polling de cotizaciones live (empresa + competidores) ---
+    const fmt = new Intl.NumberFormat('es-ES', {maximumFractionDigits: 2});
+    function fmtPrecio(v, cur) {
+        if (v === null || v === undefined || isNaN(v)) return '—';
+        const txt = fmt.format(v);
+        return cur ? `${txt} ${cur}` : txt;
+    }
+    const cont = document.getElementById('dh-quotes');
+    const upd = document.getElementById('dh-quotes-updated');
+    if (!cont || !upd) return;
+
+    async function refrescar() {
+        try {
+            const r = await fetch('/cotizaciones', {cache: 'no-store'});
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || 'error');
+            const quotes = j.cotizaciones || [];
+            // Reemplazamos todos los chips (menos la cabecera y el updated).
+            cont.querySelectorAll('.dh-quote, [data-rol="placeholder"]').forEach(e => e.remove());
+            const updEl = cont.querySelector('#dh-quotes-updated');
+            quotes.forEach(q => {
+                const chip = document.createElement('span');
+                chip.className = 'dh-quote' + (q.principal ? ' principal' : '');
+                const chCls = q.change_pct === null ? 'na' : (q.change_pct >= 0 ? 'up' : 'dn');
+                const chTxt = q.change_pct === null ? '—' :
+                              (q.change_pct >= 0 ? '+' : '') + q.change_pct.toFixed(2) + '%';
+                chip.innerHTML = `<span class="tk">${q.ticker}</span>` +
+                                 `<span class="px">${fmtPrecio(q.price, q.currency)}</span>` +
+                                 `<span class="ch ${chCls}">${chTxt}</span>`;
+                cont.insertBefore(chip, updEl);
+            });
+            if (!quotes.length) {
+                const nada = document.createElement('span');
+                nada.className = 'dh-quote';
+                nada.setAttribute('data-rol', 'placeholder');
+                nada.innerHTML = '<span class="tk">sin datos</span>';
+                cont.insertBefore(nada, updEl);
+            }
+            const d = new Date();
+            upd.textContent = 'Actualizado ' + d.toLocaleTimeString('es-ES') +
+                              (j.cacheado ? ' (caché)' : '');
+        } catch (e) {
+            upd.textContent = 'Error al refrescar: ' + e.message;
+        }
+    }
+
+    refrescar();
+    setInterval(refrescar, 20000);  // 20 segundos como pediste
 })();
 </script>
 {% endif %}
