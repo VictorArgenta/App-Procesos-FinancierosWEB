@@ -3126,11 +3126,113 @@ def index():
             "seleccionar_empresa.html",
             empresas=_empresas_disponibles(),
         )
+    # Si la empresa cotiza, montamos el resumen con los datos de Yahoo ya
+    # precargados en memoria (cache en _TICKER_FIJO_DATOS). No bloquea.
+    dashboard_home = None
+    if _empresa_cotiza():
+        try:
+            datos_cache = _cargar_datos_ticker_fijo()
+            dashboard_home = _resumen_dashboard_home(datos_cache)
+        except Exception as _e:
+            _logging.getLogger("dfin.home").warning(
+                "No se pudo preparar el dashboard de la home: %s", _e,
+            )
     return render_template(
         "index.html",
         ir_pendientes=_contar_pendientes_ir(),
         ir_prefijo=_prefijo_asunto_actual(),
+        dashboard_home=dashboard_home,
     )
+
+
+def _resumen_dashboard_home(datos):
+    """Franja compacta para la home: ingresos, beneficio neto, EBITDA y
+    flujo de caja operativo con serie histórica (hasta 5 ejercicios) y
+    variación interanual del último año.
+
+    Devuelve None si no hay datos suficientes.
+    """
+    if not datos:
+        return None
+    periodos_crudo = datos.get("periodos") or []
+    if not periodos_crudo:
+        return None
+    # Yahoo entrega los periodos del más reciente al más antiguo. Para pintar
+    # un sparkline cronológico los invertimos (antiguo → reciente) y cortamos
+    # a los últimos 5.
+    periodos = list(reversed(periodos_crudo[:5]))
+    labels = [str(p.get("periodo", ""))[:4] for p in periodos]
+
+    def _delta_yoy(serie):
+        if len(serie) < 2:
+            return None
+        v, prev = serie[-1], serie[-2]
+        if v is None or prev is None or prev == 0:
+            return None
+        return round((v - prev) / abs(prev) * 100, 1)
+
+    def _serie(clave):
+        return [p.get(clave) for p in periodos]
+
+    def _tarjeta(titulo, clave, color):
+        serie = _serie(clave)
+        return {
+            "titulo": titulo,
+            "serie": serie,
+            "actual": serie[-1] if serie else None,
+            "delta": _delta_yoy(serie),
+            "color": color,
+        }
+
+    # Flujo de caja operativo desde datos.estados.cashflow (si existe).
+    serie_ocf = [None] * len(labels)
+    cf_block = (datos.get("estados") or {}).get("cashflow") or {}
+    cf_periodos = cf_block.get("periodos") or []
+    cf_filas = cf_block.get("filas") or []
+    if cf_periodos and cf_filas:
+        fila_ocf = next(
+            (f for f in cf_filas if (f.get("concepto") or "").startswith("Flujo de caja operativo")),
+            None,
+        )
+        if fila_ocf:
+            valores = fila_ocf.get("valores") or []
+            # Mapeamos los valores de CF (más reciente → antiguo) a nuestras labels
+            # (antiguo → reciente). Como el nº de columnas y su orden coincide con
+            # los periodos de datos.periodos (ambos vienen de Yahoo con mismo límite),
+            # basta con invertir y recortar.
+            serie_ocf_crudo = list(reversed(valores))[-len(labels):]
+            if len(serie_ocf_crudo) < len(labels):
+                serie_ocf_crudo = [None] * (len(labels) - len(serie_ocf_crudo)) + serie_ocf_crudo
+            serie_ocf = serie_ocf_crudo
+
+    delta_ocf = None
+    if len(serie_ocf) >= 2 and serie_ocf[-1] is not None and serie_ocf[-2] not in (None, 0):
+        delta_ocf = round((serie_ocf[-1] - serie_ocf[-2]) / abs(serie_ocf[-2]) * 100, 1)
+
+    ultimo = periodos[-1] if periodos else {}
+
+    return {
+        "labels": labels,
+        "moneda": datos.get("moneda") or "",
+        "periodo_ultimo": labels[-1] if labels else "",
+        "tarjetas": [
+            _tarjeta("Ingresos", "ingresos", "#1976D2"),
+            _tarjeta("Beneficio neto", "beneficio_neto", "#43B02A"),
+            _tarjeta("EBITDA", "ebitda", "#8E24AA"),
+            {
+                "titulo": "Flujo de caja operativo",
+                "serie": serie_ocf,
+                "actual": serie_ocf[-1] if serie_ocf else None,
+                "delta": delta_ocf,
+                "color": "#F57C00",
+            },
+        ],
+        "margenes_ultimo": {
+            "Bruto": ultimo.get("pct_margen_bruto"),
+            "EBITDA": ultimo.get("pct_ebitda"),
+            "Neto": ultimo.get("pct_beneficio_neto"),
+        },
+    }
 
 
 def _render_secciones_para_resultado(nota):
