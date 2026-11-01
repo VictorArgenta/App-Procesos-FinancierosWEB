@@ -11,7 +11,7 @@
     </div>
 </div>
 
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.2rem;">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.1rem;">
     {% if EMPRESA_COTIZA %}
     <div class="card" style="border-top: 3px solid #86BC25;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
@@ -72,6 +72,21 @@
         <div style="margin-top: 1rem;"><a href="/consulta-documental" class="btn btn-primary">Acceder</a></div>
     </div>
 
+    <div class="card" style="border-top: 3px solid #86BC25;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <h2>Noticias del Sector</h2>
+            <span class="tag tag-green">Disponible</span>
+        </div>
+        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Actualidad reciente del sector de <strong>{{ EMPRESA_NOMBRE }}</strong> y noticias específicas de la compañía, con compositor de correo para enviar un resumen al destinatario que decidas.</p>
+        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
+            <li>Dos bloques: sector (y subsectores) + empresa</li>
+            <li>Noticias con fuente, fecha y enlace</li>
+            <li>Compositor de correo editable y envío por Gmail</li>
+            <li>Sector configurable en <code>sector.txt</code></li>
+        </ul>
+        <div style="margin-top: 1rem;"><a href="/noticias" class="btn btn-primary">Acceder</a></div>
+    </div>
+
     <div class="card" style="border-top: 3px solid #A7A8AA;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
             <h2>Elaboración Presupuesto (ML)</h2>
@@ -100,21 +115,6 @@
             <li>Feed por email y Teams</li>
         </ul>
         <div style="margin-top: 1rem;"><a href="/radar-normativo" class="btn btn-outline">Explorar Preview</a></div>
-    </div>
-
-    <div class="card" style="border-top: 3px solid #86BC25;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-            <h2>Noticias del Sector</h2>
-            <span class="tag tag-green">Disponible</span>
-        </div>
-        <p style="color: var(--gray-10); margin-bottom: 1rem; line-height: 1.6;">Actualidad reciente del sector de <strong>{{ EMPRESA_NOMBRE }}</strong> y noticias específicas de la compañía, con compositor de correo para enviar un resumen al destinatario que decidas.</p>
-        <ul style="color: var(--gray-11); padding-left: 1.1rem; line-height: 1.9; font-size: 0.88rem;">
-            <li>Dos bloques: sector (y subsectores) + empresa</li>
-            <li>Noticias con fuente, fecha y enlace</li>
-            <li>Compositor de correo editable y envío por Gmail</li>
-            <li>Sector configurable en <code>sector.txt</code></li>
-        </ul>
-        <div style="margin-top: 1rem;"><a href="/noticias" class="btn btn-primary">Acceder</a></div>
     </div>
 </div>
 
