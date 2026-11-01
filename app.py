@@ -417,38 +417,80 @@ def _ticker_yahoo():
 _SECTOR_CLAVES = {"sector", "subsectores", "competidores"}
 
 
+def _cargar_competidores_empresa():
+    """Lee la lista de tickers competidores desde `Empresas/{TICKER}/competidores.txt`.
+
+    Formato libre: un ticker por línea (p.ej. `GOOGL`), o varios en una línea
+    separados por comas, o incluso líneas tipo `GOOGL  # Alphabet` donde el
+    comentario queda ignorado. Las líneas que empiezan por `#` se ignoran.
+    Devuelve [] si el fichero no existe. Sin límite estricto (hasta 50).
+    """
+    if not TICKER_FIJO:
+        return []
+    ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "competidores.txt"
+    if not ruta.exists():
+        return []
+    try:
+        texto = ruta.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    out = []
+    seen = set()
+    for linea in texto.splitlines():
+        s = linea.strip()
+        if not s or s.startswith("#"):
+            continue
+        # Quitar comentario inline tras `#`
+        if "#" in s:
+            s = s.split("#", 1)[0].strip()
+        # Soporta coma como separador por si el usuario pone varios en una línea
+        for parte in s.split(","):
+            tk = parte.strip().upper()
+            if not tk or tk in seen:
+                continue
+            seen.add(tk)
+            out.append(tk)
+            if len(out) >= 50:
+                return out
+    return out
+
+
 def _cargar_sector_empresa():
     """Lee Empresas/{TICKER}/sector.txt si existe.
 
     Devuelve {"sector": str, "subsectores": [str, ...], "competidores": [str, ...]}.
-    `competidores` son tickers de Yahoo (p. ej. GOOGL, SNAP) usados en la
-    sección de cotizaciones live de la home.
+    `competidores` se lee preferentemente de `Empresas/{TICKER}/competidores.txt`
+    (un ticker por línea); si no existe, se cae a la clave `competidores=`
+    opcional dentro de `sector.txt`.
     """
     cfg = {"sector": "", "subsectores": [], "competidores": []}
     if not TICKER_FIJO:
         return cfg
     ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "sector.txt"
-    if not ruta.exists():
-        return cfg
-    try:
-        lineas = ruta.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return cfg
-    for linea in lineas:
-        s = linea.strip()
-        if not s or s.startswith("#") or "=" not in s:
-            continue
-        clave, _, valor = s.partition("=")
-        clave = clave.strip().lower()
-        valor = valor.strip()
-        if clave not in _SECTOR_CLAVES:
-            continue
-        if clave == "sector":
-            cfg["sector"] = valor
-        elif clave == "subsectores":
-            cfg["subsectores"] = [p.strip() for p in valor.split(",") if p.strip()]
-        elif clave == "competidores":
-            cfg["competidores"] = [p.strip().upper() for p in valor.split(",") if p.strip()]
+    comps_desde_txt = _cargar_competidores_empresa()
+    if ruta.exists():
+        try:
+            lineas = ruta.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            lineas = []
+        for linea in lineas:
+            s = linea.strip()
+            if not s or s.startswith("#") or "=" not in s:
+                continue
+            clave, _, valor = s.partition("=")
+            clave = clave.strip().lower()
+            valor = valor.strip()
+            if clave not in _SECTOR_CLAVES:
+                continue
+            if clave == "sector":
+                cfg["sector"] = valor
+            elif clave == "subsectores":
+                cfg["subsectores"] = [p.strip() for p in valor.split(",") if p.strip()]
+            elif clave == "competidores" and not comps_desde_txt:
+                # Fallback para instalaciones antiguas que lo guardaron en sector.txt.
+                cfg["competidores"] = [p.strip().upper() for p in valor.split(",") if p.strip()]
+    if comps_desde_txt:
+        cfg["competidores"] = comps_desde_txt
     return cfg
 
 
@@ -3067,13 +3109,14 @@ def cotizaciones():
     sector = _cargar_sector_empresa()
     competidores = [c for c in (sector.get("competidores") or []) if c != principal]
     todos = [principal] + competidores
-    # Limitamos defensivamente a 8 tickers (6 competidores + el principal).
-    todos = todos[:8]
+    # Tope defensivo alto para no abusar de Yahoo si alguien pone 100 tickers
+    # (el loader ya limita a 50).
+    todos = todos[:50]
 
     import concurrent.futures as _cf
     resultados = []
     try:
-        with _cf.ThreadPoolExecutor(max_workers=max(1, min(6, len(todos)))) as ex:
+        with _cf.ThreadPoolExecutor(max_workers=max(1, min(10, len(todos)))) as ex:
             for res in ex.map(_obtener_cotizacion_rapida, todos):
                 if res:
                     # Marcamos cuál es el principal para que la UI lo destaque.
