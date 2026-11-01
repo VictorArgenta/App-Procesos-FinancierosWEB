@@ -545,26 +545,28 @@ MODELOS_GOOGLE = {
 MODELOS_DISPONIBLES = MODELOS_ANTHROPIC | MODELOS_GOOGLE
 
 # Orden canónico para los selectores. Lo usan las plantillas que pintan el
-# <select>. Familia 5.x primero (verificada operativa a 1 nov 2026); 4.x
-# detrás como fallback. Si la herramienta web_search diera problemas con un
-# modelo concreto, se puede cambiar temporalmente al Sonnet 4.6 que está
-# igualmente activo.
+# <select>. La familia 4.x va primero porque, en pruebas reales, Sonnet 4.6
+# y Opus 4.6 redactan borradores útiles en IR y Noticias con el prompt
+# actual; Sonnet 5.5 es más compliance-estricto (si no ve datos directos
+# en el RAG/web, se niega a redactar). Las versiones 5.x se mantienen en
+# el desplegable para quien quiera un comportamiento más conservador (p. ej.
+# Consulta Documental en modo estricto) o para pruebas.
 MODELOS_ORDENADOS = [
-    # Anthropic — generación 5 (actual)
-    ("claude-opus-5-5",            "claude-opus-5-5 — Máxima calidad"),
-    ("claude-sonnet-5-5",          "claude-sonnet-5-5 — Recomendado"),
-    ("claude-haiku-5-5",           "claude-haiku-5-5 — Más económico"),
-    # Anthropic — generación 4 (operativa, fallback)
-    ("claude-opus-4-7",            "claude-opus-4-7 — Generación anterior"),
-    ("claude-opus-4-6",            "claude-opus-4-6 — Generación anterior"),
-    ("claude-sonnet-4-6",          "claude-sonnet-4-6 — Generación anterior"),
-    ("claude-haiku-4-5-20251001",  "claude-haiku-4-5 — Generación anterior"),
+    # Anthropic — generación 4 (buena para redacción abierta)
+    ("claude-opus-4-7",            "claude-opus-4-7 — Máxima calidad"),
+    ("claude-opus-4-6",            "claude-opus-4-6 — Alta calidad"),
+    ("claude-sonnet-4-6",          "claude-sonnet-4-6 — Recomendado"),
+    ("claude-haiku-4-5-20251001",  "claude-haiku-4-5 — Más económico"),
+    # Anthropic — generación 5 (más estricta, buena para modo documental)
+    ("claude-opus-5-5",            "claude-opus-5-5 — Más estricto"),
+    ("claude-sonnet-5-5",          "claude-sonnet-5-5 — Más estricto"),
+    ("claude-haiku-5-5",           "claude-haiku-5-5 — Más estricto / económico"),
     # Google Gemini
     ("gemini-2.5-flash",           "gemini-2.5-flash — Gratuito recomendado"),
     ("gemini-2.5-flash-lite",      "gemini-2.5-flash-lite — Gratuito ligero"),
 ]
 
-MODELO_POR_DEFECTO = "claude-sonnet-5-5"
+MODELO_POR_DEFECTO = "claude-sonnet-4-6"
 
 # Regex compartidas para detectar tablas Markdown producidas por la IA
 _RE_TABLA_SEP_MD = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?\s*$")
