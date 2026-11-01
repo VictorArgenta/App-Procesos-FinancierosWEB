@@ -414,16 +414,17 @@ def _ticker_yahoo():
 # Si no existe, el módulo de noticias avisará al usuario y mostrará
 # instrucciones para crearlo. No afecta a otros módulos.
 
-_SECTOR_CLAVES = {"sector", "subsectores"}
+_SECTOR_CLAVES = {"sector", "subsectores", "competidores"}
 
 
 def _cargar_sector_empresa():
     """Lee Empresas/{TICKER}/sector.txt si existe.
 
-    Devuelve {"sector": str, "subsectores": [str, ...]}. Si no hay fichero
-    o está vacío, devuelve {"sector": "", "subsectores": []}.
+    Devuelve {"sector": str, "subsectores": [str, ...], "competidores": [str, ...]}.
+    `competidores` son tickers de Yahoo (p. ej. GOOGL, SNAP) usados en la
+    sección de cotizaciones live de la home.
     """
-    cfg = {"sector": "", "subsectores": []}
+    cfg = {"sector": "", "subsectores": [], "competidores": []}
     if not TICKER_FIJO:
         return cfg
     ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "sector.txt"
@@ -446,6 +447,8 @@ def _cargar_sector_empresa():
             cfg["sector"] = valor
         elif clave == "subsectores":
             cfg["subsectores"] = [p.strip() for p in valor.split(",") if p.strip()]
+        elif clave == "competidores":
+            cfg["competidores"] = [p.strip().upper() for p in valor.split(",") if p.strip()]
     return cfg
 
 
@@ -3009,6 +3012,85 @@ def seleccionar_empresa():
     return redirect("/")
 
 
+# --- Cotizaciones live para la home (empresa + competidores) --------------
+_COTIZACIONES_CACHE = {"ts": 0.0, "data": None, "ticker": None}
+_COTIZACIONES_TTL = 15  # segundos (el frontend refresca cada 20)
+
+
+def _obtener_cotizacion_rapida(ticker_symbol):
+    """Devuelve {ticker, name, price, change_pct, currency} usando yfinance
+    fast_info (endpoint ligero). None en error."""
+    try:
+        ticker = yf.Ticker(ticker_symbol)
+        fi = ticker.fast_info
+        price = fi.last_price
+        prev = fi.previous_close
+        if price is None:
+            return None
+        change_pct = None
+        if prev is not None and prev != 0:
+            change_pct = (price - prev) / prev * 100
+        currency = getattr(fi, "currency", None) or ""
+        return {
+            "ticker": ticker_symbol,
+            "name": ticker_symbol,  # el nombre completo requiere .info (lento); dejamos ticker
+            "price": round(float(price), 4) if price is not None else None,
+            "change_pct": round(float(change_pct), 2) if change_pct is not None else None,
+            "currency": currency,
+        }
+    except Exception as e:
+        _logging.getLogger("dfin.cotizaciones").warning(
+            "Fallo cotización %s: %s", ticker_symbol, e,
+        )
+        return None
+
+
+@app.route("/cotizaciones")
+def cotizaciones():
+    """Devuelve cotización actual de la empresa activa + sus competidores.
+
+    Usa yfinance en paralelo con un caché en memoria de 15 s para no
+    martillear la API cuando el frontend hace polling cada 20 s.
+    """
+    from flask import jsonify
+    import time as _t
+    if not TICKER_FIJO or not _empresa_cotiza():
+        return jsonify({"ok": False, "error": "La empresa no cotiza o no hay empresa activa."}), 400
+
+    ahora = _t.time()
+    if (_COTIZACIONES_CACHE["data"] is not None
+            and _COTIZACIONES_CACHE["ticker"] == TICKER_FIJO
+            and (ahora - _COTIZACIONES_CACHE["ts"]) < _COTIZACIONES_TTL):
+        return jsonify({"ok": True, "cacheado": True, **_COTIZACIONES_CACHE["data"]})
+
+    principal = _ticker_yahoo() or TICKER_FIJO
+    sector = _cargar_sector_empresa()
+    competidores = [c for c in (sector.get("competidores") or []) if c != principal]
+    todos = [principal] + competidores
+    # Limitamos defensivamente a 8 tickers (6 competidores + el principal).
+    todos = todos[:8]
+
+    import concurrent.futures as _cf
+    resultados = []
+    try:
+        with _cf.ThreadPoolExecutor(max_workers=max(1, min(6, len(todos)))) as ex:
+            for res in ex.map(_obtener_cotizacion_rapida, todos):
+                if res:
+                    # Marcamos cuál es el principal para que la UI lo destaque.
+                    res["principal"] = (res["ticker"] == principal)
+                    resultados.append(res)
+    except Exception as e:
+        _logging.getLogger("dfin.cotizaciones").warning("Fallo en cotizaciones batch: %s", e)
+
+    data = {
+        "ticker_principal": principal,
+        "actualizado_en": ahora,
+        "cotizaciones": resultados,
+    }
+    _COTIZACIONES_CACHE.update(ts=ahora, data=data, ticker=TICKER_FIJO)
+    return jsonify({"ok": True, "cacheado": False, **data})
+
+
 @app.route("/rag/status")
 def rag_status():
     """Estado del índice RAG, para que el frontend muestre progreso."""
@@ -3211,6 +3293,24 @@ def _resumen_dashboard_home(datos):
 
     ultimo = periodos[-1] if periodos else {}
 
+    # Composición de un € de ingresos del último ejercicio (para el pie).
+    # Yahoo reporta coste_ventas/gastos_operativos como positivos (son
+    # cuantías); el beneficio neto es lo que queda. Normalizamos a abs
+    # para evitar sorpresas con balances negativos y filtramos nulos.
+    composicion = []
+    ing_u = ultimo.get("ingresos") or 0
+    if ing_u > 0:
+        bloques = [
+            ("Coste de ventas", ultimo.get("coste_ventas"), "#DA291C"),
+            ("Gastos operativos", ultimo.get("gastos_operativos"), "#F57C00"),
+            ("Impuestos y otros", ultimo.get("impuestos"), "#546E7A"),
+            ("Beneficio neto",   ultimo.get("beneficio_neto"), "#43B02A"),
+        ]
+        for label, val, color in bloques:
+            v = abs(val) if isinstance(val, (int, float)) else 0
+            if v > 0:
+                composicion.append({"label": label, "valor": v, "color": color})
+
     return {
         "labels": labels,
         "moneda": datos.get("moneda") or "",
@@ -3232,6 +3332,14 @@ def _resumen_dashboard_home(datos):
             "EBITDA": ultimo.get("pct_ebitda"),
             "Neto": ultimo.get("pct_beneficio_neto"),
         },
+        # Datos para el chart grande (evolución 5 años).
+        "evolucion": {
+            "labels": labels,
+            "ingresos": _serie("ingresos"),
+            "beneficio_neto": _serie("beneficio_neto"),
+        },
+        # Datos para el pie de composición P&L último año.
+        "composicion_pyg": composicion,
     }
 
 
@@ -5775,11 +5883,11 @@ _SECTOR_MAX_LEN_SECTOR = 120
 _SECTOR_MAX_LEN_SUBLINEA = 400
 
 
-def _guardar_sector_empresa(sector, subsectores):
+def _guardar_sector_empresa(sector, subsectores, competidores=None):
     """Escribe (o sobrescribe) `Empresas/{TICKER}/sector.txt`.
 
-    `subsectores` acepta lista o string separado por comas. Devuelve el dict
-    normalizado tal como lo leería `_cargar_sector_empresa` después.
+    `subsectores` y `competidores` aceptan lista o string separado por comas.
+    Devuelve el dict normalizado tal como lo leería `_cargar_sector_empresa`.
     """
     if not TICKER_FIJO:
         raise RuntimeError("No hay empresa activa.")
@@ -5799,6 +5907,13 @@ def _guardar_sector_empresa(sector, subsectores):
         raise ValueError(
             f"La lista de subsectores supera {_SECTOR_MAX_LEN_SUBLINEA} caracteres."
         )
+    if isinstance(competidores, (list, tuple)):
+        comps = [str(x).strip().upper() for x in competidores if str(x).strip()]
+    else:
+        comps = [p.strip().upper() for p in (competidores or "").split(",") if p.strip()]
+    # Limitamos a 8 competidores para no saturar la UI ni Yahoo.
+    comps = comps[:8]
+    linea_comps = ", ".join(comps)
 
     ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "sector.txt"
     ruta.parent.mkdir(parents=True, exist_ok=True)
@@ -5806,10 +5921,12 @@ def _guardar_sector_empresa(sector, subsectores):
     contenido += f"sector={sector}\n"
     if subs:
         contenido += f"subsectores={linea_subs}\n"
+    if comps:
+        contenido += f"competidores={linea_comps}\n"
     ruta.write_text(contenido, encoding="utf-8")
     _logging.getLogger("dfin.noticias").info(
-        "Sector guardado para %s: sector=%r, subsectores=%d",
-        TICKER_FIJO, sector, len(subs),
+        "Sector guardado para %s: sector=%r, subsectores=%d, competidores=%d",
+        TICKER_FIJO, sector, len(subs), len(comps),
     )
     return _cargar_sector_empresa()
 
@@ -5838,7 +5955,11 @@ def noticias_guardar_sector():
         return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
     data = request.get_json(silent=True) or {}
     try:
-        cfg = _guardar_sector_empresa(data.get("sector"), data.get("subsectores"))
+        cfg = _guardar_sector_empresa(
+            data.get("sector"),
+            data.get("subsectores"),
+            data.get("competidores"),
+        )
     except ValueError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:
