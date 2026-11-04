@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}DFin AI — Financial Intelligence Platform{% endblock %}</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo-mark.svg') }}">
+    <!-- Inter: tipografía de interfaz (con fallback a system fonts si el CDN
+         está bloqueado por la red corporativa) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <style>
         :root {
             --deloitte-green: #86BC25;
@@ -30,7 +35,10 @@
         html, body { height: 100%; }
 
         body {
-            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';  /* mejoras tipográficas de Inter */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
             background-color: var(--gray-bg);
             color: var(--black);
             min-height: 100vh;
@@ -41,6 +49,40 @@
         }
 
         a { color: inherit; }
+
+        /* --- Iconos SVG unificados (macro _icons.html) --- */
+        .app-icon {
+            display: inline-block;
+            vertical-align: -0.15em;
+            color: currentColor;
+            flex-shrink: 0;
+        }
+        .app-icon.muted { color: var(--gray-10); }
+
+        /* --- Micro-animaciones sutiles --- */
+        @keyframes app-fade-up {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: none; }
+        }
+        @keyframes app-fade-in {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+        }
+        .app-stagger > * {
+            animation: app-fade-up 0.35s ease-out both;
+        }
+        .app-stagger > *:nth-child(1) { animation-delay: 0.02s; }
+        .app-stagger > *:nth-child(2) { animation-delay: 0.08s; }
+        .app-stagger > *:nth-child(3) { animation-delay: 0.14s; }
+        .app-stagger > *:nth-child(4) { animation-delay: 0.20s; }
+        .app-stagger > *:nth-child(5) { animation-delay: 0.26s; }
+        .app-stagger > *:nth-child(6) { animation-delay: 0.32s; }
+        .app-stagger > *:nth-child(7) { animation-delay: 0.38s; }
+        .app-stagger > *:nth-child(8) { animation-delay: 0.44s; }
+        /* Respetamos la preferencia del sistema */
+        @media (prefers-reduced-motion: reduce) {
+            .app-stagger > * { animation: none !important; }
+        }
 
         /* Topbar (breadcrumb + user zone) */
         .topbar {
