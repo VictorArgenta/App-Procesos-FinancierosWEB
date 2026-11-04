@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Benchmark sectorial — {{ EMPRESA_NOMBRE }}{% endblock %}
+
+{% block content %}
+<style>
+    .bench-wrap { max-width: 1480px; margin: 0 auto; padding: 1rem 1.2rem; }
+
+    .bench-head {
+        display: flex; align-items: flex-end; justify-content: space-between;
+        margin-bottom: 0.8rem; padding-bottom: 0.6rem;
+        border-bottom: 1px solid var(--gray-border);
+        gap: 1rem;
+    }
+    .bench-head h1 {
+        font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--black);
+        display: flex; align-items: center; gap: 8px;
+    }
+    .bench-head p {
+        margin: 0.2rem 0 0; font-size: 0.82rem; color: var(--gray-10);
+    }
+    .bench-head .acciones { display: flex; gap: 8px; }
+    .btn-accion {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 7px 13px; font-size: 0.82rem; font-weight: 600;
+        background: var(--white); color: var(--gray-11);
+        border: 1px solid var(--gray-border); border-radius: 7px;
+        cursor: pointer; text-decoration: none;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .btn-accion:hover {
+        background: var(--deloitte-green-soft);
+        border-color: var(--deloitte-green);
+        color: var(--deloitte-green-dark);
+    }
+
+    /* Tarjetas de resumen principal vs peers */
+    .bench-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 0.7rem;
+        margin-bottom: 1.1rem;
+    }
+    .bench-card {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 8px;
+        padding: 0.7rem 0.85rem;
+        position: relative;
+    }
+    .bench-card .lbl {
+        font-size: 0.66rem; font-weight: 600; color: var(--gray-10);
+        text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .bench-card .val {
+        font-size: 1.25rem; font-weight: 700;
+        color: var(--black); margin-top: 1px;
+    }
+    .bench-card .peers {
+        font-size: 0.7rem; color: var(--gray-10); margin-top: 1px;
+    }
+    .bench-card .signal {
+        position: absolute; top: 10px; right: 10px;
+        font-size: 0.65rem; font-weight: 700;
+        padding: 2px 7px; border-radius: 10px;
+        letter-spacing: 0.4px; text-transform: uppercase;
+    }
+    .signal.good { background: rgba(67, 176, 42, 0.12); color: var(--deloitte-green-dark); }
+    .signal.bad  { background: rgba(218, 41, 28, 0.12); color: var(--danger); }
+    .signal.neu  { background: var(--gray-bg); color: var(--gray-10); }
+
+    /* Tabla */
+    .bench-table-wrap {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .bench-table {
+        width: 100%; border-collapse: collapse; font-size: 0.82rem;
+    }
+    .bench-table th, .bench-table td {
+        padding: 9px 10px; text-align: right;
+        border-bottom: 1px solid var(--gray-border);
+        font-variant-numeric: tabular-nums;
+    }
+    .bench-table th:first-child, .bench-table td:first-child,
+    .bench-table th:nth-child(2), .bench-table td:nth-child(2) {
+        text-align: left;
+    }
+    .bench-table thead th {
+        background: var(--gray-bg);
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: var(--gray-10);
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        cursor: pointer;
+        user-select: none;
+        position: sticky; top: 0;
+    }
+    .bench-table thead th:hover { color: var(--black); }
+    .bench-table thead th.sorted-asc::after { content: " ▲"; color: var(--deloitte-green-dark); }
+    .bench-table thead th.sorted-desc::after { content: " ▼"; color: var(--deloitte-green-dark); }
+    .bench-table tbody tr:hover { background: var(--gray-bg); }
+    .bench-table tbody tr.principal { background: var(--deloitte-green-soft) !important; font-weight: 600; }
+    .bench-table tbody tr.principal:hover { background: rgba(134, 188, 37, 0.25) !important; }
+
+    .bench-table .tkr {
+        font-weight: 700; color: var(--black);
+        letter-spacing: 0.3px;
+    }
+    .bench-table .name {
+        color: var(--gray-10); font-size: 0.78rem;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        max-width: 220px; display: inline-block; vertical-align: middle;
+    }
+    .delta-chip {
+        display: inline-block;
+        padding: 1px 6px; border-radius: 4px;
+        font-size: 0.72rem; font-weight: 600;
+    }
+    .delta-chip.up { background: rgba(67, 176, 42, 0.14); color: var(--deloitte-green-dark); }
+    .delta-chip.down { background: rgba(218, 41, 28, 0.14); color: var(--danger); }
+    .delta-chip.neutral { background: var(--gray-bg); color: var(--gray-10); }
+
+    /* Charts */
+    .bench-charts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 0.9rem;
+        margin: 1.1rem 0;
+    }
+    .bench-chart {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 8px;
+        padding: 0.7rem 0.9rem 1rem;
+    }
+    .bench-chart h3 {
+        font-size: 0.9rem; font-weight: 600; margin: 0 0 0.1rem;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .bench-chart small {
+        font-size: 0.72rem; color: var(--gray-10); display: block;
+        margin-bottom: 0.4rem;
+    }
+    .bench-chart-canvas {
+        position: relative; height: 240px;
+    }
+    .bench-chart-canvas canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+
+    .bench-empty {
+        padding: 2rem; text-align: center; color: var(--gray-10);
+        background: var(--gray-bg); border: 1px dashed var(--gray-border);
+        border-radius: 8px;
+    }
+
+    .legend-dot {
+        display: inline-block; width: 9px; height: 9px;
+        border-radius: 2px; margin-right: 5px; vertical-align: -1px;
+    }
+</style>
+
+<div class="bench-wrap">
+    <div class="bench-head">
+        <div>
+            <h1>{{ icon("trend-up", size=20) }} Benchmark sectorial</h1>
+            <p>
+                {{ EMPRESA_NOMBRE }} ({{ principal }})
+                {% if SECTOR_EMPRESA and SECTOR_EMPRESA.sector %}· {{ SECTOR_EMPRESA.sector }}{% endif %}
+                · {{ (resultados|length) - 1 if resultados|length > 0 else 0 }} competidores
+                · datos Yahoo (cache 30 min)
+            </p>
+        </div>
+        <div class="acciones">
+            <a href="/" class="btn-accion">&larr; Volver</a>
+            <a href="/panel-ejecutivo" class="btn-accion">{{ icon("clipboard", size=14) }} Panel Ejecutivo</a>
+        </div>
+    </div>
+
+    {% if not resultados %}
+        <div class="bench-empty">
+            No se pudieron obtener métricas de Yahoo para el benchmark. Revisa la conectividad y el fichero <code>competidores.txt</code>.
+        </div>
+    {% else %}
+
+    {# ------- Tarjetas de resumen: principal vs mediana peers ------- #}
+    {% set p = resultados[0] %}
+    <div class="bench-cards">
+        {% macro bench_card(lbl, val, med, fmt='pct', better='high', suffix='') -%}
+            {%- set signal = 'neu' -%}
+            {%- if val is not none and med is not none -%}
+                {%- if better == 'high' and val > med -%}{%- set signal = 'good' -%}
+                {%- elif better == 'high' and val < med -%}{%- set signal = 'bad' -%}
+                {%- elif better == 'low' and val < med -%}{%- set signal = 'good' -%}
+                {%- elif better == 'low' and val > med -%}{%- set signal = 'bad' -%}
+                {%- endif -%}
+            {%- endif -%}
+            <div class="bench-card">
+                {% if val is not none and med is not none %}
+                    <span class="signal {{ signal }}">
+                        {%- if signal == 'good' -%}MEJOR
+                        {%- elif signal == 'bad' -%}PEOR
+                        {%- else -%}≈ MEDIANA{%- endif -%}
+                    </span>
+                {% endif %}
+                <div class="lbl">{{ lbl }}</div>
+                <div class="val">
+                    {%- if val is none -%}—
+                    {%- elif fmt == 'pct' -%}{{ "%.1f"|format(val * 100) }}%
+                    {%- elif fmt == 'ratio' -%}{{ "%.1f"|format(val) }}{{ suffix }}
+                    {%- elif fmt == 'money' -%}{{ val|fmt_corto }}
+                    {%- else -%}{{ val }}
+                    {%- endif -%}
+                </div>
+                <div class="peers">
+                    Peers (mediana):
+                    {%- if med is none %} —
+                    {%- elif fmt == 'pct' %} {{ "%.1f"|format(med * 100) }}%
+                    {%- elif fmt == 'ratio' %} {{ "%.1f"|format(med) }}{{ suffix }}
+                    {%- elif fmt == 'money' %} {{ med|fmt_corto }}
+                    {%- else %} {{ med }}
+                    {%- endif %}
+                </div>
+            </div>
+        {%- endmacro %}
+
+        {{ bench_card('Market cap',      p.market_cap,      none,                       'money', 'high') }}
+        {{ bench_card('P/E (trailing)',  p.pe,              medianas.pe,              'ratio', 'low') }}
+        {{ bench_card('Margen EBITDA',   p.ebitda_margin,   medianas.ebitda_margin,   'pct',   'high') }}
+        {{ bench_card('Margen neto',     p.profit_margin,   medianas.profit_margin,   'pct',   'high') }}
+        {{ bench_card('Crec. ingresos',  p.revenue_growth,  medianas.revenue_growth,  'pct',   'high') }}
+        {{ bench_card('Dividend yield',  p.dividend_yield,  medianas.dividend_yield,  'pct',   'high') }}
+    </div>
+
+    {# ------- Charts comparativos ------- #}
+    <div class="bench-charts">
+        <div class="bench-chart">
+            <h3>{{ icon("bar-chart", size=14) }} Múltiplos de valoración</h3>
+            <small>
+                <span class="legend-dot" style="background:#1976D2;"></span>P/E (trailing)
+                <span class="legend-dot" style="background:#8E24AA; margin-left:12px;"></span>Price / Book
+            </small>
+            <div class="bench-chart-canvas">
+                <canvas id="chart-valuacion"
+                        data-labels='{{ resultados|map(attribute="ticker")|list|tojson }}'
+                        data-pe='{{ resultados|map(attribute="pe")|list|tojson }}'
+                        data-pb='{{ resultados|map(attribute="price_to_book")|list|tojson }}'
+                        data-principal='{{ principal|tojson }}'></canvas>
+            </div>
+        </div>
+
+        <div class="bench-chart">
+            <h3>{{ icon("pie-chart", size=14) }} Rentabilidad: márgenes</h3>
+            <small>
+                <span class="legend-dot" style="background:#43B02A;"></span>EBITDA
+                <span class="legend-dot" style="background:#F57C00; margin-left:12px;"></span>Operativo
+                <span class="legend-dot" style="background:#1976D2; margin-left:12px;"></span>Neto
+            </small>
+            <div class="bench-chart-canvas">
+                <canvas id="chart-margenes"
+                        data-labels='{{ resultados|map(attribute="ticker")|list|tojson }}'
+                        data-ebitda='{{ resultados|map(attribute="ebitda_margin")|list|tojson }}'
+                        data-operating='{{ resultados|map(attribute="operating_margin")|list|tojson }}'
+                        data-profit='{{ resultados|map(attribute="profit_margin")|list|tojson }}'
+                        data-principal='{{ principal|tojson }}'></canvas>
+            </div>
+        </div>
+
+        <div class="bench-chart">
+            <h3>{{ icon("trend-up", size=14) }} Crecimiento (YoY)</h3>
+            <small>
+                <span class="legend-dot" style="background:#1976D2;"></span>Ingresos
+                <span class="legend-dot" style="background:#43B02A; margin-left:12px;"></span>BPA
+            </small>
+            <div class="bench-chart-canvas">
+                <canvas id="chart-crecimiento"
+                        data-labels='{{ resultados|map(attribute="ticker")|list|tojson }}'
+                        data-rev='{{ resultados|map(attribute="revenue_growth")|list|tojson }}'
+                        data-eps='{{ resultados|map(attribute="earnings_growth")|list|tojson }}'
+                        data-principal='{{ principal|tojson }}'></canvas>
+            </div>
+        </div>
+    </div>
+
+    {# ------- Tabla ordenable completa ------- #}
+    <div class="bench-table-wrap">
+        <table class="bench-table" id="bench-table">
+            <thead>
+                <tr>
+                    <th data-sort="ticker" data-type="s">Ticker</th>
+                    <th data-sort="nombre" data-type="s">Compañía</th>
+                    <th data-sort="price" data-type="n">Último</th>
+                    <th data-sort="change_pct" data-type="n">% día</th>
+                    <th data-sort="market_cap" data-type="n">Market cap</th>
+                    <th data-sort="pe" data-type="n">P/E</th>
+                    <th data-sort="price_to_book" data-type="n">P/B</th>
+                    <th data-sort="ebitda_margin" data-type="n">% EBITDA</th>
+                    <th data-sort="profit_margin" data-type="n">% Neto</th>
+                    <th data-sort="revenue_growth" data-type="n">% Ingr. YoY</th>
+                    <th data-sort="beta" data-type="n">Beta</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in resultados %}
+                <tr class="{% if r.ticker == principal %}principal{% endif %}"
+                    data-row='{{ {
+                        "ticker": r.ticker,
+                        "nombre": r.nombre,
+                        "price": r.price,
+                        "change_pct": r.change_pct,
+                        "market_cap": r.market_cap,
+                        "pe": r.pe,
+                        "price_to_book": r.price_to_book,
+                        "ebitda_margin": r.ebitda_margin,
+                        "profit_margin": r.profit_margin,
+                        "revenue_growth": r.revenue_growth,
+                        "beta": r.beta
+                    }|tojson }}'>
+                    <td><span class="tkr">{{ r.ticker }}</span>{% if r.ticker == principal %} <span style="color: var(--deloitte-green-dark); font-weight: 700;">●</span>{% endif %}</td>
+                    <td><span class="name" title="{{ r.nombre }}">{{ r.nombre }}</span></td>
+                    <td>{% if r.price is not none %}{{ "%.2f"|format(r.price) }}{% else %}—{% endif %}</td>
+                    <td>
+                        {% if r.change_pct is not none %}
+                        <span class="delta-chip {% if r.change_pct > 0 %}up{% elif r.change_pct < 0 %}down{% else %}neutral{% endif %}">{{ "%+.2f"|format(r.change_pct) }}%</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{{ r.market_cap|fmt_corto }}</td>
+                    <td>{% if r.pe is not none %}{{ "%.1f"|format(r.pe) }}{% else %}—{% endif %}</td>
+                    <td>{% if r.price_to_book is not none %}{{ "%.1f"|format(r.price_to_book) }}{% else %}—{% endif %}</td>
+                    <td>{% if r.ebitda_margin is not none %}{{ "%.1f"|format(r.ebitda_margin * 100) }}%{% else %}—{% endif %}</td>
+                    <td>{% if r.profit_margin is not none %}{{ "%.1f"|format(r.profit_margin * 100) }}%{% else %}—{% endif %}</td>
+                    <td>{% if r.revenue_growth is not none %}{{ "%+.1f"|format(r.revenue_growth * 100) }}%{% else %}—{% endif %}</td>
+                    <td>{% if r.beta is not none %}{{ "%.2f"|format(r.beta) }}{% else %}—{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% endif %}
+</div>
+
+{% if resultados %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    if (typeof Chart === 'undefined') return;
+
+    function fmtPct(v) { return (v === null || v === undefined) ? '—' : (v * 100).toFixed(1) + '%'; }
+    function fmtNum(v) { return (v === null || v === undefined) ? '—' : v.toFixed(2); }
+
+    function colorsForLabels(labels, principal, baseColor) {
+        return labels.map(function(l) {
+            return l === principal ? baseColor : baseColor + '66'; // alpha menor para peers
+        });
+    }
+
+    function barChart(cvs, datasets, principal) {
+        var labels = JSON.parse(cvs.dataset.labels);
+        var principalTicker = JSON.parse(cvs.dataset.principal);
+        var pretty = datasets.map(function(d) {
+            return {
+                label: d.label,
+                data: d.data,
+                backgroundColor: colorsForLabels(labels, principalTicker, d.color),
+                borderColor: d.color,
+                borderWidth: 1,
+                borderRadius: 4,
+                borderSkipped: false,
+            };
+        });
+        new Chart(cvs, {
+            type: 'bar',
+            data: { labels: labels, datasets: pretty },
+            options: {
+                maintainAspectRatio: false,
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                var v = ctx.parsed.y;
+                                if (ctx.dataset._fmt === 'pct') return ctx.dataset.label + ': ' + fmtPct(v);
+                                return ctx.dataset.label + ': ' + fmtNum(v);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+                    y: {
+                        ticks: {
+                            font: { size: 10 },
+                            callback: function(v) { return cvs.dataset.fmt === 'pct' ? (v * 100).toFixed(0) + '%' : v; }
+                        },
+                        grid: { color: 'rgba(0,0,0,0.06)' }
+                    }
+                }
+            }
+        });
+    }
+
+    // Valoración: P/E + P/B
+    var cvs1 = document.getElementById('chart-valuacion');
+    if (cvs1) {
+        try {
+            barChart(cvs1, [
+                { label: 'P/E', data: JSON.parse(cvs1.dataset.pe), color: '#1976D2' },
+                { label: 'P/B', data: JSON.parse(cvs1.dataset.pb), color: '#8E24AA' },
+            ]);
+        } catch (e) { console.error('chart-valuacion', e); }
+    }
+
+    // Márgenes
+    var cvs2 = document.getElementById('chart-margenes');
+    if (cvs2) {
+        try {
+            cvs2.dataset.fmt = 'pct';
+            barChart(cvs2, [
+                { label: 'EBITDA',    data: JSON.parse(cvs2.dataset.ebitda),    color: '#43B02A', _fmt: 'pct' },
+                { label: 'Operativo', data: JSON.parse(cvs2.dataset.operating), color: '#F57C00', _fmt: 'pct' },
+                { label: 'Neto',      data: JSON.parse(cvs2.dataset.profit),    color: '#1976D2', _fmt: 'pct' },
+            ]);
+        } catch (e) { console.error('chart-margenes', e); }
+    }
+
+    // Crecimiento
+    var cvs3 = document.getElementById('chart-crecimiento');
+    if (cvs3) {
+        try {
+            cvs3.dataset.fmt = 'pct';
+            barChart(cvs3, [
+                { label: 'Ingresos', data: JSON.parse(cvs3.dataset.rev), color: '#1976D2', _fmt: 'pct' },
+                { label: 'BPA',      data: JSON.parse(cvs3.dataset.eps), color: '#43B02A', _fmt: 'pct' },
+            ]);
+        } catch (e) { console.error('chart-crecimiento', e); }
+    }
+
+    // ---- Tabla ordenable ----
+    var table = document.getElementById('bench-table');
+    if (!table) return;
+    var tbody = table.tBodies[0];
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    var currentSort = { key: null, asc: true };
+
+    table.querySelectorAll('thead th').forEach(function(th) {
+        th.addEventListener('click', function() {
+            var k = th.dataset.sort;
+            var t = th.dataset.type;
+            if (!k) return;
+            if (currentSort.key === k) currentSort.asc = !currentSort.asc;
+            else { currentSort.key = k; currentSort.asc = true; }
+            table.querySelectorAll('thead th').forEach(function(x) { x.classList.remove('sorted-asc', 'sorted-desc'); });
+            th.classList.add(currentSort.asc ? 'sorted-asc' : 'sorted-desc');
+            var mul = currentSort.asc ? 1 : -1;
+            rows.sort(function(a, b) {
+                // Siempre mantener principal arriba
+                if (a.classList.contains('principal')) return -1;
+                if (b.classList.contains('principal')) return 1;
+                var da = JSON.parse(a.dataset.row)[k];
+                var db = JSON.parse(b.dataset.row)[k];
+                if (t === 's') {
+                    da = (da || '').toString().toLowerCase();
+                    db = (db || '').toString().toLowerCase();
+                    return da < db ? -1 * mul : da > db ? 1 * mul : 0;
+                }
+                // Numérico: nulls al final
+                if (da === null || da === undefined) return 1;
+                if (db === null || db === undefined) return -1;
+                return (da - db) * mul;
+            });
+            rows.forEach(function(r) { tbody.appendChild(r); });
+        });
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

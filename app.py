@@ -5,7 +5,7 @@ import re
 import time
 import uuid
 import markdown
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, redirect, url_for
 from dotenv import load_dotenv
 import yfinance as yf
 import anthropic
@@ -494,6 +494,34 @@ def _cargar_sector_empresa():
     return cfg
 
 
+def _dt_now():
+    from datetime import datetime as _dt
+    return _dt.now()
+
+
+@app.template_filter("fmt_corto")
+def _fmt_corto(v):
+    """Formato compacto estilo bolsa: 134,9 B / 42,3 M / 215 K / 32.
+    Devuelve '—' para None / NaN. Usa coma decimal (es-ES)."""
+    try:
+        if v is None:
+            return "—"
+        v = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    signo = "-" if v < 0 else ""
+    a = abs(v)
+    if a >= 1e9:
+        s = f"{a / 1e9:.1f} B"
+    elif a >= 1e6:
+        s = f"{a / 1e6:.1f} M"
+    elif a >= 1e3:
+        s = f"{a / 1e3:.0f} K"
+    else:
+        s = f"{a:.0f}"
+    return signo + s.replace(".", ",")
+
+
 @app.context_processor
 def _inyectar_branding():
     ruta_emp = _ruta_logo_empresa()
@@ -530,6 +558,7 @@ def _inyectar_branding():
         "TEMA_EMPRESA": _cargar_tema_empresa(),
         "COSTE_ACUMULADO_USD": _COSTE_ACUMULADO.get("usd", 0.0),
         "COSTE_LLAMADAS": _COSTE_ACUMULADO.get("llamadas", 0),
+        "fecha_hoy": _dt_now().strftime("%d/%m/%Y"),
     }
 
 
@@ -6182,6 +6211,191 @@ def admin():
         info_coste=_parsear_lineas_coste(limite_lineas=50),
         fichero_coste=str(_COSTE_FILE),
         fichero_coste_existe=_COSTE_FILE.exists(),
+    )
+
+
+# =====================================================================
+# Benchmark sectorial automático
+# =====================================================================
+
+# Cache por ticker de fundamentales de benchmark (yfinance .info es lento).
+# TTL largo porque los fundamentales cambian trimestralmente, no por minuto.
+_BENCHMARK_CACHE = {}  # ticker -> (ts, dict)
+_BENCHMARK_TTL = 30 * 60  # 30 minutos
+
+
+def _obtener_metricas_benchmark(ticker_symbol):
+    """Devuelve métricas fundamentales de mercado para comparativa sectorial.
+
+    Combina fast_info (rápido) con un subconjunto de .info (lento, cacheado).
+    None si no se puede obtener nada útil.
+    """
+    import time as _t
+    cached = _BENCHMARK_CACHE.get(ticker_symbol)
+    ahora = _t.time()
+    if cached and (ahora - cached[0]) < _BENCHMARK_TTL:
+        return cached[1]
+
+    try:
+        tk = yf.Ticker(ticker_symbol)
+        fi = tk.fast_info
+        try:
+            info = tk.info or {}
+        except Exception:  # noqa: BLE001
+            info = {}
+
+        def _n(v):
+            try:
+                if v is None:
+                    return None
+                v = float(v)
+                if v != v or v in (float("inf"), float("-inf")):
+                    return None
+                return v
+            except (TypeError, ValueError):
+                return None
+
+        price = _n(getattr(fi, "last_price", None))
+        prev = _n(getattr(fi, "previous_close", None))
+        change_pct = None
+        if price is not None and prev not in (None, 0):
+            change_pct = (price - prev) / prev * 100
+
+        datos = {
+            "ticker": ticker_symbol,
+            "nombre": info.get("shortName") or info.get("longName") or ticker_symbol,
+            "sector": info.get("sector") or "",
+            "industria": info.get("industry") or "",
+            "currency": info.get("currency") or getattr(fi, "currency", "") or "",
+            "price": price,
+            "change_pct": change_pct,
+            "market_cap": _n(info.get("marketCap") or getattr(fi, "market_cap", None)),
+            "pe": _n(info.get("trailingPE")),
+            "price_to_book": _n(info.get("priceToBook")),
+            "profit_margin": _n(info.get("profitMargins")),  # 0-1
+            "gross_margin": _n(info.get("grossMargins")),
+            "ebitda_margin": _n(info.get("ebitdaMargins")),
+            "operating_margin": _n(info.get("operatingMargins")),
+            "revenue_growth": _n(info.get("revenueGrowth")),  # 0-1
+            "earnings_growth": _n(info.get("earningsGrowth")),
+            "dividend_yield": _n(info.get("dividendYield")),
+            "beta": _n(info.get("beta")),
+            "revenue_ttm": _n(info.get("totalRevenue")),
+            "year_high": _n(getattr(fi, "year_high", None) or info.get("fiftyTwoWeekHigh")),
+            "year_low": _n(getattr(fi, "year_low", None) or info.get("fiftyTwoWeekLow")),
+        }
+        _BENCHMARK_CACHE[ticker_symbol] = (ahora, datos)
+        return datos
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.benchmark").warning(
+            "Fallo benchmark %s: %s", ticker_symbol, e,
+        )
+        return None
+
+
+@app.route("/benchmark")
+def benchmark():
+    """Página de benchmark sectorial: empresa activa vs competidores."""
+    if not TICKER_FIJO:
+        return redirect(url_for("index"))
+    if not _empresa_cotiza():
+        return redirect(url_for("index"))
+
+    principal = _ticker_yahoo() or TICKER_FIJO
+    competidores = _cargar_competidores_empresa() or []
+    tickers = [principal] + [c for c in competidores if c != principal]
+    # Tope defensivo
+    tickers = tickers[:20]
+
+    from concurrent.futures import ThreadPoolExecutor
+    resultados = []
+    try:
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(tickers)))) as ex:
+            for r in ex.map(_obtener_metricas_benchmark, tickers):
+                if r:
+                    resultados.append(r)
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.benchmark").warning("Benchmark batch: %s", e)
+
+    # Dejar el principal primero en la tabla
+    resultados.sort(key=lambda r: 0 if r["ticker"] == principal else 1)
+
+    # Calcular medianas de competidores (excluyendo la principal) para el "vs peers"
+    def _mediana(valores):
+        vs = [v for v in valores if v is not None]
+        if not vs:
+            return None
+        vs = sorted(vs)
+        n = len(vs)
+        m = n // 2
+        return vs[m] if n % 2 else (vs[m - 1] + vs[m]) / 2
+
+    peers = [r for r in resultados if r["ticker"] != principal]
+    metricas_clave = [
+        "pe", "price_to_book", "profit_margin", "gross_margin",
+        "ebitda_margin", "operating_margin", "revenue_growth",
+        "earnings_growth", "dividend_yield", "beta",
+    ]
+    medianas = {k: _mediana([p.get(k) for p in peers]) for k in metricas_clave}
+
+    return render_template(
+        "benchmark.html",
+        resultados=resultados,
+        principal=principal,
+        competidores=competidores,
+        medianas=medianas,
+    )
+
+
+# =====================================================================
+# Panel Ejecutivo (one-pager A4)
+# =====================================================================
+
+@app.route("/panel-ejecutivo")
+def panel_ejecutivo():
+    """One-pager vendible a dirección: KPIs + evolución + composición
+    P&L + benchmark corto. Se pensó para impresión A4 / "Guardar como PDF"
+    del navegador (CSS @media print).
+    """
+    if not TICKER_FIJO:
+        return redirect(url_for("index"))
+    if not _empresa_cotiza():
+        # Para no cotizadas no tenemos datos de Yahoo que mostrar.
+        return redirect(url_for("index"))
+
+    datos = None
+    dashboard = None
+    try:
+        datos = _cargar_datos_ticker_fijo()
+        dashboard = _resumen_dashboard_home(datos)
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.panel").warning(
+            "No se pudieron cargar los datos de Yahoo para el panel: %s", e,
+        )
+
+    # Benchmark corto: cotización + variación de cada competidor.
+    benchmark = []
+    principal = _ticker_yahoo() or TICKER_FIJO
+    competidores = _cargar_competidores_empresa() or []
+    tickers_bench = [principal] + [c for c in competidores if c != principal]
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(tickers_bench)))) as ex:
+            for res in ex.map(_obtener_cotizacion_rapida, tickers_bench):
+                if res:
+                    benchmark.append(res)
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.panel").warning(
+            "Benchmark corto no disponible: %s", e,
+        )
+
+    return render_template(
+        "panel_ejecutivo.html",
+        datos=datos,
+        dashboard=dashboard,
+        benchmark=benchmark,
+        principal=principal,
+        competidores=competidores,
     )
 
 

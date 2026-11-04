@@ -768,6 +768,192 @@
             .footer-top { grid-template-columns: 1fr; }
             .data-table th, .data-table td { padding: 8px 10px; font-size: 0.78rem; }
         }
+
+        /* ==================== Command Palette (Ctrl+K) ==================== */
+        .cmdk-trigger {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--gray-3);
+            font-family: inherit;
+            font-size: 0.72rem;
+            padding: 4px 8px 4px 9px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s, color 0.15s;
+            letter-spacing: 0.2px;
+        }
+        .cmdk-trigger:hover {
+            background: rgba(134, 188, 37, 0.15);
+            border-color: rgba(134, 188, 37, 0.45);
+            color: var(--white);
+        }
+        .cmdk-trigger svg { width: 12px; height: 12px; opacity: 0.85; }
+        .cmdk-trigger kbd {
+            font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.66rem;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+            padding: 1px 5px;
+            color: var(--white);
+            margin-left: 4px;
+        }
+
+        dialog.cmdk {
+            width: min(620px, calc(100vw - 32px));
+            max-height: min(72vh, 540px);
+            padding: 0;
+            border: 1px solid var(--gray-border);
+            border-radius: 14px;
+            background: #FFFFFF;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.08);
+            top: 18vh;
+            margin-left: auto;
+            margin-right: auto;
+            overflow: hidden;
+            color: var(--black);
+            font-family: inherit;
+        }
+        dialog.cmdk::backdrop {
+            background: rgba(10, 12, 14, 0.42);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+        }
+        .cmdk-input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--gray-border);
+        }
+        .cmdk-input-wrap svg.cmdk-icon-search {
+            width: 18px; height: 18px;
+            color: var(--gray-10);
+            flex-shrink: 0;
+        }
+        .cmdk-input-wrap input {
+            flex: 1;
+            border: 0;
+            outline: 0;
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: var(--black);
+            background: transparent;
+            padding: 2px 0;
+        }
+        .cmdk-input-wrap input::placeholder { color: var(--gray-7); }
+        .cmdk-esc {
+            font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.65rem;
+            background: var(--gray-bg);
+            border: 1px solid var(--gray-border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            color: var(--gray-10);
+            letter-spacing: 0.3px;
+        }
+        .cmdk-list {
+            overflow-y: auto;
+            max-height: calc(72vh - 110px);
+            padding: 6px 6px 8px;
+        }
+        .cmdk-group {
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--gray-10);
+            padding: 10px 12px 4px;
+        }
+        .cmdk-item {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--black);
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .cmdk-item:hover,
+        .cmdk-item.active {
+            background: var(--deloitte-green-soft);
+            border-color: rgba(134, 188, 37, 0.45);
+        }
+        .cmdk-item .cmdk-item-icon {
+            width: 28px; height: 28px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--gray-bg);
+            border-radius: 7px;
+            color: var(--gray-11);
+            flex-shrink: 0;
+        }
+        .cmdk-item.active .cmdk-item-icon {
+            background: #FFFFFF;
+            color: var(--deloitte-green-dark);
+        }
+        .cmdk-item-body { flex: 1; min-width: 0; }
+        .cmdk-item-name {
+            font-size: 0.86rem;
+            font-weight: 600;
+            color: var(--black);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cmdk-item-desc {
+            font-size: 0.72rem;
+            color: var(--gray-10);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cmdk-item-tag {
+            font-size: 0.64rem;
+            background: var(--gray-bg);
+            border: 1px solid var(--gray-border);
+            border-radius: 4px;
+            padding: 1px 6px;
+            color: var(--gray-10);
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        .cmdk-item.active .cmdk-item-tag { background: #FFFFFF; }
+        .cmdk-empty {
+            padding: 28px 16px;
+            text-align: center;
+            color: var(--gray-10);
+            font-size: 0.85rem;
+        }
+        .cmdk-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 14px;
+            border-top: 1px solid var(--gray-border);
+            background: var(--gray-bg);
+            font-size: 0.7rem;
+            color: var(--gray-10);
+        }
+        .cmdk-footer kbd {
+            font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+            font-size: 0.66rem;
+            background: #FFFFFF;
+            border: 1px solid var(--gray-border);
+            border-radius: 4px;
+            padding: 1px 5px;
+            margin: 0 2px;
+            color: var(--gray-11);
+        }
+        @media (max-width: 720px) {
+            .cmdk-trigger { padding: 4px 6px; }
+            .cmdk-trigger kbd { display: none; }
+            dialog.cmdk { top: 8vh; }
+        }
     </style>
 
     {# Tema visual personalizable por empresa. Sobrescribe variables CSS si
@@ -796,6 +982,11 @@
                 <span>DFin AI &middot; Financial Intelligence Platform &middot; <strong style="color: var(--brand-primary, #86BC25);">{{ TENANT_NOMBRE }}</strong></span>
             </div>
             <div class="topbar-right">
+                <button type="button" class="cmdk-trigger" onclick="window.cmdkOpen && window.cmdkOpen()" title="Abrir buscador (Ctrl+K)" aria-label="Abrir buscador">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                    Buscar <kbd>Ctrl K</kbd>
+                </button>
+                <span class="sep">|</span>
                 <a href="/admin">Panel</a>
                 <span class="sep">|</span>
                 <a href="#">ES / EN</a>
@@ -954,6 +1145,227 @@
             <span>Entorno privado · {{ TENANT_NOMBRE }} · v1.4.0 · Build 2026.04 · Región EU-WEST-1</span>
         </div>
     </footer>
+
+    <!-- ==================== Command Palette ==================== -->
+    <dialog id="cmdk" class="cmdk" aria-label="Buscador rápido">
+        <div class="cmdk-input-wrap">
+            <svg class="cmdk-icon-search" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="cmdk-input" type="text" placeholder="Buscar módulo, acción o atajo…" autocomplete="off" spellcheck="false">
+            <span class="cmdk-esc">ESC</span>
+        </div>
+        <div class="cmdk-list" id="cmdk-list" role="listbox"></div>
+        <div class="cmdk-footer">
+            <span><kbd>↑</kbd><kbd>↓</kbd> navegar · <kbd>↵</kbd> abrir · <kbd>Esc</kbd> cerrar</span>
+            <span>DFin AI</span>
+        </div>
+    </dialog>
+    <script>
+    (function() {
+        var cotiza = {{ 'true' if EMPRESA_COTIZA else 'false' }};
+        var tickerFijo = {{ 'true' if TICKER_FIJO else 'false' }};
+
+        // Icon SVG set (inline, stroke=currentColor)
+        var ICONS = {
+            home: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+            'bar-chart': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg>',
+            clipboard: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/></svg>',
+            'trend-up': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
+            mail: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>',
+            chat: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+            newspaper: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>',
+            folder: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>',
+            ruler: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>',
+            radar: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>',
+            settings: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>',
+            coin: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>',
+            refresh: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>'
+        };
+
+        var ITEMS = [
+            { name: 'Inicio', desc: 'Volver a la pantalla principal', url: '/', icon: 'home', group: 'Navegación', keys: 'inicio home dashboard' }
+        ];
+        if (cotiza) {
+            ITEMS.push({ name: 'Generar Informe Narrativo', desc: 'Informe con IA a partir de datos de Yahoo', url: '/analisis', icon: 'bar-chart', group: 'Módulos', keys: 'informe narrativo yahoo ia analisis' });
+            ITEMS.push({ name: 'Panel Ejecutivo', desc: 'One-pager A4 con KPIs, evolución y benchmark', url: '/panel-ejecutivo', icon: 'clipboard', group: 'Módulos', keys: 'panel ejecutivo one pager pdf direccion kpi resumen' });
+            ITEMS.push({ name: 'Benchmark Sectorial', desc: 'Comparativa con competidores (múltiplos, márgenes, crecimiento)', url: '/benchmark', icon: 'trend-up', group: 'Módulos', keys: 'benchmark sectorial competidores comparativa peers pe margen crecimiento' });
+        }
+        ITEMS.push(
+            { name: 'Relación con Inversores', desc: 'Bandeja de correos de IR con IA', url: '/relacion-inversores', icon: 'mail', group: 'Módulos', keys: 'ir inversores correos gmail bandeja' },
+            { name: 'Consulta Documental', desc: 'Chat con los documentos corporativos', url: '/consulta-documental', icon: 'chat', group: 'Módulos', keys: 'consulta documental chat rag pdf' },
+            { name: 'Noticias del Sector', desc: 'Noticias del sector y de la compañía', url: '/noticias', icon: 'newspaper', group: 'Módulos', keys: 'noticias sector actualidad news' },
+            { name: 'Informes generados', desc: 'Histórico de informes Word / PDF', url: '/informes-generados', icon: 'folder', group: 'Módulos', keys: 'informes generados historico word pdf descargas' },
+            { name: 'Elaboración de Presupuesto (ML)', desc: 'Forecasting con Machine Learning', url: '/presupuesto', icon: 'ruler', group: 'Preview', tag: 'Preview', keys: 'presupuesto forecasting ml machine learning' },
+            { name: 'Radar Normativo', desc: 'Alertas regulatorias y fiscales', url: '/radar-normativo', icon: 'radar', group: 'Preview', tag: 'Preview', keys: 'radar normativo regulatorio fiscal alertas' },
+            { name: 'Administración', desc: 'Panel admin y configuración', url: '/admin', icon: 'settings', group: 'Admin', keys: 'admin administracion panel configuracion' },
+            { name: 'Coste de tokens', desc: 'Consumo y auditoría de IA', url: '/coste', icon: 'coin', group: 'Admin', keys: 'coste tokens consumo auditoria ia' }
+        );
+        if (!tickerFijo) {
+            ITEMS.push({ name: 'Cambiar de empresa', desc: 'Volver al selector de empresa', url: '/cambiar-empresa', icon: 'refresh', group: 'Admin', keys: 'cambiar empresa selector' });
+        }
+
+        var dlg = document.getElementById('cmdk');
+        var input = document.getElementById('cmdk-input');
+        var list = document.getElementById('cmdk-list');
+        var selectedIndex = 0;
+        var filtered = ITEMS.slice();
+
+        function fuzzyScore(item, q) {
+            if (!q) return 1;
+            var hay = (item.name + ' ' + item.desc + ' ' + (item.keys || '')).toLowerCase();
+            if (hay.indexOf(q) !== -1) return 10;
+            // letras en orden
+            var qi = 0;
+            for (var i = 0; i < hay.length && qi < q.length; i++) {
+                if (hay[i] === q[qi]) qi++;
+            }
+            return qi === q.length ? 1 : 0;
+        }
+
+        function filter(q) {
+            q = (q || '').trim().toLowerCase();
+            if (!q) {
+                filtered = ITEMS.slice();
+            } else {
+                filtered = ITEMS
+                    .map(function(it) { return { it: it, s: fuzzyScore(it, q) }; })
+                    .filter(function(x) { return x.s > 0; })
+                    .sort(function(a, b) { return b.s - a.s; })
+                    .map(function(x) { return x.it; });
+            }
+            selectedIndex = 0;
+            render();
+        }
+
+        function render() {
+            list.innerHTML = '';
+            if (!filtered.length) {
+                list.innerHTML = '<div class="cmdk-empty">Sin resultados</div>';
+                return;
+            }
+            var groups = {};
+            var order = [];
+            filtered.forEach(function(it) {
+                if (!groups[it.group]) { groups[it.group] = []; order.push(it.group); }
+                groups[it.group].push(it);
+            });
+            var globalIdx = 0;
+            order.forEach(function(g) {
+                var h = document.createElement('div');
+                h.className = 'cmdk-group';
+                h.textContent = g;
+                list.appendChild(h);
+                groups[g].forEach(function(it) {
+                    var a = document.createElement('a');
+                    a.className = 'cmdk-item' + (globalIdx === selectedIndex ? ' active' : '');
+                    a.href = it.url;
+                    a.dataset.idx = globalIdx;
+                    a.setAttribute('role', 'option');
+                    a.innerHTML =
+                        '<span class="cmdk-item-icon">' + (ICONS[it.icon] || ICONS.home) + '</span>' +
+                        '<span class="cmdk-item-body">' +
+                            '<span class="cmdk-item-name"></span>' +
+                            '<span class="cmdk-item-desc"></span>' +
+                        '</span>' +
+                        (it.tag ? '<span class="cmdk-item-tag">' + it.tag + '</span>' : '');
+                    a.querySelector('.cmdk-item-name').textContent = it.name;
+                    a.querySelector('.cmdk-item-desc').textContent = it.desc;
+                    var myIdx = globalIdx;
+                    a.addEventListener('mouseenter', function() {
+                        selectedIndex = myIdx;
+                        updateActive();
+                    });
+                    list.appendChild(a);
+                    globalIdx++;
+                });
+            });
+        }
+
+        function updateActive() {
+            var all = list.querySelectorAll('.cmdk-item');
+            all.forEach(function(el, i) {
+                if (i === selectedIndex) {
+                    el.classList.add('active');
+                    var r = el.getBoundingClientRect();
+                    var lr = list.getBoundingClientRect();
+                    if (r.top < lr.top) el.scrollIntoView({ block: 'nearest' });
+                    else if (r.bottom > lr.bottom) el.scrollIntoView({ block: 'nearest' });
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+        }
+
+        function openCmdk() {
+            input.value = '';
+            filter('');
+            if (typeof dlg.showModal === 'function') {
+                try { dlg.showModal(); } catch (_) { dlg.setAttribute('open', ''); }
+            } else {
+                dlg.setAttribute('open', '');
+            }
+            setTimeout(function() { input.focus(); }, 20);
+        }
+        function closeCmdk() {
+            if (typeof dlg.close === 'function') dlg.close();
+            else dlg.removeAttribute('open');
+        }
+        window.cmdkOpen = openCmdk;
+
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+K / Cmd+K
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+                e.preventDefault();
+                if (dlg.open) closeCmdk(); else openCmdk();
+                return;
+            }
+            // '/' como alternativa cuando no estamos en un input
+            if (e.key === '/' && !dlg.open) {
+                var ae = document.activeElement;
+                var tag = ae && ae.tagName ? ae.tagName.toLowerCase() : '';
+                var editable = tag === 'input' || tag === 'textarea' || (ae && ae.isContentEditable);
+                if (!editable) {
+                    e.preventDefault();
+                    openCmdk();
+                }
+            }
+        });
+
+        input.addEventListener('input', function() { filter(input.value); });
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedIndex = Math.min(selectedIndex + 1, filtered.length - 1);
+                updateActive();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedIndex = Math.max(selectedIndex - 1, 0);
+                updateActive();
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                selectedIndex = 0;
+                updateActive();
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                selectedIndex = Math.max(filtered.length - 1, 0);
+                updateActive();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                var it = filtered[selectedIndex];
+                if (it) window.location.href = it.url;
+            } else if (e.key === 'Escape') {
+                // dialog cierra por defecto; aseguramos el estado
+                closeCmdk();
+            }
+        });
+
+        // click fuera del contenido → cerrar
+        dlg.addEventListener('click', function(e) {
+            var r = dlg.getBoundingClientRect();
+            var inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+            if (!inside) closeCmdk();
+        });
+    })();
+    </script>
 
     <div class="spinner-overlay" id="loadingSpinner">
         <div class="spinner-box">
