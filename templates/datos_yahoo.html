@@ -156,11 +156,11 @@
 <div class="card">
     <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.3rem;">
         <h2 style="margin: 0;">Estados financieros — Yahoo Finance</h2>
-        <form method="POST" action="/analisis/exportar-excel" style="margin: 0;">
+        <form method="POST" action="/analisis/exportar-datos" style="margin: 0;">
             <input type="hidden" name="cache_id" value="{{ cache_id }}">
-            <button type="submit" class="btn btn-secondary" title="Exporta los tres estados en un archivo Excel con pestañas separadas (solo años cerrados)">
+            <button type="submit" class="btn btn-secondary" title="Descarga un ZIP con tres ficheros .txt (campos separados por ';'): Estado de Ingresos, Balance General y Flujo de Caja. Solo años cerrados.">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -0.15em; margin-right: 6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
-                Descargar Excel
+                Descargar datos (3 .txt)
             </button>
         </form>
     </div>
