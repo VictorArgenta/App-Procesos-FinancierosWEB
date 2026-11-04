@@ -254,6 +254,31 @@
         border-radius: 8px;
     }
 
+    /* Narrativa IA */
+    .op-narrativa {
+        background: var(--gray-bg);
+        border: 1px solid var(--gray-border);
+        border-left: 3px solid var(--deloitte-green);
+        border-radius: 8px;
+        padding: 0.7rem 0.95rem;
+        font-size: 0.82rem;
+        line-height: 1.55;
+        color: var(--black);
+        min-height: 60px;
+    }
+    .op-narrativa-empty {
+        display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;
+    }
+    .op-narrativa-hint { color: var(--gray-10); font-size: 0.75rem; }
+    .op-narrativa-loading { color: var(--gray-10); font-size: 0.82rem; display: flex; align-items: center; gap: 8px; }
+    .op-narrativa-loading .rag-spin { width: 13px; height: 13px; border: 2px solid rgba(0,0,0,0.15); border-top-color: var(--deloitte-green-dark); border-radius: 50%; animation: rag-spin 0.7s linear infinite; }
+    .op-narrativa-error {
+        color: var(--danger); font-size: 0.78rem; background: #FDECEA;
+        border: 1px solid #F5C6CB; border-radius: 6px; padding: 7px 10px;
+    }
+    .op-narrativa-text p { margin: 0 0 0.45rem; }
+    .op-narrativa-text p:last-child { margin-bottom: 0; }
+
     @media (max-width: 900px) {
         .op-kpis { grid-template-columns: repeat(2, 1fr); }
         .op-charts { grid-template-columns: 1fr; }
@@ -371,39 +396,21 @@
 
         {% endif %}
 
-        <!-- Benchmark corto -->
-        {% if benchmark %}
-        <div class="op-section-title">Benchmark de mercado · cotización intradía</div>
-        <table class="op-bench">
-            <thead>
-                <tr>
-                    <th>Ticker</th>
-                    <th class="num">Último</th>
-                    <th class="num">% día</th>
-                    <th>Moneda</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for b in benchmark %}
-                <tr class="{% if b.ticker == principal %}principal{% endif %}">
-                    <td>
-                        {{ b.ticker }}
-                        {% if b.ticker == principal %}<span style="color: var(--deloitte-green-dark); font-weight: 700;"> · principal</span>{% endif %}
-                    </td>
-                    <td class="num">{% if b.price is not none %}{{ "%.2f"|format(b.price) }}{% else %}—{% endif %}</td>
-                    <td class="num">
-                        {% if b.change_pct is not none %}
-                            <span class="delta-chip {% if b.change_pct > 0 %}up{% elif b.change_pct < 0 %}down{% else %}neutral{% endif %}">
-                                {{ "%+.2f"|format(b.change_pct) }}%
-                            </span>
-                        {% else %}—{% endif %}
-                    </td>
-                    <td>{{ b.currency or "—" }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% endif %}
+        <!-- Narrativa ejecutiva (IA) -->
+        <div class="op-section-title" id="op-narrativa-title">Lectura ejecutiva</div>
+        <div id="op-narrativa-box" class="op-narrativa">
+            <div id="op-narrativa-empty" class="op-narrativa-empty">
+                <button type="button" id="op-narrativa-btn" class="btn-accion primary">
+                    {{ icon("pencil", size=14) }} Redactar lectura ejecutiva con IA
+                </button>
+                <span class="op-narrativa-hint">Se generará un párrafo con el modelo seleccionado explicando los indicadores y la evolución reciente.</span>
+            </div>
+            <div id="op-narrativa-loading" class="op-narrativa-loading" hidden>
+                <span class="rag-spin" aria-hidden="true"></span> Redactando lectura con IA…
+            </div>
+            <div id="op-narrativa-error" class="op-narrativa-error" hidden></div>
+            <div id="op-narrativa-text" class="op-narrativa-text" hidden></div>
+        </div>
 
         <!-- Footer corporativo -->
         <div class="op-footer">
@@ -476,6 +483,44 @@
                 }
             });
         } catch (e) { console.error('Chart evolución:', e); }
+    }
+
+    // --- Narrativa ejecutiva por IA ---
+    var btn = document.getElementById('op-narrativa-btn');
+    if (btn) {
+        btn.addEventListener('click', function() {
+            document.getElementById('op-narrativa-empty').hidden = true;
+            document.getElementById('op-narrativa-loading').hidden = false;
+            document.getElementById('op-narrativa-error').hidden = true;
+            document.getElementById('op-narrativa-text').hidden = true;
+
+            fetch('/panel-ejecutivo/narrativa', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(j) {
+                    document.getElementById('op-narrativa-loading').hidden = true;
+                    if (!j.ok) {
+                        var err = document.getElementById('op-narrativa-error');
+                        err.textContent = j.error || 'No se pudo generar la lectura.';
+                        err.hidden = false;
+                        document.getElementById('op-narrativa-empty').hidden = false;
+                        return;
+                    }
+                    var cont = document.getElementById('op-narrativa-text');
+                    var parrafos = (j.texto || '').trim().split(/\n{2,}/);
+                    cont.innerHTML = parrafos.map(function(p) {
+                        var escaped = p.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        return '<p>' + escaped.replace(/\n/g, '<br>') + '</p>';
+                    }).join('');
+                    cont.hidden = false;
+                })
+                .catch(function(e) {
+                    document.getElementById('op-narrativa-loading').hidden = true;
+                    var err = document.getElementById('op-narrativa-error');
+                    err.textContent = 'Error al contactar con el servicio de IA: ' + e.message;
+                    err.hidden = false;
+                    document.getElementById('op-narrativa-empty').hidden = false;
+                });
+        });
     }
 
     // --- Composición (doughnut) ---

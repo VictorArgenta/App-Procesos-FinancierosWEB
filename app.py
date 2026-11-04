@@ -6347,6 +6347,96 @@ def benchmark():
     )
 
 
+@app.route("/benchmark/narrativa", methods=["POST"])
+def benchmark_narrativa():
+    """Lectura narrativa IA de la comparativa sectorial."""
+    from flask import jsonify
+    if not TICKER_FIJO or not _empresa_cotiza():
+        return jsonify({"ok": False, "error": "Benchmark no disponible para esta empresa."}), 400
+
+    principal = _ticker_yahoo() or TICKER_FIJO
+    competidores = _cargar_competidores_empresa() or []
+    tickers = [principal] + [c for c in competidores if c != principal]
+    tickers = tickers[:20]
+
+    from concurrent.futures import ThreadPoolExecutor
+    resultados = []
+    try:
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(tickers)))) as ex:
+            for r in ex.map(_obtener_metricas_benchmark, tickers):
+                if r:
+                    resultados.append(r)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"Fallo recuperando métricas: {e}"}), 500
+    resultados.sort(key=lambda r: 0 if r["ticker"] == principal else 1)
+    if not resultados:
+        return jsonify({"ok": False, "error": "Sin datos para generar la narrativa."}), 400
+
+    def _fmt_num(v):
+        if v is None:
+            return "n/d"
+        if abs(v) >= 1e9: return f"{v/1e9:.1f}B"
+        if abs(v) >= 1e6: return f"{v/1e6:.1f}M"
+        return f"{v:.2f}"
+
+    def _fmt_pct(v):
+        return f"{v*100:.1f}%" if v is not None else "n/d"
+
+    lineas = [
+        f"Empresa principal: {resultados[0].get('nombre')} ({principal})",
+        f"Sector: {resultados[0].get('sector') or 'n/d'}",
+        f"Industria: {resultados[0].get('industria') or 'n/d'}",
+        f"Competidores analizados: {len(resultados) - 1}",
+        "",
+        "Métricas por compañía:",
+    ]
+    for r in resultados:
+        etiqueta = "[PRINCIPAL] " if r["ticker"] == principal else ""
+        lineas.append(
+            f"- {etiqueta}{r.get('ticker')} ({r.get('nombre')}): "
+            f"MarketCap={_fmt_num(r.get('market_cap'))}, "
+            f"P/E={_fmt_num(r.get('pe'))}, "
+            f"P/B={_fmt_num(r.get('price_to_book'))}, "
+            f"MgEBITDA={_fmt_pct(r.get('ebitda_margin'))}, "
+            f"MgNeto={_fmt_pct(r.get('profit_margin'))}, "
+            f"CrecIng={_fmt_pct(r.get('revenue_growth'))}, "
+            f"CrecBPA={_fmt_pct(r.get('earnings_growth'))}, "
+            f"DivYld={_fmt_pct(r.get('dividend_yield'))}, "
+            f"Beta={_fmt_num(r.get('beta'))}"
+        )
+    datos_ctx = "\n".join(lineas)
+
+    prompt = (
+        "Eres analista financiero senior en una firma Big Four. Redacta una "
+        "**lectura comparativa sectorial** con los datos siguientes: la "
+        "empresa principal frente a sus competidores directos. Idioma: español "
+        "neutro corporativo. Formato: 3 a 4 párrafos cortos, sin bullets, sin "
+        "títulos, sin tablas, sin fuentes, sin disclaimers. Máximo 260 "
+        "palabras. Tono factual y ejecutivo. Debe cubrir: (1) posicionamiento "
+        "de la empresa principal en valoración (P/E, P/B) frente a los peers; "
+        "(2) comparativa de márgenes (EBITDA, operativo, neto); (3) perfil de "
+        "crecimiento (ingresos y BPA) y retribución (dividend yield); (4) una "
+        "lectura global que destaque dónde la empresa principal lidera y dónde "
+        "queda por debajo de la mediana sectorial. No inventes cifras más allá "
+        "de las aportadas.\n\nDatos:\n" + datos_ctx
+    )
+
+    modelo = _normalizar_modelo(MODELO_POR_DEFECTO)
+    try:
+        texto, _citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=1200, modelo=modelo,
+            permitir_busqueda=False, modulo="benchmark",
+        )
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    texto = (texto or "").strip()
+    if not texto:
+        return jsonify({"ok": False, "error": "El modelo no devolvió texto."}), 500
+
+    return jsonify({"ok": True, "texto": texto, "modelo": modelo})
+
+
 # =====================================================================
 # Panel Ejecutivo (one-pager A4)
 # =====================================================================
@@ -6354,7 +6444,7 @@ def benchmark():
 @app.route("/panel-ejecutivo")
 def panel_ejecutivo():
     """One-pager vendible a dirección: KPIs + evolución + composición
-    P&L + benchmark corto. Se pensó para impresión A4 / "Guardar como PDF"
+    P&L + narrativa IA. Pensado para impresión A4 / "Guardar como PDF"
     del navegador (CSS @media print).
     """
     if not TICKER_FIJO:
@@ -6373,30 +6463,95 @@ def panel_ejecutivo():
             "No se pudieron cargar los datos de Yahoo para el panel: %s", e,
         )
 
-    # Benchmark corto: cotización + variación de cada competidor.
-    benchmark = []
     principal = _ticker_yahoo() or TICKER_FIJO
-    competidores = _cargar_competidores_empresa() or []
-    tickers_bench = [principal] + [c for c in competidores if c != principal]
-    try:
-        from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=min(8, max(1, len(tickers_bench)))) as ex:
-            for res in ex.map(_obtener_cotizacion_rapida, tickers_bench):
-                if res:
-                    benchmark.append(res)
-    except Exception as e:  # noqa: BLE001
-        _logging.getLogger("dfin.panel").warning(
-            "Benchmark corto no disponible: %s", e,
-        )
 
     return render_template(
         "panel_ejecutivo.html",
         datos=datos,
         dashboard=dashboard,
-        benchmark=benchmark,
         principal=principal,
-        competidores=competidores,
     )
+
+
+@app.route("/panel-ejecutivo/narrativa", methods=["POST"])
+def panel_ejecutivo_narrativa():
+    """Genera un párrafo ejecutivo con IA explicando los KPIs del panel.
+
+    Se diseña para que quepa en el one-pager (límite 180 palabras).
+    """
+    from flask import jsonify
+    if not TICKER_FIJO or not _empresa_cotiza():
+        return jsonify({"ok": False, "error": "Panel no disponible para esta empresa."}), 400
+
+    try:
+        datos = _cargar_datos_ticker_fijo()
+        dash = _resumen_dashboard_home(datos)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"No se pudieron cargar datos: {e}"}), 500
+    if not dash:
+        return jsonify({"ok": False, "error": "No hay datos financieros suficientes."}), 400
+
+    # Construimos un contexto numérico compacto para el modelo.
+    lineas = [
+        f"Empresa: {_BRANDING['empresa']} ({TICKER_FIJO})",
+        f"Moneda: {dash.get('moneda') or 'n/d'}",
+        f"Periodo último: FY {dash.get('periodo_ultimo') or '-'}",
+        f"Periodo anterior: FY {dash.get('periodo_anterior') or '-'}",
+        "",
+        "KPIs FY actual vs anterior (YoY %):",
+    ]
+    for t in dash.get("tarjetas", []):
+        actual = t.get("actual")
+        anterior = t.get("anterior")
+        delta = t.get("delta")
+        lineas.append(
+            f"- {t['titulo']}: actual={actual}, anterior={anterior}, YoY={delta}%"
+        )
+    margenes = dash.get("margenes_ultimo") or {}
+    if any(v is not None for v in margenes.values()):
+        lineas.append("")
+        lineas.append("Márgenes último FY (%):")
+        for k, v in margenes.items():
+            if v is not None:
+                lineas.append(f"- Margen {k}: {v:.1f}")
+    comp = dash.get("composicion_pyg") or []
+    if comp:
+        lineas.append("")
+        lineas.append("Composición P&L (bloques y peso relativo):")
+        total = sum(b.get("valor") or 0 for b in comp) or 1
+        for b in comp:
+            pct = (b.get("valor") or 0) / total * 100
+            lineas.append(f"- {b['label']}: {pct:.1f}%")
+    datos_ctx = "\n".join(lineas)
+
+    prompt = (
+        "Eres analista financiero senior en una firma Big Four. Redacta una "
+        "**lectura ejecutiva** de los siguientes datos para incluir en un "
+        "one-pager destinado a la dirección. Idioma: español neutro corporativo. "
+        "Formato: 2 a 3 párrafos cortos, sin bullets, sin títulos, sin tablas, "
+        "sin fuentes, sin disclaimers, sin comentarios sobre los datos o su "
+        "fuente. Máximo 180 palabras en total. Tono: factual, directo y "
+        "ejecutivo. Debe cubrir: (1) evolución de ingresos y rentabilidad con "
+        "la variación interanual; (2) estructura de márgenes y composición "
+        "del P&L; (3) una lectura global de una línea (fortaleza/riesgo "
+        "principal). No inventes cifras más allá de las aportadas.\n\n"
+        "Datos:\n" + datos_ctx
+    )
+
+    modelo = _normalizar_modelo(MODELO_POR_DEFECTO)
+    try:
+        texto, _citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=800, modelo=modelo,
+            permitir_busqueda=False, modulo="panel-ejecutivo",
+        )
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    texto = (texto or "").strip()
+    if not texto:
+        return jsonify({"ok": False, "error": "El modelo no devolvió texto."}), 500
+
+    return jsonify({"ok": True, "texto": texto, "modelo": modelo})
 
 
 if __name__ == "__main__":

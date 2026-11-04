@@ -33,6 +33,62 @@
         border-color: var(--deloitte-green);
         color: var(--deloitte-green-dark);
     }
+    .btn-accion.primary {
+        background: var(--deloitte-green);
+        color: var(--white);
+        border-color: var(--deloitte-green);
+    }
+    .btn-accion.primary:hover {
+        background: var(--deloitte-green-dark);
+        border-color: var(--deloitte-green-dark);
+        color: var(--white);
+    }
+
+    /* Narrativa IA */
+    .bench-narrativa-wrap { margin: 1.1rem 0; }
+    .bench-narrativa {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-left: 3px solid var(--deloitte-green);
+        border-radius: 8px;
+        padding: 1rem 1.2rem;
+    }
+    .bench-narrativa h3 {
+        font-size: 0.78rem; font-weight: 700; margin: 0 0 0.3rem;
+        color: var(--gray-10); text-transform: uppercase; letter-spacing: 0.6px;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .bench-narrativa h3::before {
+        content: ""; width: 14px; height: 2px; background: var(--deloitte-green);
+    }
+    .bench-narrativa .hint { color: var(--gray-10); font-size: 0.78rem; margin-left: 0.6rem; }
+    .bench-narrativa-loading { color: var(--gray-10); font-size: 0.85rem; display: flex; align-items: center; gap: 8px; }
+    .bench-narrativa-loading .rag-spin { width: 13px; height: 13px; border: 2px solid rgba(0,0,0,0.15); border-top-color: var(--deloitte-green-dark); border-radius: 50%; animation: rag-spin 0.7s linear infinite; }
+    .bench-narrativa-error {
+        color: var(--danger); font-size: 0.82rem; background: #FDECEA;
+        border: 1px solid #F5C6CB; border-radius: 6px; padding: 8px 12px;
+    }
+    .bench-narrativa-text { font-size: 0.88rem; line-height: 1.6; color: var(--black); }
+    .bench-narrativa-text p { margin: 0 0 0.55rem; }
+    .bench-narrativa-text p:last-child { margin-bottom: 0; }
+    .bench-narrativa-model {
+        margin-top: 0.5rem; font-size: 0.68rem; color: var(--gray-10);
+        text-align: right; font-style: italic;
+    }
+
+    /* =================== Print styles =================== */
+    @media print {
+        @page { size: A4 landscape; margin: 10mm; }
+        body { background: #FFFFFF !important; }
+        .topbar, .main-nav, .site-footer, .bench-head .acciones,
+        #rag-banner, .cmdk, .spinner-overlay,
+        #bench-narrativa-empty, #bench-narrativa-loading { display: none !important; }
+        main { padding: 0 !important; margin: 0 !important; }
+        .bench-wrap { max-width: 100%; padding: 0; }
+        .bench-table thead th { position: static; }
+        .bench-chart-canvas { height: 160px; }
+        .bench-narrativa { page-break-inside: avoid; }
+    }
 
     /* Tarjetas de resumen principal vs peers */
     .bench-cards {
@@ -176,6 +232,9 @@
         <div class="acciones">
             <a href="/" class="btn-accion">&larr; Volver</a>
             <a href="/panel-ejecutivo" class="btn-accion">{{ icon("clipboard", size=14) }} Panel Ejecutivo</a>
+            <button type="button" class="btn-accion primary" onclick="window.print()">
+                {{ icon("folder", size=14) }} Descargar PDF
+            </button>
         </div>
     </div>
 
@@ -339,6 +398,25 @@
         </table>
     </div>
 
+    {# ------- Narrativa IA ------- #}
+    <div class="bench-narrativa-wrap">
+        <div class="bench-narrativa">
+            <h3>{{ icon("pencil", size=13) }} Lectura comparativa sectorial</h3>
+            <div id="bench-narrativa-empty">
+                <button type="button" id="bench-narrativa-btn" class="btn-accion primary">
+                    {{ icon("pencil", size=14) }} Redactar explicación con IA
+                </button>
+                <span class="hint">La IA interpretará los datos comparando la empresa principal con los peers y detallará posicionamiento en valoración, márgenes y crecimiento.</span>
+            </div>
+            <div id="bench-narrativa-loading" hidden class="bench-narrativa-loading">
+                <span class="rag-spin" aria-hidden="true"></span> Redactando lectura con IA…
+            </div>
+            <div id="bench-narrativa-error" hidden class="bench-narrativa-error"></div>
+            <div id="bench-narrativa-text" hidden class="bench-narrativa-text"></div>
+            <div id="bench-narrativa-model" hidden class="bench-narrativa-model"></div>
+        </div>
+    </div>
+
     {% endif %}
 </div>
 
@@ -437,6 +515,48 @@
                 { label: 'BPA',      data: JSON.parse(cvs3.dataset.eps), color: '#43B02A', _fmt: 'pct' },
             ]);
         } catch (e) { console.error('chart-crecimiento', e); }
+    }
+
+    // ---- Narrativa IA ----
+    var bn = document.getElementById('bench-narrativa-btn');
+    if (bn) {
+        bn.addEventListener('click', function() {
+            document.getElementById('bench-narrativa-empty').hidden = true;
+            document.getElementById('bench-narrativa-loading').hidden = false;
+            document.getElementById('bench-narrativa-error').hidden = true;
+            document.getElementById('bench-narrativa-text').hidden = true;
+            document.getElementById('bench-narrativa-model').hidden = true;
+
+            fetch('/benchmark/narrativa', { method: 'POST' })
+                .then(function(r) { return r.json(); })
+                .then(function(j) {
+                    document.getElementById('bench-narrativa-loading').hidden = true;
+                    if (!j.ok) {
+                        var err = document.getElementById('bench-narrativa-error');
+                        err.textContent = j.error || 'No se pudo generar la lectura.';
+                        err.hidden = false;
+                        document.getElementById('bench-narrativa-empty').hidden = false;
+                        return;
+                    }
+                    var cont = document.getElementById('bench-narrativa-text');
+                    var parrafos = (j.texto || '').trim().split(/\n{2,}/);
+                    cont.innerHTML = parrafos.map(function(p) {
+                        var escaped = p.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                        return '<p>' + escaped.replace(/\n/g, '<br>') + '</p>';
+                    }).join('');
+                    cont.hidden = false;
+                    var m = document.getElementById('bench-narrativa-model');
+                    m.textContent = 'Modelo: ' + (j.modelo || '—');
+                    m.hidden = false;
+                })
+                .catch(function(e) {
+                    document.getElementById('bench-narrativa-loading').hidden = true;
+                    var err = document.getElementById('bench-narrativa-error');
+                    err.textContent = 'Error al contactar con el servicio de IA: ' + e.message;
+                    err.hidden = false;
+                    document.getElementById('bench-narrativa-empty').hidden = false;
+                });
+        });
     }
 
     // ---- Tabla ordenable ----
