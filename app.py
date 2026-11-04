@@ -6215,6 +6215,139 @@ def admin():
 
 
 # =====================================================================
+# Benchmark sectorial automático
+# =====================================================================
+
+# Cache por ticker de fundamentales de benchmark (yfinance .info es lento).
+# TTL largo porque los fundamentales cambian trimestralmente, no por minuto.
+_BENCHMARK_CACHE = {}  # ticker -> (ts, dict)
+_BENCHMARK_TTL = 30 * 60  # 30 minutos
+
+
+def _obtener_metricas_benchmark(ticker_symbol):
+    """Devuelve métricas fundamentales de mercado para comparativa sectorial.
+
+    Combina fast_info (rápido) con un subconjunto de .info (lento, cacheado).
+    None si no se puede obtener nada útil.
+    """
+    import time as _t
+    cached = _BENCHMARK_CACHE.get(ticker_symbol)
+    ahora = _t.time()
+    if cached and (ahora - cached[0]) < _BENCHMARK_TTL:
+        return cached[1]
+
+    try:
+        tk = yf.Ticker(ticker_symbol)
+        fi = tk.fast_info
+        try:
+            info = tk.info or {}
+        except Exception:  # noqa: BLE001
+            info = {}
+
+        def _n(v):
+            try:
+                if v is None:
+                    return None
+                v = float(v)
+                if v != v or v in (float("inf"), float("-inf")):
+                    return None
+                return v
+            except (TypeError, ValueError):
+                return None
+
+        price = _n(getattr(fi, "last_price", None))
+        prev = _n(getattr(fi, "previous_close", None))
+        change_pct = None
+        if price is not None and prev not in (None, 0):
+            change_pct = (price - prev) / prev * 100
+
+        datos = {
+            "ticker": ticker_symbol,
+            "nombre": info.get("shortName") or info.get("longName") or ticker_symbol,
+            "sector": info.get("sector") or "",
+            "industria": info.get("industry") or "",
+            "currency": info.get("currency") or getattr(fi, "currency", "") or "",
+            "price": price,
+            "change_pct": change_pct,
+            "market_cap": _n(info.get("marketCap") or getattr(fi, "market_cap", None)),
+            "pe": _n(info.get("trailingPE")),
+            "price_to_book": _n(info.get("priceToBook")),
+            "profit_margin": _n(info.get("profitMargins")),  # 0-1
+            "gross_margin": _n(info.get("grossMargins")),
+            "ebitda_margin": _n(info.get("ebitdaMargins")),
+            "operating_margin": _n(info.get("operatingMargins")),
+            "revenue_growth": _n(info.get("revenueGrowth")),  # 0-1
+            "earnings_growth": _n(info.get("earningsGrowth")),
+            "dividend_yield": _n(info.get("dividendYield")),
+            "beta": _n(info.get("beta")),
+            "revenue_ttm": _n(info.get("totalRevenue")),
+            "year_high": _n(getattr(fi, "year_high", None) or info.get("fiftyTwoWeekHigh")),
+            "year_low": _n(getattr(fi, "year_low", None) or info.get("fiftyTwoWeekLow")),
+        }
+        _BENCHMARK_CACHE[ticker_symbol] = (ahora, datos)
+        return datos
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.benchmark").warning(
+            "Fallo benchmark %s: %s", ticker_symbol, e,
+        )
+        return None
+
+
+@app.route("/benchmark")
+def benchmark():
+    """Página de benchmark sectorial: empresa activa vs competidores."""
+    if not TICKER_FIJO:
+        return redirect(url_for("index"))
+    if not _empresa_cotiza():
+        return redirect(url_for("index"))
+
+    principal = _ticker_yahoo() or TICKER_FIJO
+    competidores = _cargar_competidores_empresa() or []
+    tickers = [principal] + [c for c in competidores if c != principal]
+    # Tope defensivo
+    tickers = tickers[:20]
+
+    from concurrent.futures import ThreadPoolExecutor
+    resultados = []
+    try:
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(tickers)))) as ex:
+            for r in ex.map(_obtener_metricas_benchmark, tickers):
+                if r:
+                    resultados.append(r)
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.benchmark").warning("Benchmark batch: %s", e)
+
+    # Dejar el principal primero en la tabla
+    resultados.sort(key=lambda r: 0 if r["ticker"] == principal else 1)
+
+    # Calcular medianas de competidores (excluyendo la principal) para el "vs peers"
+    def _mediana(valores):
+        vs = [v for v in valores if v is not None]
+        if not vs:
+            return None
+        vs = sorted(vs)
+        n = len(vs)
+        m = n // 2
+        return vs[m] if n % 2 else (vs[m - 1] + vs[m]) / 2
+
+    peers = [r for r in resultados if r["ticker"] != principal]
+    metricas_clave = [
+        "pe", "price_to_book", "profit_margin", "gross_margin",
+        "ebitda_margin", "operating_margin", "revenue_growth",
+        "earnings_growth", "dividend_yield", "beta",
+    ]
+    medianas = {k: _mediana([p.get(k) for p in peers]) for k in metricas_clave}
+
+    return render_template(
+        "benchmark.html",
+        resultados=resultados,
+        principal=principal,
+        competidores=competidores,
+        medianas=medianas,
+    )
+
+
+# =====================================================================
 # Panel Ejecutivo (one-pager A4)
 # =====================================================================
 
