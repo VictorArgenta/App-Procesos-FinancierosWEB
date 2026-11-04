@@ -32,6 +32,9 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* El atributo nativo [hidden] debe ganar a cualquier display específico */
+        [hidden] { display: none !important; }
+
         html, body { height: 100%; }
 
         body {
@@ -114,12 +117,12 @@
         .nav-logo-empresa .nav-logo-sep {
             display: inline-block;
             width: 1px;
-            height: 36px;
+            height: 44px;
             background: var(--gray-border, #d6d6d6);
         }
         .nav-logo-empresa img {
-            height: 46px;
-            max-width: 220px;
+            height: 58px;
+            max-width: 260px;
             width: auto;
             object-fit: contain;
             display: block;
@@ -133,17 +136,17 @@
             margin-left: 0.2rem;
         }
         .nav-logo-deloitte-inline img {
-            height: 46px;
-            max-width: 160px;
+            height: 58px;
+            max-width: 200px;
             width: auto;
             object-fit: contain;
             display: block;
         }
         @media (max-width: 900px) {
             .nav-logo-empresa img,
-            .nav-logo-deloitte-inline img { height: 36px; max-width: 130px; }
+            .nav-logo-deloitte-inline img { height: 42px; max-width: 150px; }
             .nav-logo-empresa .nav-logo-sep,
-            .nav-logo-deloitte-inline .nav-logo-sep { height: 28px; }
+            .nav-logo-deloitte-inline .nav-logo-sep { height: 32px; }
         }
 
         /* Pill de coste de tokens — siempre visible en el nav. */
@@ -199,12 +202,14 @@
         .user-chip {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            background: #111;
-            border: 1px solid #222;
-            padding: 3px 10px;
-            border-radius: 12px;
-            color: var(--white);
+            gap: 7px;
+            background: var(--gray-bg);
+            border: 1px solid var(--gray-border);
+            padding: 5px 12px;
+            border-radius: 999px;
+            color: var(--gray-11);
+            font-size: 0.78rem;
+            font-weight: 500;
         }
         .user-chip::before {
             content: "";
@@ -229,14 +234,14 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            height: 72px;
+            height: 86px;
         }
         .nav-brand {
             display: flex;
             align-items: center;
             text-decoration: none;
         }
-        .nav-brand img { height: 44px; width: auto; display: block; }
+        .nav-brand img { height: 56px; width: auto; display: block; }
 
         .nav-links {
             display: flex;
@@ -756,9 +761,9 @@
 
         /* Responsive */
         @media (max-width: 960px) {
-            .nav-container { height: 64px; }
+            .nav-container { height: 72px; }
             .nav-links > li > a, .nav-links > li > button { padding: 0 12px; font-size: 0.82rem; }
-            .nav-brand img { height: 38px; }
+            .nav-brand img { height: 46px; }
             .footer-top { grid-template-columns: 1fr 1fr; }
         }
         @media (max-width: 720px) {
@@ -774,31 +779,31 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: var(--gray-3);
+            background: var(--gray-bg);
+            border: 1px solid var(--gray-border);
+            color: var(--gray-11);
             font-family: inherit;
-            font-size: 0.72rem;
-            padding: 4px 8px 4px 9px;
-            border-radius: 6px;
+            font-size: 0.78rem;
+            padding: 6px 10px;
+            border-radius: 8px;
             cursor: pointer;
             transition: background 0.15s, border-color 0.15s, color 0.15s;
             letter-spacing: 0.2px;
         }
         .cmdk-trigger:hover {
-            background: rgba(134, 188, 37, 0.15);
-            border-color: rgba(134, 188, 37, 0.45);
-            color: var(--white);
+            background: var(--deloitte-green-soft);
+            border-color: var(--deloitte-green);
+            color: var(--deloitte-green-dark);
         }
-        .cmdk-trigger svg { width: 12px; height: 12px; opacity: 0.85; }
+        .cmdk-trigger svg { width: 13px; height: 13px; opacity: 0.85; }
         .cmdk-trigger kbd {
             font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
-            font-size: 0.66rem;
-            background: rgba(0, 0, 0, 0.35);
-            border: 1px solid rgba(255, 255, 255, 0.15);
+            font-size: 0.68rem;
+            background: var(--white);
+            border: 1px solid var(--gray-border);
             border-radius: 4px;
             padding: 1px 5px;
-            color: var(--white);
+            color: var(--gray-10);
             margin-left: 4px;
         }
 
@@ -976,26 +981,6 @@
     {% endif %}
 </head>
 <body>
-    <div class="topbar">
-        <div class="topbar-inner">
-            <div class="topbar-left">
-                <span>DFin AI &middot; Financial Intelligence Platform &middot; <strong style="color: var(--brand-primary, #86BC25);">{{ TENANT_NOMBRE }}</strong></span>
-            </div>
-            <div class="topbar-right">
-                <button type="button" class="cmdk-trigger" onclick="window.cmdkOpen && window.cmdkOpen()" title="Abrir buscador (Ctrl+K)" aria-label="Abrir buscador">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                    Buscar <kbd>Ctrl K</kbd>
-                </button>
-                <span class="sep">|</span>
-                <a href="/admin">Panel</a>
-                <span class="sep">|</span>
-                <a href="#">ES / EN</a>
-                <span class="sep">|</span>
-                <span class="user-chip">{{ TENANT_NOMBRE }}{% if TICKER_FIJO %} · {{ TICKER_FIJO }}{% else %} · Tenant ES-01{% endif %}</span>
-            </div>
-        </div>
-    </div>
-
     <nav class="main-nav">
         <div class="nav-container">
             <a href="/" class="nav-brand" aria-label="Inicio DFin AI">
@@ -1040,6 +1025,11 @@
                     <a href="/admin" class="{% if request.path.startswith('/admin') %}active{% endif %}">Administración</a>
                 </li>
                 <li class="nav-cta">
+                    <button type="button" class="cmdk-trigger" onclick="window.cmdkOpen && window.cmdkOpen()" title="Abrir buscador (Ctrl+K)" aria-label="Abrir buscador">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                        Buscar <kbd>Ctrl K</kbd>
+                    </button>
+                    <span class="user-chip">{{ TENANT_NOMBRE }}{% if TICKER_FIJO %} · {{ TICKER_FIJO }}{% else %} · Tenant ES-01{% endif %}</span>
                     <button class="icon-btn" title="Notificaciones" aria-label="Notificaciones">&#9873;</button>
                 </li>
             </ul>

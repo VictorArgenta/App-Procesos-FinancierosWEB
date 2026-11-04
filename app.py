@@ -6421,7 +6421,8 @@ def benchmark_narrativa():
         "de las aportadas.\n\nDatos:\n" + datos_ctx
     )
 
-    modelo = _normalizar_modelo(MODELO_POR_DEFECTO)
+    data = request.get_json(silent=True) or {}
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
     try:
         texto, _citas = llamar_ia_con_reintentos(
             prompt, max_tokens=1200, modelo=modelo,
@@ -6538,7 +6539,8 @@ def panel_ejecutivo_narrativa():
         "Datos:\n" + datos_ctx
     )
 
-    modelo = _normalizar_modelo(MODELO_POR_DEFECTO)
+    data = request.get_json(silent=True) or {}
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
     try:
         texto, _citas = llamar_ia_con_reintentos(
             prompt, max_tokens=800, modelo=modelo,

@@ -62,6 +62,23 @@
         content: ""; width: 14px; height: 2px; background: var(--deloitte-green);
     }
     .bench-narrativa .hint { color: var(--gray-10); font-size: 0.78rem; margin-left: 0.6rem; }
+    .bench-narrativa-empty { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .bench-narrativa-model-label {
+        font-size: 0.72rem; color: var(--gray-10); font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .bench-narrativa-select {
+        font-family: inherit;
+        font-size: 0.82rem;
+        padding: 6px 10px;
+        border: 1px solid var(--gray-border);
+        border-radius: 7px;
+        background: var(--white);
+        color: var(--black);
+        cursor: pointer;
+        max-width: 300px;
+    }
+    .bench-narrativa-select:focus { outline: none; border-color: var(--deloitte-green); }
     .bench-narrativa-loading { color: var(--gray-10); font-size: 0.85rem; display: flex; align-items: center; gap: 8px; }
     .bench-narrativa-loading .rag-spin { width: 13px; height: 13px; border: 2px solid rgba(0,0,0,0.15); border-top-color: var(--deloitte-green-dark); border-radius: 50%; animation: rag-spin 0.7s linear infinite; }
     .bench-narrativa-error {
@@ -402,7 +419,13 @@
     <div class="bench-narrativa-wrap">
         <div class="bench-narrativa">
             <h3>{{ icon("pencil", size=13) }} Lectura comparativa sectorial</h3>
-            <div id="bench-narrativa-empty">
+            <div id="bench-narrativa-empty" class="bench-narrativa-empty">
+                <label for="bench-narrativa-modelo" class="bench-narrativa-model-label">Modelo:</label>
+                <select id="bench-narrativa-modelo" class="bench-narrativa-select">
+                    {% for id, label in MODELOS_ORDENADOS %}
+                    <option value="{{ id }}" {% if id == MODELO_POR_DEFECTO %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
                 <button type="button" id="bench-narrativa-btn" class="btn-accion primary">
                     {{ icon("pencil", size=14) }} Redactar explicación con IA
                 </button>
@@ -521,13 +544,18 @@
     var bn = document.getElementById('bench-narrativa-btn');
     if (bn) {
         bn.addEventListener('click', function() {
+            var modelo = (document.getElementById('bench-narrativa-modelo') || {}).value || '';
             document.getElementById('bench-narrativa-empty').hidden = true;
             document.getElementById('bench-narrativa-loading').hidden = false;
             document.getElementById('bench-narrativa-error').hidden = true;
             document.getElementById('bench-narrativa-text').hidden = true;
             document.getElementById('bench-narrativa-model').hidden = true;
 
-            fetch('/benchmark/narrativa', { method: 'POST' })
+            fetch('/benchmark/narrativa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modelo: modelo })
+            })
                 .then(function(r) { return r.json(); })
                 .then(function(j) {
                     document.getElementById('bench-narrativa-loading').hidden = true;

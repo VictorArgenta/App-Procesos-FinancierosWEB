@@ -278,6 +278,26 @@
     }
     .op-narrativa-text p { margin: 0 0 0.45rem; }
     .op-narrativa-text p:last-child { margin-bottom: 0; }
+    .op-narrativa-model-label {
+        font-size: 0.72rem; color: var(--gray-10); font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .op-narrativa-select {
+        font-family: inherit;
+        font-size: 0.78rem;
+        padding: 5px 8px;
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        background: var(--white);
+        color: var(--black);
+        cursor: pointer;
+        max-width: 260px;
+    }
+    .op-narrativa-select:focus { outline: none; border-color: var(--deloitte-green); }
+    .op-narrativa-model-info {
+        margin-top: 0.5rem; font-size: 0.68rem; color: var(--gray-10);
+        text-align: right; font-style: italic;
+    }
 
     @media (max-width: 900px) {
         .op-kpis { grid-template-columns: repeat(2, 1fr); }
@@ -400,16 +420,23 @@
         <div class="op-section-title" id="op-narrativa-title">Lectura ejecutiva</div>
         <div id="op-narrativa-box" class="op-narrativa">
             <div id="op-narrativa-empty" class="op-narrativa-empty">
+                <label for="op-narrativa-modelo" class="op-narrativa-model-label">Modelo:</label>
+                <select id="op-narrativa-modelo" class="op-narrativa-select">
+                    {% for id, label in MODELOS_ORDENADOS %}
+                    <option value="{{ id }}" {% if id == MODELO_POR_DEFECTO %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
                 <button type="button" id="op-narrativa-btn" class="btn-accion primary">
                     {{ icon("pencil", size=14) }} Redactar lectura ejecutiva con IA
                 </button>
-                <span class="op-narrativa-hint">Se generará un párrafo con el modelo seleccionado explicando los indicadores y la evolución reciente.</span>
+                <span class="op-narrativa-hint">Se generará un párrafo explicando los indicadores y la evolución reciente.</span>
             </div>
             <div id="op-narrativa-loading" class="op-narrativa-loading" hidden>
                 <span class="rag-spin" aria-hidden="true"></span> Redactando lectura con IA…
             </div>
             <div id="op-narrativa-error" class="op-narrativa-error" hidden></div>
             <div id="op-narrativa-text" class="op-narrativa-text" hidden></div>
+            <div id="op-narrativa-model-info" class="op-narrativa-model-info" hidden></div>
         </div>
 
         <!-- Footer corporativo -->
@@ -489,12 +516,18 @@
     var btn = document.getElementById('op-narrativa-btn');
     if (btn) {
         btn.addEventListener('click', function() {
+            var modelo = (document.getElementById('op-narrativa-modelo') || {}).value || '';
             document.getElementById('op-narrativa-empty').hidden = true;
             document.getElementById('op-narrativa-loading').hidden = false;
             document.getElementById('op-narrativa-error').hidden = true;
             document.getElementById('op-narrativa-text').hidden = true;
+            document.getElementById('op-narrativa-model-info').hidden = true;
 
-            fetch('/panel-ejecutivo/narrativa', { method: 'POST' })
+            fetch('/panel-ejecutivo/narrativa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modelo: modelo })
+            })
                 .then(function(r) { return r.json(); })
                 .then(function(j) {
                     document.getElementById('op-narrativa-loading').hidden = true;
@@ -512,6 +545,9 @@
                         return '<p>' + escaped.replace(/\n/g, '<br>') + '</p>';
                     }).join('');
                     cont.hidden = false;
+                    var mi = document.getElementById('op-narrativa-model-info');
+                    mi.textContent = 'Modelo: ' + (j.modelo || '—');
+                    mi.hidden = false;
                 })
                 .catch(function(e) {
                     document.getElementById('op-narrativa-loading').hidden = true;
