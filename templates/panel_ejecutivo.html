@@ -1,0 +1,522 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Panel ejecutivo — {{ EMPRESA_NOMBRE }}{% endblock %}
+
+{% block content %}
+<style>
+    /* ============== Layout one-pager A4 vertical ============== */
+    .panel-wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 1.2rem;
+    }
+    .panel-topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 0 0.6rem;
+    }
+    .panel-topbar h1 {
+        font-size: 1.1rem;
+        margin: 0;
+        color: var(--gray-11);
+        font-weight: 600;
+    }
+    .panel-topbar .acciones { display: flex; gap: 8px; }
+    .btn-accion {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 13px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        background: var(--white);
+        color: var(--gray-11);
+        border: 1px solid var(--gray-border);
+        border-radius: 7px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .btn-accion:hover {
+        background: var(--deloitte-green-soft);
+        border-color: var(--deloitte-green);
+        color: var(--deloitte-green-dark);
+    }
+    .btn-accion.primary {
+        background: var(--deloitte-green);
+        color: var(--white);
+        border-color: var(--deloitte-green);
+    }
+    .btn-accion.primary:hover {
+        background: var(--deloitte-green-dark);
+        border-color: var(--deloitte-green-dark);
+        color: var(--white);
+    }
+
+    /* "Hoja" blanca que simula un folio A4 */
+    .one-pager {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 12px;
+        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04);
+        padding: 2rem 2.2rem;
+        color: var(--black);
+    }
+    .op-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        padding-bottom: 0.9rem;
+        border-bottom: 2px solid var(--black);
+    }
+    .op-head-left h2 {
+        font-size: 1.55rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.2px;
+        color: var(--black);
+    }
+    .op-head-left .meta {
+        font-size: 0.78rem;
+        color: var(--gray-10);
+        margin-top: 0.15rem;
+    }
+    .op-head-right {
+        text-align: right;
+        font-size: 0.72rem;
+        color: var(--gray-10);
+        line-height: 1.5;
+    }
+    .op-head-right strong { color: var(--black); }
+
+    .op-section-title {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.9px;
+        color: var(--gray-10);
+        margin: 1.4rem 0 0.55rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .op-section-title::before {
+        content: "";
+        width: 14px;
+        height: 2px;
+        background: var(--deloitte-green);
+        display: inline-block;
+    }
+
+    /* KPIs grid */
+    .op-kpis {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.7rem;
+    }
+    .kpi-card {
+        background: var(--gray-bg);
+        border: 1px solid var(--gray-border);
+        border-left: 3px solid var(--kpi-color, var(--deloitte-green));
+        border-radius: 8px;
+        padding: 0.65rem 0.8rem 0.7rem;
+    }
+    .kpi-card .kpi-title {
+        font-size: 0.68rem;
+        color: var(--gray-10);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .kpi-card .kpi-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin-top: 2px;
+        color: var(--black);
+        letter-spacing: -0.3px;
+    }
+    .kpi-card .kpi-delta {
+        font-size: 0.72rem;
+        font-weight: 600;
+        margin-top: 2px;
+    }
+    .kpi-delta.up { color: var(--deloitte-green-dark); }
+    .kpi-delta.down { color: var(--danger); }
+    .kpi-delta.neutral { color: var(--gray-10); }
+    .kpi-card .kpi-prev {
+        font-size: 0.68rem;
+        color: var(--gray-10);
+        margin-top: 2px;
+    }
+
+    /* Charts row */
+    .op-charts {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 1rem;
+    }
+    .op-chart-wrap {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 8px;
+        padding: 0.7rem 0.85rem 0.9rem;
+    }
+    .op-chart-wrap h4 {
+        font-size: 0.82rem;
+        font-weight: 600;
+        margin: 0 0 0.3rem;
+        color: var(--gray-11);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .op-chart-wrap small {
+        display: block;
+        font-size: 0.68rem;
+        color: var(--gray-10);
+        margin-bottom: 0.4rem;
+    }
+    .op-chart-canvas {
+        position: relative;
+        height: 180px;
+    }
+    .op-chart-canvas canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+
+    /* Márgenes mini-tabla */
+    .op-margenes {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+        margin-top: 0.3rem;
+    }
+    .op-margen {
+        background: var(--gray-bg);
+        border: 1px solid var(--gray-border);
+        border-radius: 7px;
+        padding: 0.5rem 0.65rem;
+        text-align: center;
+    }
+    .op-margen .lbl { font-size: 0.68rem; color: var(--gray-10); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+    .op-margen .val { font-size: 1.05rem; font-weight: 700; margin-top: 2px; }
+
+    /* Benchmark */
+    .op-bench {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+    }
+    .op-bench th, .op-bench td {
+        padding: 6px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--gray-border);
+    }
+    .op-bench th {
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--gray-10);
+        background: var(--gray-bg);
+        font-weight: 600;
+    }
+    .op-bench tr.principal td {
+        background: var(--deloitte-green-soft);
+        font-weight: 600;
+    }
+    .op-bench td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .delta-chip {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+    .delta-chip.up { background: rgba(67, 176, 42, 0.12); color: var(--deloitte-green-dark); }
+    .delta-chip.down { background: rgba(218, 41, 28, 0.12); color: var(--danger); }
+    .delta-chip.neutral { background: var(--gray-bg); color: var(--gray-10); }
+
+    .op-footer {
+        margin-top: 1.2rem;
+        padding-top: 0.6rem;
+        border-top: 1px solid var(--gray-border);
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.68rem;
+        color: var(--gray-10);
+    }
+
+    .op-empty {
+        padding: 2rem;
+        text-align: center;
+        color: var(--gray-10);
+        background: var(--gray-bg);
+        border: 1px dashed var(--gray-border);
+        border-radius: 8px;
+    }
+
+    @media (max-width: 900px) {
+        .op-kpis { grid-template-columns: repeat(2, 1fr); }
+        .op-charts { grid-template-columns: 1fr; }
+    }
+
+    /* =================== Print styles =================== */
+    @media print {
+        @page { size: A4; margin: 10mm; }
+        body { background: #FFFFFF !important; }
+        .topbar, .main-nav, .site-footer, .panel-topbar, #rag-banner, .cmdk, .spinner-overlay { display: none !important; }
+        main { padding: 0 !important; margin: 0 !important; }
+        .panel-wrap { max-width: 100%; padding: 0; }
+        .one-pager {
+            border: 0;
+            box-shadow: none;
+            padding: 0;
+            border-radius: 0;
+        }
+        .op-chart-canvas { height: 160px; }
+    }
+</style>
+
+<div class="panel-wrap">
+    <div class="panel-topbar">
+        <h1>Panel ejecutivo · one-pager vendible a dirección</h1>
+        <div class="acciones">
+            <a href="/" class="btn-accion">&larr; Volver</a>
+            <button type="button" class="btn-accion primary" onclick="window.print()">
+                {{ icon("folder", size=14) }} Guardar como PDF / Imprimir
+            </button>
+        </div>
+    </div>
+
+    <div class="one-pager">
+        <!-- Cabecera -->
+        <div class="op-head">
+            <div class="op-head-left">
+                <h2>{{ EMPRESA_NOMBRE }}{% if TICKER_FIJO %} <span style="color: var(--gray-10); font-weight: 500;">({{ TICKER_FIJO }})</span>{% endif %}</h2>
+                <div class="meta">
+                    Panel ejecutivo — resumen financiero
+                    {% if SECTOR_EMPRESA and SECTOR_EMPRESA.sector %} · {{ SECTOR_EMPRESA.sector }}{% endif %}
+                </div>
+            </div>
+            <div class="op-head-right">
+                <strong>Generado</strong> {{ fecha_hoy }}<br>
+                <span>DFin AI · {{ TENANT_NOMBRE }}</span>
+                {% if dashboard and dashboard.moneda %}<br><span>Moneda: {{ dashboard.moneda }}</span>{% endif %}
+            </div>
+        </div>
+
+        {% if not dashboard %}
+        <div class="op-empty" style="margin-top: 1rem;">
+            No se han podido cargar datos financieros desde Yahoo. Comprueba la conectividad y recarga la página.
+        </div>
+        {% else %}
+
+        <!-- KPIs -->
+        <div class="op-section-title">Indicadores clave · FY {{ dashboard.periodo_ultimo }}{% if dashboard.periodo_anterior %} vs FY {{ dashboard.periodo_anterior }}{% endif %}</div>
+        <div class="op-kpis">
+            {% for t in dashboard.tarjetas %}
+            <div class="kpi-card" style="--kpi-color: {{ t.color }};">
+                <div class="kpi-title">{{ t.titulo }}</div>
+                <div class="kpi-value" data-raw="{{ t.actual|default('', true) }}">
+                    {% if t.actual is not none %}{{ t.actual|fmt_corto }}{% else %}—{% endif %}
+                </div>
+                {% if t.delta is not none %}
+                    <div class="kpi-delta {% if t.delta > 0 %}up{% elif t.delta < 0 %}down{% else %}neutral{% endif %}">
+                        {% if t.delta > 0 %}▲{% elif t.delta < 0 %}▼{% else %}·{% endif %}
+                        {{ "%+.1f"|format(t.delta) }}% YoY
+                    </div>
+                {% else %}
+                    <div class="kpi-delta neutral">—</div>
+                {% endif %}
+                {% if t.anterior is not none %}
+                    <div class="kpi-prev">vs {{ dashboard.periodo_anterior }}: {{ t.anterior|fmt_corto }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Charts row: evolución + composición -->
+        <div class="op-section-title">Evolución y composición</div>
+        <div class="op-charts">
+            <div class="op-chart-wrap">
+                <h4>{{ icon("trend-up", size=14) }} Evolución últimos ejercicios</h4>
+                <small>Ingresos y beneficio neto, {{ dashboard.labels|length }} FY</small>
+                <div class="op-chart-canvas">
+                    <canvas id="op-evolucion"
+                            data-labels='{{ dashboard.evolucion.labels|tojson }}'
+                            data-ingresos='{{ dashboard.evolucion.ingresos|tojson }}'
+                            data-beneficio='{{ dashboard.evolucion.beneficio_neto|tojson }}'></canvas>
+                </div>
+            </div>
+            <div class="op-chart-wrap">
+                <h4>{{ icon("pie-chart", size=14) }} Composición P&amp;L {{ dashboard.periodo_ultimo }}</h4>
+                <small>Por cada € de ingresos del último FY</small>
+                <div class="op-chart-canvas">
+                    <canvas id="op-composicion" data-slices='{{ dashboard.composicion_pyg|tojson }}'></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Márgenes -->
+        {% if dashboard.margenes_ultimo %}
+        <div class="op-section-title">Márgenes {{ dashboard.periodo_ultimo }}</div>
+        <div class="op-margenes">
+            {% for nombre, valor in dashboard.margenes_ultimo.items() %}
+            <div class="op-margen">
+                <div class="lbl">Margen {{ nombre }}</div>
+                <div class="val">{% if valor is not none %}{{ "%.1f"|format(valor) }}%{% else %}—{% endif %}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% endif %}
+
+        <!-- Benchmark corto -->
+        {% if benchmark %}
+        <div class="op-section-title">Benchmark de mercado · cotización intradía</div>
+        <table class="op-bench">
+            <thead>
+                <tr>
+                    <th>Ticker</th>
+                    <th class="num">Último</th>
+                    <th class="num">% día</th>
+                    <th>Moneda</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in benchmark %}
+                <tr class="{% if b.ticker == principal %}principal{% endif %}">
+                    <td>
+                        {{ b.ticker }}
+                        {% if b.ticker == principal %}<span style="color: var(--deloitte-green-dark); font-weight: 700;"> · principal</span>{% endif %}
+                    </td>
+                    <td class="num">{% if b.price is not none %}{{ "%.2f"|format(b.price) }}{% else %}—{% endif %}</td>
+                    <td class="num">
+                        {% if b.change_pct is not none %}
+                            <span class="delta-chip {% if b.change_pct > 0 %}up{% elif b.change_pct < 0 %}down{% else %}neutral{% endif %}">
+                                {{ "%+.2f"|format(b.change_pct) }}%
+                            </span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td>{{ b.currency or "—" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        <!-- Footer corporativo -->
+        <div class="op-footer">
+            <span>Datos: Yahoo Finance · elaboración DFin AI. No constituye recomendación de inversión.</span>
+            <span>{{ fecha_hoy }} · {{ TENANT_NOMBRE }}</span>
+        </div>
+    </div>
+</div>
+
+{% if dashboard %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    if (typeof Chart === 'undefined') return;
+
+    // Formateador compacto: 134,9 B / 42,3 M / 215 K
+    function fmtCorto(v) {
+        if (v === null || v === undefined || isNaN(v)) return '—';
+        var a = Math.abs(v);
+        if (a >= 1e9) return (v / 1e9).toFixed(1).replace('.', ',') + ' B';
+        if (a >= 1e6) return (v / 1e6).toFixed(1).replace('.', ',') + ' M';
+        if (a >= 1e3) return (v / 1e3).toFixed(0) + ' K';
+        return String(Math.round(v));
+    }
+
+    // --- Evolución (barras + línea) ---
+    var cvsEvo = document.getElementById('op-evolucion');
+    if (cvsEvo) {
+        try {
+            var labels = JSON.parse(cvsEvo.dataset.labels);
+            var ingresos = JSON.parse(cvsEvo.dataset.ingresos);
+            var beneficio = JSON.parse(cvsEvo.dataset.beneficio);
+            new Chart(cvsEvo, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Ingresos',
+                            data: ingresos,
+                            backgroundColor: 'rgba(25, 118, 210, 0.75)',
+                            borderRadius: 4,
+                            borderSkipped: false
+                        },
+                        {
+                            type: 'line',
+                            label: 'Beneficio neto',
+                            data: beneficio,
+                            borderColor: '#43B02A',
+                            backgroundColor: 'rgba(67, 176, 42, 0.12)',
+                            tension: 0.3,
+                            fill: false,
+                            pointRadius: 3,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    maintainAspectRatio: false,
+                    responsive: true,
+                    plugins: {
+                        legend: { labels: { font: { size: 10 }, boxWidth: 10 } },
+                        tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + fmtCorto(ctx.parsed.y); } } }
+                    },
+                    scales: {
+                        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+                        y: { ticks: { font: { size: 10 }, callback: function(v) { return fmtCorto(v); } }, grid: { color: 'rgba(0,0,0,0.06)' } }
+                    }
+                }
+            });
+        } catch (e) { console.error('Chart evolución:', e); }
+    }
+
+    // --- Composición (doughnut) ---
+    var cvsPie = document.getElementById('op-composicion');
+    if (cvsPie) {
+        try {
+            var slices = JSON.parse(cvsPie.dataset.slices);
+            if (slices && slices.length) {
+                new Chart(cvsPie, {
+                    type: 'doughnut',
+                    data: {
+                        labels: slices.map(function(s) { return s.label; }),
+                        datasets: [{
+                            data: slices.map(function(s) { return s.valor; }),
+                            backgroundColor: slices.map(function(s) { return s.color; }),
+                            borderWidth: 1,
+                            borderColor: '#FFFFFF'
+                        }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        cutout: '55%',
+                        plugins: {
+                            legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 10 } },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(ctx) {
+                                        var tot = ctx.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                                        var pct = tot ? (ctx.parsed / tot * 100) : 0;
+                                        return ctx.label + ': ' + fmtCorto(ctx.parsed) + ' (' + pct.toFixed(1) + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (e) { console.error('Chart composición:', e); }
+    }
+})();
+</script>
+{% endif %}
+{% endblock %}

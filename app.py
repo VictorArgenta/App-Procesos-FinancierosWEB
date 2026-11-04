@@ -5,7 +5,7 @@ import re
 import time
 import uuid
 import markdown
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, redirect, url_for
 from dotenv import load_dotenv
 import yfinance as yf
 import anthropic
@@ -494,6 +494,34 @@ def _cargar_sector_empresa():
     return cfg
 
 
+def _dt_now():
+    from datetime import datetime as _dt
+    return _dt.now()
+
+
+@app.template_filter("fmt_corto")
+def _fmt_corto(v):
+    """Formato compacto estilo bolsa: 134,9 B / 42,3 M / 215 K / 32.
+    Devuelve '—' para None / NaN. Usa coma decimal (es-ES)."""
+    try:
+        if v is None:
+            return "—"
+        v = float(v)
+    except (TypeError, ValueError):
+        return "—"
+    signo = "-" if v < 0 else ""
+    a = abs(v)
+    if a >= 1e9:
+        s = f"{a / 1e9:.1f} B"
+    elif a >= 1e6:
+        s = f"{a / 1e6:.1f} M"
+    elif a >= 1e3:
+        s = f"{a / 1e3:.0f} K"
+    else:
+        s = f"{a:.0f}"
+    return signo + s.replace(".", ",")
+
+
 @app.context_processor
 def _inyectar_branding():
     ruta_emp = _ruta_logo_empresa()
@@ -530,6 +558,7 @@ def _inyectar_branding():
         "TEMA_EMPRESA": _cargar_tema_empresa(),
         "COSTE_ACUMULADO_USD": _COSTE_ACUMULADO.get("usd", 0.0),
         "COSTE_LLAMADAS": _COSTE_ACUMULADO.get("llamadas", 0),
+        "fecha_hoy": _dt_now().strftime("%d/%m/%Y"),
     }
 
 
@@ -6182,6 +6211,58 @@ def admin():
         info_coste=_parsear_lineas_coste(limite_lineas=50),
         fichero_coste=str(_COSTE_FILE),
         fichero_coste_existe=_COSTE_FILE.exists(),
+    )
+
+
+# =====================================================================
+# Panel Ejecutivo (one-pager A4)
+# =====================================================================
+
+@app.route("/panel-ejecutivo")
+def panel_ejecutivo():
+    """One-pager vendible a dirección: KPIs + evolución + composición
+    P&L + benchmark corto. Se pensó para impresión A4 / "Guardar como PDF"
+    del navegador (CSS @media print).
+    """
+    if not TICKER_FIJO:
+        return redirect(url_for("index"))
+    if not _empresa_cotiza():
+        # Para no cotizadas no tenemos datos de Yahoo que mostrar.
+        return redirect(url_for("index"))
+
+    datos = None
+    dashboard = None
+    try:
+        datos = _cargar_datos_ticker_fijo()
+        dashboard = _resumen_dashboard_home(datos)
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.panel").warning(
+            "No se pudieron cargar los datos de Yahoo para el panel: %s", e,
+        )
+
+    # Benchmark corto: cotización + variación de cada competidor.
+    benchmark = []
+    principal = _ticker_yahoo() or TICKER_FIJO
+    competidores = _cargar_competidores_empresa() or []
+    tickers_bench = [principal] + [c for c in competidores if c != principal]
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=min(8, max(1, len(tickers_bench)))) as ex:
+            for res in ex.map(_obtener_cotizacion_rapida, tickers_bench):
+                if res:
+                    benchmark.append(res)
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.panel").warning(
+            "Benchmark corto no disponible: %s", e,
+        )
+
+    return render_template(
+        "panel_ejecutivo.html",
+        datos=datos,
+        dashboard=dashboard,
+        benchmark=benchmark,
+        principal=principal,
+        competidores=competidores,
     )
 
 

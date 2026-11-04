@@ -366,6 +366,17 @@
             <div class="right"><span class="btn-mini">Acceder</span></div>
         </a>
 
+        {% if EMPRESA_COTIZA %}
+        <a href="/panel-ejecutivo" class="home-card disponible">
+            <span class="ico">{{ icon("clipboard", size=22) }}</span>
+            <div class="body">
+                <h2>Panel Ejecutivo <span class="pill-badge ok">{{ icon("check", size=13) }} One-pager imprimible</span></h2>
+                <div class="desc">Resumen en una hoja A4 con KPIs, evolución 5 años, composición P&amp;L y benchmark de cotizaciones. Pensado para subir a dirección — botón "Guardar como PDF" integrado.</div>
+            </div>
+            <div class="right"><span class="btn-mini">Acceder</span></div>
+        </a>
+        {% endif %}
+
         <a href="/presupuesto" class="home-card preview">
             <span class="ico">{{ icon("ruler", size=22) }}</span>
             <div class="body">
