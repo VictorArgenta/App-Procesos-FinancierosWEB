@@ -28,17 +28,22 @@
         display: grid;
         grid-template-columns: 1.7fr 1fr;
         gap: 1rem;
-        align-items: start;
+        align-items: stretch;  /* ambas columnas al mismo alto */
     }
     @media (max-width: 1100px) { .home-layout { grid-template-columns: 1fr; } }
 
     /* --- Columna izquierda: funcionalidades compactas --- */
-    .home-left { display: flex; flex-direction: column; gap: 0.55rem; }
+    .home-left {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        height: 100%;  /* ocupa la altura del cell (= columna derecha) */
+    }
     .home-card {
         display: flex;
         align-items: center;
-        gap: 0.9rem;
-        padding: 0.55rem 0.9rem;
+        gap: 1rem;
+        padding: 0.7rem 1rem;
         background: #fff;
         border: 1px solid var(--gray-border);
         border-left-width: 4px;
@@ -46,7 +51,8 @@
         border-radius: 3px;
         text-decoration: none;
         color: inherit;
-        min-height: 52px;
+        flex: 1 1 0;         /* todas las cards reparten el alto equitativamente */
+        min-height: 72px;    /* altura mínima digna en móvil / columna única */
         transition: box-shadow 0.12s, transform 0.12s;
     }
     .home-card:hover {
@@ -57,33 +63,36 @@
     .home-card.preview    { border-left-color: #A7A8AA; }
 
     .home-card .ico {
-        font-size: 1.3rem;
+        font-size: 1.6rem;
         flex-shrink: 0;
-        width: 32px;
+        width: 36px;
         text-align: center;
     }
     .home-card .body { flex: 1; min-width: 0; }
     .home-card h2 {
-        font-size: 0.92rem;
+        font-size: 0.98rem;
         font-weight: 700;
         margin: 0;
         color: var(--black);
         line-height: 1.2;
     }
     .home-card .desc {
-        font-size: 0.74rem;
+        font-size: 0.78rem;
         color: var(--gray-10);
-        line-height: 1.3;
-        margin-top: 1px;
+        line-height: 1.4;
+        margin-top: 3px;
         display: -webkit-box;
-        -webkit-line-clamp: 1;
+        -webkit-line-clamp: 2;    /* hasta 2 líneas */
         -webkit-box-orient: vertical;
         overflow: hidden;
     }
     .home-card .right {
         display: flex;
-        align-items: center;
-        gap: 0.5rem;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: space-between;
+        align-self: stretch;
+        gap: 0.4rem;
         flex-shrink: 0;
     }
     .home-card .tag {
@@ -288,7 +297,7 @@
             <span class="ico">📊</span>
             <div class="body">
                 <h2>Generar Informe Narrativo</h2>
-                <div class="desc">Informe con IA sobre los estados financieros de Yahoo. Exportable Word/PDF.</div>
+                <div class="desc">Vuelca los tres estados financieros de Yahoo (ingresos, balance, cashflow) y genera con IA el informe que necesites — nota de memoria, consejo o accionista — exportable a Word y PDF.</div>
             </div>
             <div class="right">
                 <span class="tag tag-green">Disponible</span>
@@ -302,14 +311,15 @@
             <div class="body">
                 <h2>Relación con Inversores</h2>
                 <div class="desc">
+                    Lee la bandeja de Gmail de IR, clasifica cada consulta (minorista/mayorista) y genera un borrador de respuesta con RAG sobre la documentación corporativa.
                     {% if ir_pendientes is none %}
-                        Bandeja Gmail no conectada (configura .env).
+                        <strong style="color:#B71C1C;">Bandeja no conectada: configura GMAIL en .env.</strong>
                     {% elif ir_pendientes == 0 %}
-                        Sin correos pendientes · filtro <code>{{ ir_prefijo }}</code>
+                        <strong>Sin correos pendientes</strong> (filtro <code>{{ ir_prefijo }}</code>).
                     {% elif ir_pendientes == 1 %}
-                        1 correo pendiente · filtro <code>{{ ir_prefijo }}</code>
+                        <strong>1 correo pendiente</strong> con filtro <code>{{ ir_prefijo }}</code>.
                     {% else %}
-                        {{ ir_pendientes }} correos pendientes · filtro <code>{{ ir_prefijo }}</code>
+                        <strong>{{ ir_pendientes }} correos pendientes</strong> con filtro <code>{{ ir_prefijo }}</code>.
                     {% endif %}
                 </div>
             </div>
@@ -328,7 +338,7 @@
             <span class="ico">💬</span>
             <div class="body">
                 <h2>Consulta Documental</h2>
-                <div class="desc">Habla con los PDFs/Word corporativos. Citas exactas y modo estricto.</div>
+                <div class="desc">Chat en modo estricto contra los PDFs, Word y notas de la carpeta corporativa. Cada respuesta cita el documento, la página y el texto literal. Conversaciones guardadas para retomar.</div>
             </div>
             <div class="right">
                 <span class="tag tag-green">Disponible</span>
@@ -340,7 +350,7 @@
             <span class="ico">📰</span>
             <div class="body">
                 <h2>Noticias del Sector</h2>
-                <div class="desc">Actualidad del sector y de la compañía, con compositor de correo.</div>
+                <div class="desc">Dos bloques en vivo: noticias del sector (y subsectores configurables) y noticias de la compañía. Compositor de correo integrado con destinatario manual y envío por Gmail.</div>
             </div>
             <div class="right">
                 <span class="tag tag-green">Disponible</span>
@@ -352,7 +362,7 @@
             <span class="ico">📐</span>
             <div class="body">
                 <h2>Elaboración Presupuesto (ML)</h2>
-                <div class="desc">Forecasting ARIMA / Prophet / XGBoost. Escenarios base, optimista, pesimista.</div>
+                <div class="desc">Proyecciones presupuestarias a 12 / 24 / 36 meses con modelos ARIMA, Prophet y XGBoost sobre el histórico corporativo. Escenarios base, optimista y pesimista. Lanzamiento final previsto Q3 2026.</div>
             </div>
             <div class="right">
                 <span class="tag tag-orange">Preview</span>
@@ -364,7 +374,7 @@
             <span class="ico">📡</span>
             <div class="body">
                 <h2>Radar Normativo</h2>
-                <div class="desc">Alertas regulatorias y fiscales UE/España/LATAM con resúmenes IA.</div>
+                <div class="desc">Vigilancia automatizada de novedades regulatorias y fiscales en UE, España y LATAM. Alertas por categoría, jurisdicción e impacto, con resúmenes ejecutivos elaborados por IA.</div>
             </div>
             <div class="right">
                 <span class="tag tag-orange">Preview</span>
