@@ -3583,11 +3583,16 @@ def _listar_informes_descargados():
     return items
 
 
-@app.route("/analisis/exportar-excel", methods=["POST"])
-def analisis_exportar_excel():
-    """Exporta los datos crudos de Yahoo a un .xlsx con 3 pestañas:
-    Estado de Ingresos, Balance General y Flujo de Caja. Solo años cerrados
-    (filtra TTM si llegara)."""
+@app.route("/analisis/exportar-datos", methods=["POST"])
+def analisis_exportar_datos():
+    """Exporta los datos crudos de Yahoo a tres ficheros .txt (delimitados
+    por ';') empaquetados en un ZIP:
+      - estado_ingresos.txt
+      - balance_general.txt
+      - flujo_de_caja.txt
+    Solo años cerrados (filtra TTM si llegara). No requiere dependencias
+    externas: usa zipfile de la stdlib.
+    """
     cache_id = request.form.get("cache_id", "").strip()
     entry = _download_cache.get(cache_id) if cache_id else None
     if not entry or not entry.get("datos"):
@@ -3595,37 +3600,15 @@ def analisis_exportar_excel():
 
     datos = entry["datos"]
     estados = (datos.get("estados") or {})
-
-    try:
-        from openpyxl import Workbook
-        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    except ImportError:
-        return ("Falta la dependencia 'openpyxl'. Ejecuta `pip install openpyxl` "
-                "en el entorno de la aplicación.", 500)
-
-    wb = Workbook()
-    wb.remove(wb.active)
-
-    hojas = [
-        ("income_statement", "Estado de Ingresos"),
-        ("balance_sheet",    "Balance General"),
-        ("cashflow",         "Flujo de Caja"),
-    ]
-
-    header_font = Font(bold=True, color="FFFFFF")
-    header_fill = PatternFill("solid", fgColor="43B02A")
-    concept_font = Font(bold=True, color="000000")
-    first_col_fill = PatternFill("solid", fgColor="F5F5F4")
-    title_font = Font(bold=True, size=13)
-    subtitle_font = Font(italic=True, size=10, color="63666A")
-    center = Alignment(horizontal="center", vertical="center")
-    right = Alignment(horizontal="right", vertical="center")
-    left = Alignment(horizontal="left", vertical="center")
-    thin = Side(style="thin", color="D0D0CE")
-    border_all = Border(left=thin, right=thin, top=thin, bottom=thin)
-
     moneda = datos.get("moneda") or ""
-    cabecera_moneda = f" — Moneda: {moneda}" if moneda else ""
+    nombre = datos.get("nombre") or ""
+    ticker = (datos.get("ticker") or "").upper()
+
+    ficheros = [
+        ("income_statement", "estado_ingresos.txt",  "Estado de Ingresos"),
+        ("balance_sheet",    "balance_general.txt",  "Balance General"),
+        ("cashflow",         "flujo_de_caja.txt",    "Flujo de Caja"),
+    ]
 
     def _es_ttm(p):
         if p is None:
@@ -3633,81 +3616,73 @@ def analisis_exportar_excel():
         s = str(p).strip().upper()
         return s == "TTM" or s.startswith("TTM")
 
-    for clave, titulo in hojas:
+    def _fmt_celda(v):
+        # Vacío si no hay dato. Punto decimal; sin separador de miles para que
+        # Excel al importar por ";" lo detecte como numérico limpio.
+        if v is None:
+            return ""
+        if isinstance(v, (int, float)):
+            # Enteros sin decimales, floats con hasta 2
+            if float(v).is_integer():
+                return str(int(v))
+            return f"{v:.2f}"
+        return str(v)
+
+    def _escape(cell):
+        # ';' / salto de línea / comillas: envolver en comillas y escapar
+        s = str(cell)
+        if any(ch in s for ch in [';', '\n', '\r', '"']):
+            s = s.replace('"', '""')
+            return f'"{s}"'
+        return s
+
+    def _construir_txt(clave, titulo):
         bloque = estados.get(clave) or {}
         periodos = bloque.get("periodos") or []
         filas = bloque.get("filas") or []
 
-        # Filtrar TTM: conservamos los índices de columnas de años cerrados.
         indices_validos = [i for i, p in enumerate(periodos) if not _es_ttm(p)]
         periodos_ok = [periodos[i] for i in indices_validos]
 
-        ws = wb.create_sheet(title=titulo[:31])  # Excel limita a 31 chars
+        cabecera_meta = (
+            f"# {titulo}\n"
+            f"# Empresa: {nombre} ({ticker})\n"
+            + (f"# Moneda: {moneda}\n" if moneda else "")
+            + f"# Generado: {_dt_now().strftime('%Y-%m-%d %H:%M')}\n"
+            f"# Separador de campos: ';'\n"
+            f"# Nota: solo se exportan años cerrados (TTM se excluye).\n"
+            "\n"
+        )
 
-        # Cabecera superior
-        ws["A1"] = f"{datos.get('nombre', '')} ({datos.get('ticker', '')}){cabecera_moneda}"
-        ws["A1"].font = title_font
-        ws.merge_cells(start_row=1, start_column=1,
-                       end_row=1, end_column=max(1, 1 + len(periodos_ok)))
-        ws["A2"] = titulo
-        ws["A2"].font = subtitle_font
-        ws.merge_cells(start_row=2, start_column=1,
-                       end_row=2, end_column=max(1, 1 + len(periodos_ok)))
-
-        # Fila de encabezados (fila 4)
-        ws.cell(row=4, column=1, value="Concepto").font = header_font
-        ws.cell(row=4, column=1).fill = header_fill
-        ws.cell(row=4, column=1).alignment = left
-        ws.cell(row=4, column=1).border = border_all
-        for j, periodo in enumerate(periodos_ok, start=2):
-            c = ws.cell(row=4, column=j, value=str(periodo))
-            c.font = header_font
-            c.fill = header_fill
-            c.alignment = center
-            c.border = border_all
-
-        # Filas de datos
-        r = 5
+        encabezados = ["Concepto"] + [str(p) for p in periodos_ok]
+        lineas = [";".join(_escape(h) for h in encabezados)]
         for fila in filas:
             concepto = fila.get("concepto") or ""
             valores = fila.get("valores") or []
-            # Omitimos filas sin datos de años cerrados
             valores_ok = [valores[i] if i < len(valores) else None for i in indices_validos]
             if not any(v is not None for v in valores_ok):
                 continue
-            ws.cell(row=r, column=1, value=concepto).font = concept_font
-            ws.cell(row=r, column=1).fill = first_col_fill
-            ws.cell(row=r, column=1).alignment = left
-            ws.cell(row=r, column=1).border = border_all
-            for j, v in enumerate(valores_ok, start=2):
-                c = ws.cell(row=r, column=j, value=v if v is not None else None)
-                c.alignment = right
-                c.border = border_all
-                if isinstance(v, (int, float)):
-                    c.number_format = "#,##0.00;(#,##0.00);—"
-            r += 1
+            celdas = [_escape(concepto)] + [_escape(_fmt_celda(v)) for v in valores_ok]
+            lineas.append(";".join(celdas))
+        return cabecera_meta + "\n".join(lineas) + "\n"
 
-        # Anchura columnas
-        ws.column_dimensions["A"].width = 56
-        from openpyxl.utils import get_column_letter
-        for j in range(2, 2 + len(periodos_ok)):
-            ws.column_dimensions[get_column_letter(j)].width = 18
-        ws.freeze_panes = "B5"
-
-    # Serializar al navegador
-    import io
+    # Construimos el ZIP en memoria. Sin dependencias externas.
+    import io, zipfile
     bio = io.BytesIO()
-    wb.save(bio)
+    with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as zf:
+        for clave, nombre_fich, titulo in ficheros:
+            contenido = _construir_txt(clave, titulo)
+            # UTF-8 con BOM para que Excel detecte la codificación al importar.
+            zf.writestr(nombre_fich, "﻿" + contenido)
     bio.seek(0)
 
-    nombre = (datos.get("ticker") or "datos").upper()
     fecha = _dt_now().strftime("%Y%m%d")
-    filename = f"{nombre}_datos_yahoo_{fecha}.xlsx"
+    filename = f"{ticker or 'datos'}_datos_yahoo_{fecha}.zip"
     return send_file(
         bio,
         as_attachment=True,
         download_name=filename,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        mimetype="application/zip",
     )
 
 
