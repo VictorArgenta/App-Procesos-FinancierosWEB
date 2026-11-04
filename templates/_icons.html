@@ -1,0 +1,31 @@
+{#
+    Macro de iconos SVG (estilo Lucide, MIT) para uso en toda la app.
+    Uso:  {% from "_icons.html" import icon %}
+          {{ icon("mail") }}
+          {{ icon("bar-chart", size=20, cls="muted") }}
+#}
+{% macro icon(name, size=18, cls="") -%}
+{%- set attrs = 'xmlns="http://www.w3.org/2000/svg" width="' ~ size ~ '" height="' ~ size ~ '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="app-icon ' ~ cls ~ '" aria-hidden="true"' -%}
+{% if   name == "bar-chart" %}<svg {{ attrs|safe }}><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg>
+{% elif name == "mail" %}<svg {{ attrs|safe }}><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
+{% elif name == "mail-open" %}<svg {{ attrs|safe }}><path d="M21.2 8.4c.5.38.8.97.8 1.6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V10a2 2 0 0 1 .8-1.6l8-6a2 2 0 0 1 2.4 0l8 6Z"/><path d="m22 10-10 7L2 10"/></svg>
+{% elif name == "inbox" %}<svg {{ attrs|safe }}><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>
+{% elif name == "chat" %}<svg {{ attrs|safe }}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+{% elif name == "newspaper" %}<svg {{ attrs|safe }}><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+{% elif name == "trend-up" %}<svg {{ attrs|safe }}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+{% elif name == "pie-chart" %}<svg {{ attrs|safe }}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+{% elif name == "ruler" %}<svg {{ attrs|safe }}><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
+{% elif name == "radar" %}<svg {{ attrs|safe }}><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>
+{% elif name == "alert" %}<svg {{ attrs|safe }}><path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+{% elif name == "pencil" %}<svg {{ attrs|safe }}><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+{% elif name == "folder" %}<svg {{ attrs|safe }}><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+{% elif name == "send" %}<svg {{ attrs|safe }}><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+{% elif name == "clipboard" %}<svg {{ attrs|safe }}><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>
+{% elif name == "check" %}<svg {{ attrs|safe }}><polyline points="20 6 9 17 4 12"/></svg>
+{% elif name == "x" %}<svg {{ attrs|safe }}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+{% elif name == "dot" %}<svg {{ attrs|safe }}><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></svg>
+{% elif name == "search" %}<svg {{ attrs|safe }}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+{% elif name == "refresh" %}<svg {{ attrs|safe }}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+{% else %}<svg {{ attrs|safe }}><circle cx="12" cy="12" r="9"/></svg>
+{% endif %}
+{%- endmacro %}

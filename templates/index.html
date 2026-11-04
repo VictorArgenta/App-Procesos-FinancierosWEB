@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 
 {% block title %}DFin AI — Plataforma de Inteligencia Financiera{% endblock %}
 
@@ -293,7 +294,9 @@
     .dh-chart-box h3 {
         font-size: 0.72rem; font-weight: 700; margin: 0 0 0.3rem;
         text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray-11);
+        display: flex; align-items: center; gap: 6px;
     }
+    .dh-chart-box h3 .app-icon { color: var(--gray-10); }
     .dh-chart-wrap { position: relative; height: 150px; width: 100%; }
     .dh-chart-wrap canvas { position: absolute; inset: 0; }
 </style>
@@ -313,10 +316,10 @@
 
 <div class="home-layout">
     <!-- COLUMNA IZQUIERDA: funcionalidades compactas -->
-    <div class="home-left">
+    <div class="home-left app-stagger">
         {% if EMPRESA_COTIZA %}
         <a href="/analisis" class="home-card disponible">
-            <span class="ico">📊</span>
+            <span class="ico">{{ icon("bar-chart", size=22) }}</span>
             <div class="body">
                 <h2>Generar Informe Narrativo</h2>
                 <div class="desc">Vuelca los tres estados financieros de Yahoo (ingresos, balance, cashflow) y genera con IA el informe que necesites — nota de memoria, consejo o accionista — exportable a Word y PDF.</div>
@@ -326,18 +329,18 @@
         {% endif %}
 
         <a href="/relacion-inversores" class="home-card disponible">
-            <span class="ico">📧</span>
+            <span class="ico">{{ icon("mail", size=22) }}</span>
             <div class="body">
                 <h2>
                     Relación con Inversores
                     {% if ir_pendientes is none %}
-                        <span class="pill-badge warn">⚠ Gmail no conectado</span>
+                        <span class="pill-badge warn">{{ icon("alert", size=13) }} Gmail no conectado</span>
                     {% elif ir_pendientes == 0 %}
-                        <span class="pill-badge zero">📭 Sin pendientes en bandeja</span>
+                        <span class="pill-badge zero">{{ icon("inbox", size=13) }} Sin pendientes en bandeja</span>
                     {% elif ir_pendientes == 1 %}
-                        <span class="pill-badge ok">📬 1 correo pendiente en bandeja</span>
+                        <span class="pill-badge ok">{{ icon("mail-open", size=13) }} 1 correo pendiente en bandeja</span>
                     {% else %}
-                        <span class="pill-badge ok">📬 {{ ir_pendientes }} correos pendientes en bandeja</span>
+                        <span class="pill-badge ok">{{ icon("mail-open", size=13) }} {{ ir_pendientes }} correos pendientes en bandeja</span>
                     {% endif %}
                 </h2>
                 <div class="desc">Lee la bandeja de Gmail de IR, clasifica cada consulta (minorista/mayorista) y genera un borrador de respuesta con RAG sobre la documentación corporativa. Filtro de asunto: <code>{{ ir_prefijo }}</code>.</div>
@@ -346,7 +349,7 @@
         </a>
 
         <a href="/consulta-documental" class="home-card disponible">
-            <span class="ico">💬</span>
+            <span class="ico">{{ icon("chat", size=22) }}</span>
             <div class="body">
                 <h2>Consulta Documental</h2>
                 <div class="desc">Chat en modo estricto contra los PDFs, Word y notas de la carpeta corporativa. Cada respuesta cita el documento, la página y el texto literal. Conversaciones guardadas para retomar.</div>
@@ -355,7 +358,7 @@
         </a>
 
         <a href="/noticias" class="home-card disponible">
-            <span class="ico">📰</span>
+            <span class="ico">{{ icon("newspaper", size=22) }}</span>
             <div class="body">
                 <h2>Noticias del Sector</h2>
                 <div class="desc">Dos bloques en vivo: noticias del sector (y subsectores configurables) y noticias de la compañía. Compositor de correo integrado con destinatario manual y envío por Gmail.</div>
@@ -364,7 +367,7 @@
         </a>
 
         <a href="/presupuesto" class="home-card preview">
-            <span class="ico">📐</span>
+            <span class="ico">{{ icon("ruler", size=22) }}</span>
             <div class="body">
                 <h2>Elaboración Presupuesto (ML)</h2>
                 <div class="desc">Proyecciones presupuestarias a 12 / 24 / 36 meses con modelos ARIMA, Prophet y XGBoost sobre el histórico corporativo. Escenarios base, optimista y pesimista. Lanzamiento final previsto Q3 2026.</div>
@@ -373,7 +376,7 @@
         </a>
 
         <a href="/radar-normativo" class="home-card preview">
-            <span class="ico">📡</span>
+            <span class="ico">{{ icon("radar", size=22) }}</span>
             <div class="body">
                 <h2>Radar Normativo</h2>
                 <div class="desc">Vigilancia automatizada de novedades regulatorias y fiscales en UE, España y LATAM. Alertas por categoría, jurisdicción e impacto, con resúmenes ejecutivos elaborados por IA.</div>
@@ -386,7 +389,7 @@
     {% if dashboard_home %}
     <div class="home-right">
         <div class="dh-chart-box">
-            <h3>📈 Evolución (últimos 5 ejercicios)</h3>
+            <h3>{{ icon("trend-up", size=14) }} Evolución (últimos 5 ejercicios)</h3>
             <div class="dh-chart-wrap">
                 <canvas id="dh-evolucion"
                         data-labels='{{ dashboard_home.evolucion.labels|tojson }}'
@@ -396,7 +399,7 @@
             </div>
         </div>
         <div class="dh-chart-box">
-            <h3>🥧 Composición P&amp;L ({{ dashboard_home.periodo_ultimo }})</h3>
+            <h3>{{ icon("pie-chart", size=14) }} Composición P&amp;L ({{ dashboard_home.periodo_ultimo }})</h3>
             {% if dashboard_home.composicion_pyg %}
             <div class="dh-chart-wrap">
                 <canvas id="dh-composicion"

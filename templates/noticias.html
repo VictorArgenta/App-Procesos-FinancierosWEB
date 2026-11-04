@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 
 {% block title %}Noticias del Sector — {{ EMPRESA_NOMBRE }}{% endblock %}
 
@@ -202,7 +203,7 @@
                 </div>
                 {% endif %}
                 <button type="button" class="btn btn-secondary btn-sm" id="nt-sector-editar" style="margin-top: 6px;">
-                    ✎ Editar sector
+                    {{ icon("pencil", size=14) }} Editar sector
                 </button>
                 {% endif %}
             </div>
@@ -263,7 +264,7 @@
     <!-- BLOQUE 1: NOTICIAS DEL SECTOR -->
     <section class="nt-bloque" data-tipo="sector">
         <div class="nt-bloque-head">
-            <h2>📰 Noticias del sector</h2>
+            <h2>{{ icon("newspaper", size=18) }} Noticias del sector</h2>
             <div class="acciones">
                 <button type="button" class="btn btn-primary btn-sm" data-accion="buscar"
                         {% if not SECTOR_EMPRESA.sector %}disabled title="Configura primero sector.txt"{% endif %}>
@@ -282,7 +283,7 @@
         <div class="nt-bloque-pie" hidden data-rol="pie">
             <span data-rol="contador">0 noticias seleccionadas</span>
             <button type="button" class="btn btn-secondary btn-sm" data-accion="preparar-email">
-                ✉ Preparar correo con la selección
+                {{ icon("send", size=13) }} Preparar correo con la selección
             </button>
         </div>
     </section>
@@ -290,7 +291,7 @@
     <!-- BLOQUE 2: NOTICIAS DE LA EMPRESA -->
     <section class="nt-bloque" data-tipo="empresa">
         <div class="nt-bloque-head">
-            <h2>🏢 Noticias de {{ EMPRESA_NOMBRE }}</h2>
+            <h2>{{ icon("mail-open", size=18) }} Noticias de {{ EMPRESA_NOMBRE }}</h2>
             <div class="acciones">
                 <button type="button" class="btn btn-primary btn-sm" data-accion="buscar">
                     Buscar noticias
@@ -304,7 +305,7 @@
         <div class="nt-bloque-pie" hidden data-rol="pie">
             <span data-rol="contador">0 noticias seleccionadas</span>
             <button type="button" class="btn btn-secondary btn-sm" data-accion="preparar-email">
-                ✉ Preparar correo con la selección
+                {{ icon("send", size=13) }} Preparar correo con la selección
             </button>
         </div>
     </section>
@@ -576,8 +577,8 @@
                 if (!j.ok) throw new Error(j.error || `Error ${r.status}`);
                 compositor.hidden = false;
                 compositorTitulo.textContent = tipo === 'sector'
-                    ? '✉ Preparar correo con las noticias del sector'
-                    : '✉ Preparar correo con las noticias de la empresa';
+                    ? 'Preparar correo con las noticias del sector'
+                    : 'Preparar correo con las noticias de la empresa';
                 elAsunto.value = j.asunto || '';
                 elCuerpo.value = j.cuerpo || '';
                 elEnvio.hidden = true;

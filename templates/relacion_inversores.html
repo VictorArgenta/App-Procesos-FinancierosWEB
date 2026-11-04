@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 
 {% block title %}Relación con Inversores — {{ EMPRESA_NOMBRE }}{% endblock %}
 
@@ -404,8 +405,8 @@
         </optgroup>
     </select>
     <span style="color: var(--gray-10); font-size: 0.82rem;">Se aplica a todos los correos. Puedes cambiarlo y volver a generar la respuesta.</span>
-    <button type="button" class="btn btn-secondary btn-sm" id="btn-lineas-maestras" style="margin-left:auto;">📋 Líneas maestras</button>
-    <a href="/consulta-documental" class="btn btn-secondary btn-sm" style="text-decoration:none;">📂 Base documental</a>
+    <button type="button" class="btn btn-secondary btn-sm" id="btn-lineas-maestras" style="margin-left:auto;">{{ icon("clipboard", size=14) }} Líneas maestras</button>
+    <a href="/consulta-documental" class="btn btn-secondary btn-sm" style="text-decoration:none;">{{ icon("folder", size=14) }} Base documental</a>
 </div>
 
 {% for correo in correos %}
@@ -585,7 +586,7 @@
 <dialog class="refinar-modal" id="lineas-dialog" aria-labelledby="lineas-titulo">
     <div class="modal-header">
         <div>
-            <h2 id="lineas-titulo">📋 Líneas maestras del equipo de IR</h2>
+            <h2 id="lineas-titulo">{{ icon("clipboard", size=18) }} Líneas maestras del equipo de IR</h2>
             <p class="modal-sub">
                 Normas y criterios de la dirección sobre cómo responder a los inversores.
                 Tienen <strong>prioridad absoluta</strong> sobre cualquier otra fuente
