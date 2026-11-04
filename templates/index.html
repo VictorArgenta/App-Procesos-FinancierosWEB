@@ -60,7 +60,27 @@
         transform: translateX(1px);
     }
     .home-card.disponible { border-left-color: #86BC25; }
-    .home-card.preview    { border-left-color: #A7A8AA; }
+    .home-card.preview    {
+        border-left-color: #A7A8AA;
+        background: #F5F5F4;     /* sombreado sutil para los Preview */
+    }
+    .home-card.preview h2 { color: var(--gray-11); }  /* un pelín menos énfasis */
+
+    /* Etiqueta discreta "En desarrollo" encima del primer Preview */
+    .home-card.disponible + .home-card.preview {
+        margin-top: 1rem;
+        position: relative;
+    }
+    .home-card.disponible + .home-card.preview::before {
+        content: "EN DESARROLLO";
+        position: absolute;
+        top: -0.9rem;
+        left: 0;
+        font-size: 0.6rem;
+        letter-spacing: 1.2px;
+        color: var(--gray-9);
+        font-weight: 700;
+    }
 
     .home-card .ico {
         font-size: 1.6rem;
@@ -75,6 +95,10 @@
         margin: 0;
         color: var(--black);
         line-height: 1.2;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
     }
     .home-card .desc {
         font-size: 0.78rem;
@@ -88,46 +112,44 @@
     }
     .home-card .right {
         display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        justify-content: space-between;
-        align-self: stretch;
-        gap: 0.4rem;
+        align-items: center;
         flex-shrink: 0;
-    }
-    .home-card .tag {
-        font-size: 0.62rem;
-        padding: 1px 7px;
-        letter-spacing: 0.3px;
     }
     .home-card .btn-mini {
         display: inline-flex;
         align-items: center;
-        padding: 4px 10px;
-        font-size: 0.72rem;
+        padding: 6px 14px;
+        font-size: 0.75rem;
         font-weight: 700;
         border-radius: 3px;
         border: 1px solid var(--deloitte-green);
-        color: var(--deloitte-green-dark);
-        background: #fff;
+        background: var(--deloitte-green);
+        color: var(--brand-primary-text, var(--black));
         text-decoration: none;
         white-space: nowrap;
     }
-    .home-card .btn-mini.primary {
-        background: var(--deloitte-green);
-        color: var(--brand-primary-text, var(--black));
+    .home-card.preview .btn-mini {
+        background: #fff;
+        color: var(--gray-11);
+        border-color: var(--gray-1);
     }
-    .home-card .btn-mini:hover { opacity: 0.85; }
+    .home-card .btn-mini:hover { opacity: 0.88; }
 
-    .home-card .ir-count {
-        font-size: 1.4rem;
-        font-weight: 800;
-        line-height: 1;
-        min-width: 28px;
-        text-align: right;
+    /* Chip de estado inline junto al título de "Relación con Inversores" */
+    .home-card .pill-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 9px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        border-radius: 999px;
+        letter-spacing: 0.2px;
+        text-transform: none;
     }
-    .home-card .ir-count.ok { color: #43B02A; }
-    .home-card .ir-count.zero { color: var(--gray-9); }
+    .pill-badge.ok    { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
+    .pill-badge.zero  { background: var(--gray-bg); color: var(--gray-10); border: 1px solid var(--gray-border); }
+    .pill-badge.warn  { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
 
     /* --- Columna derecha: dashboard compacto --- */
     .home-right { display: flex; flex-direction: column; gap: 0.7rem; }
@@ -299,39 +321,28 @@
                 <h2>Generar Informe Narrativo</h2>
                 <div class="desc">Vuelca los tres estados financieros de Yahoo (ingresos, balance, cashflow) y genera con IA el informe que necesites — nota de memoria, consejo o accionista — exportable a Word y PDF.</div>
             </div>
-            <div class="right">
-                <span class="tag tag-green">Disponible</span>
-                <span class="btn-mini primary">Acceder</span>
-            </div>
+            <div class="right"><span class="btn-mini">Acceder</span></div>
         </a>
         {% endif %}
 
         <a href="/relacion-inversores" class="home-card disponible">
             <span class="ico">📧</span>
             <div class="body">
-                <h2>Relación con Inversores</h2>
-                <div class="desc">
-                    Lee la bandeja de Gmail de IR, clasifica cada consulta (minorista/mayorista) y genera un borrador de respuesta con RAG sobre la documentación corporativa.
+                <h2>
+                    Relación con Inversores
                     {% if ir_pendientes is none %}
-                        <strong style="color:#B71C1C;">Bandeja no conectada: configura GMAIL en .env.</strong>
+                        <span class="pill-badge warn">⚠ Gmail no conectado</span>
                     {% elif ir_pendientes == 0 %}
-                        <strong>Sin correos pendientes</strong> (filtro <code>{{ ir_prefijo }}</code>).
+                        <span class="pill-badge zero">📭 Sin pendientes en bandeja</span>
                     {% elif ir_pendientes == 1 %}
-                        <strong>1 correo pendiente</strong> con filtro <code>{{ ir_prefijo }}</code>.
+                        <span class="pill-badge ok">📬 1 correo pendiente en bandeja</span>
                     {% else %}
-                        <strong>{{ ir_pendientes }} correos pendientes</strong> con filtro <code>{{ ir_prefijo }}</code>.
+                        <span class="pill-badge ok">📬 {{ ir_pendientes }} correos pendientes en bandeja</span>
                     {% endif %}
-                </div>
+                </h2>
+                <div class="desc">Lee la bandeja de Gmail de IR, clasifica cada consulta (minorista/mayorista) y genera un borrador de respuesta con RAG sobre la documentación corporativa. Filtro de asunto: <code>{{ ir_prefijo }}</code>.</div>
             </div>
-            <div class="right">
-                {% if ir_pendientes is not none and ir_pendientes > 0 %}
-                <span class="ir-count ok">{{ ir_pendientes }}</span>
-                {% elif ir_pendientes == 0 %}
-                <span class="ir-count zero">0</span>
-                {% endif %}
-                <span class="tag tag-green">Disponible</span>
-                <span class="btn-mini primary">{% if ir_pendientes and ir_pendientes > 0 %}Atender{% else %}Abrir{% endif %}</span>
-            </div>
+            <div class="right"><span class="btn-mini">Acceder</span></div>
         </a>
 
         <a href="/consulta-documental" class="home-card disponible">
@@ -340,10 +351,7 @@
                 <h2>Consulta Documental</h2>
                 <div class="desc">Chat en modo estricto contra los PDFs, Word y notas de la carpeta corporativa. Cada respuesta cita el documento, la página y el texto literal. Conversaciones guardadas para retomar.</div>
             </div>
-            <div class="right">
-                <span class="tag tag-green">Disponible</span>
-                <span class="btn-mini primary">Acceder</span>
-            </div>
+            <div class="right"><span class="btn-mini">Acceder</span></div>
         </a>
 
         <a href="/noticias" class="home-card disponible">
@@ -352,10 +360,7 @@
                 <h2>Noticias del Sector</h2>
                 <div class="desc">Dos bloques en vivo: noticias del sector (y subsectores configurables) y noticias de la compañía. Compositor de correo integrado con destinatario manual y envío por Gmail.</div>
             </div>
-            <div class="right">
-                <span class="tag tag-green">Disponible</span>
-                <span class="btn-mini primary">Acceder</span>
-            </div>
+            <div class="right"><span class="btn-mini">Acceder</span></div>
         </a>
 
         <a href="/presupuesto" class="home-card preview">
@@ -364,10 +369,7 @@
                 <h2>Elaboración Presupuesto (ML)</h2>
                 <div class="desc">Proyecciones presupuestarias a 12 / 24 / 36 meses con modelos ARIMA, Prophet y XGBoost sobre el histórico corporativo. Escenarios base, optimista y pesimista. Lanzamiento final previsto Q3 2026.</div>
             </div>
-            <div class="right">
-                <span class="tag tag-orange">Preview</span>
-                <span class="btn-mini">Explorar</span>
-            </div>
+            <div class="right"><span class="btn-mini">Acceder</span></div>
         </a>
 
         <a href="/radar-normativo" class="home-card preview">
@@ -376,10 +378,7 @@
                 <h2>Radar Normativo</h2>
                 <div class="desc">Vigilancia automatizada de novedades regulatorias y fiscales en UE, España y LATAM. Alertas por categoría, jurisdicción e impacto, con resúmenes ejecutivos elaborados por IA.</div>
             </div>
-            <div class="right">
-                <span class="tag tag-orange">Preview</span>
-                <span class="btn-mini">Explorar</span>
-            </div>
+            <div class="right"><span class="btn-mini">Acceder</span></div>
         </a>
     </div>
 
