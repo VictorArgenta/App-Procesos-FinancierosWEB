@@ -1,0 +1,1115 @@
+# ===========================================================================
+# DICCIONARIO FUNCIONAL CORPORATIVO
+# ---------------------------------------------------------------------------
+# Este fichero alimenta la funcionalidad "Habla con tus datos". El LLM lo
+# usa como vocabulario oficial de la compañía para:
+#   (1) entender sinónimos / expresiones internas,
+#   (2) saber cómo presentar cada dato,
+#   (3) calcular KPIs derivados con fórmulas verificables.
+#
+# Cada ENTRADA es un bloque separado por línea en blanco:
+#
+#   <Nombre canónico tal como lo devuelve la API>
+#   Definicion: <texto libre: qué es y cómo interpretarlo>
+#   Sinonimos: <terminos separados por ';' - uso interno, alias, inglés...>
+#   Presentacion: <instrucciones: en millones, con % sobre ingresos, con
+#                  desglose por segmento, acumulado o periodo, etc.>
+#   Formula: <solo para KPIs derivados: expresión con partidas entre [ ],
+#            operadores + - * / y paréntesis. Ejemplo:
+#            [EBITDA] / [Ingresos totales] * 100>
+#   Tags: <palabras clave separadas por ',' para agrupar entradas>
+#
+# Reglas:
+#   - Todos los campos son OPCIONALES (puedes rellenar solo Sinonimos, o
+#     solo Presentacion, o lo que te interese).
+#   - Las líneas que empiezan por "#" son comentarios y se ignoran.
+#   - El nombre canónico debe coincidir EXACTAMENTE con el de la API para
+#     que el resolver sepa qué dato tomar. Para desambiguar duplicados entre
+#     estados usa un prefijo: pyg., balance. o cashflow.
+#     Ejemplo: cashflow.Beneficio neto de operaciones continuadas
+#
+# Ubicación esperada: Empresas/{TICKER}/diccionario.txt
+# Este fichero es la PLANTILLA — cópialo a la carpeta de cada empresa y
+# rellena lo que proceda.
+# ===========================================================================
+
+
+# ===========================================================================
+# BALANCE GENERAL
+# ===========================================================================
+
+Activos totales
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, activos
+
+Activos corrientes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, activos, corrientes
+
+Efectivo, equivalentes e inversiones a corto plazo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, liquidez
+
+Efectivo y equivalentes de efectivo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, liquidez
+
+Efectivo (financiero)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, liquidez
+
+Equivalentes de efectivo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, liquidez
+
+Otras inversiones a corto plazo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inversiones
+
+Cuentas por cobrar
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, circulante
+
+Cuentas por cobrar comerciales
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, circulante
+
+Otros activos corrientes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance
+
+Activos no corrientes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, no_corrientes
+
+Inmovilizado material neto
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inmovilizado
+
+Inmovilizado material bruto
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inmovilizado
+
+Amortización acumulada
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inmovilizado
+
+Fondo de comercio y otros intangibles
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, intangibles
+
+Fondo de comercio
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, intangibles
+
+Otros activos intangibles
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, intangibles
+
+Inversiones y anticipos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inversiones
+
+Otros activos no corrientes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance
+
+Pasivos totales (neto de intereses minoritarios)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos
+
+Pasivos corrientes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos, corrientes
+
+Cuentas por pagar y gastos devengados
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos
+
+Cuentas por pagar
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos
+
+Cuentas por pagar comerciales
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos
+
+Deuda a corto plazo y arrendamientos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, deuda
+
+Arrendamientos a corto plazo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, deuda, leasing
+
+Otros pasivos corrientes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos
+
+Pasivos no corrientes (neto de intereses minoritarios)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos, no_corrientes
+
+Deuda a largo plazo y arrendamientos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, deuda
+
+Deuda a largo plazo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, deuda
+
+Arrendamientos a largo plazo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, deuda, leasing
+
+Otras cuentas por pagar no corrientes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos
+
+Otros pasivos no corrientes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos
+
+Patrimonio neto total
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, patrimonio
+
+Fondos propios
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, patrimonio
+
+Capital social
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, patrimonio
+
+Acciones ordinarias
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, patrimonio, acciones
+
+Prima de emisión
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, patrimonio
+
+Reservas / Beneficios acumulados
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, patrimonio, reservas
+
+Ganancias / pérdidas no afectan reservas
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, patrimonio
+
+Capitalización total
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance
+
+Patrimonio en acciones ordinarias
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, patrimonio
+
+Activos netos tangibles
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance
+
+Capital circulante
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, circulante
+
+Capital invertido
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance
+
+Valor en libros tangible
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance
+
+Deuda total
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, deuda
+
+Deuda neta
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, deuda, apalancamiento
+
+Acciones emitidas
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, acciones
+
+Número de acciones ordinarias
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, acciones
+
+Treasury Shares Number
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, acciones
+
+Capital Lease Obligations
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, deuda, leasing
+
+Other Equity Adjustments
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, patrimonio
+
+Pensionand Other Post Retirement Benefit Plans Current
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos
+
+Current Accrued Expenses
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos
+
+Dueto Related Parties Current
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, pasivos
+
+Total Tax Payable
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, impuestos
+
+Investmentin Financial Assets
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inversiones
+
+Available For Sale Securities
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inversiones
+
+Leases
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, leasing
+
+Construction In Progress
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inmovilizado
+
+Other Properties
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inmovilizado
+
+Buildings And Improvements
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inmovilizado
+
+Land And Improvements
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inmovilizado
+
+Properties
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: balance, inmovilizado
+
+
+# ===========================================================================
+# CUENTA DE PÉRDIDAS Y GANANCIAS (PyG)
+# ===========================================================================
+
+Ingresos totales
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, ingresos
+
+Ingresos operativos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, ingresos
+
+Coste de los ingresos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, costes
+
+Beneficio bruto
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, rentabilidad
+
+Gastos operativos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, gastos
+
+Investigación y desarrollo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, gastos, i+d
+
+Gastos generales y de administración
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, gastos
+
+Gastos de ventas y marketing
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, gastos
+
+Gastos generales y administrativos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, gastos
+
+Beneficio operativo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, rentabilidad
+
+Beneficio operativo (declarado)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, rentabilidad
+
+Resultado financiero neto
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, financiero
+
+Ingresos por intereses
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, financiero
+
+Gastos por intereses
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, financiero
+
+Ingresos por intereses no operativos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, financiero
+
+Gastos por intereses no operativos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, financiero
+
+Otros ingresos / gastos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg
+
+Otros ingresos / gastos no operativos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg
+
+Beneficio por venta de inversiones
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg
+
+Beneficio antes de impuestos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, resultado
+
+Provisión para impuestos sobre la renta
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, impuestos
+
+Efecto fiscal de partidas inusuales
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, impuestos
+
+Tasa impositiva (para cálculos)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, impuestos
+
+Beneficio neto para los accionistas comunes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, resultado
+
+Beneficio neto
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, resultado
+
+pyg.Beneficio neto de operaciones continuadas
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, resultado
+
+Beneficio neto de operaciones continuadas y discontinuadas
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, resultado
+
+Beneficio neto de operación continua (interés minoritario neto)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, resultado
+
+Beneficio neto incluyendo intereses minoritarios
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, resultado
+
+BPA básico
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, bpa
+
+BPA diluido
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, bpa
+
+Acciones medias básicas
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, acciones
+
+Acciones medias diluidas
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, acciones
+
+Total gastos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, gastos
+
+Beneficio normalizado
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, resultado
+
+Coste de los ingresos reconciliado
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, costes
+
+Amortización reconciliada
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, amortizacion
+
+Partidas inusuales (excl. fondo de comercio)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg
+
+Total partidas inusuales
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg
+
+EBIT
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, rentabilidad
+
+EBITDA
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, rentabilidad
+
+EBITDA normalizado
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, rentabilidad
+
+Net Interest Income
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, financiero
+
+Diluted NI Availto Com Stockholders
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, resultado
+
+Total Other Finance Cost
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, financiero
+
+Other Gand A
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: pyg, gastos
+
+
+# ===========================================================================
+# ESTADO DE FLUJOS DE CAJA
+# ===========================================================================
+
+Flujo de caja operativo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, operativo
+
+Flujo de caja de actividades operativas continuadas
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, operativo
+
+cashflow.Beneficio neto de operaciones continuadas
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow
+
+Amortizaciones (D&A)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, amortizacion
+
+Amortizaciones
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, amortizacion
+
+Impuesto sobre la renta diferido
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, impuestos
+
+Retribución basada en acciones
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow
+
+Variación del capital circulante
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, circulante
+
+Variación de cuentas por cobrar
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, circulante
+
+Variación de cuentas por pagar y devengos
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, circulante
+
+Variación de otros activos corrientes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow
+
+Variación de otros pasivos corrientes
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow
+
+Otras partidas no monetarias
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow
+
+Flujo de caja de inversión
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, inversion
+
+Flujo de caja de actividades de inversión continuadas
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, inversion
+
+Inversiones en inmovilizado (CAPEX)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, capex
+
+Compra / venta neta de inmovilizado
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, inversion
+
+Compras de inmovilizado
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, inversion
+
+Ventas de inmovilizado
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, inversion
+
+Compra / venta neta de inversiones
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, inversion
+
+Compras de inversiones
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, inversion
+
+Ventas de inversiones
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, inversion
+
+Compra / venta neta de negocios
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, m&a
+
+Compras de negocios
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, m&a
+
+Ventas de negocios
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, m&a
+
+Otras variaciones netas de inversión
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, inversion
+
+Flujo de caja de financiación
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion
+
+Flujo de caja de actividades de financiación continuadas
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion
+
+Emisiones / amortizaciones netas de deuda
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, deuda
+
+Emisión neta de deuda a largo plazo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, deuda
+
+Emisión de deuda a largo plazo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, deuda
+
+Amortización de deuda a largo plazo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, deuda
+
+Emisión neta de acciones ordinarias
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, acciones
+
+Recompra de acciones ordinarias
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, acciones
+
+Dividendos pagados en efectivo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, dividendos
+
+Dividendos ordinarios pagados
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, dividendos
+
+Otros cargos netos de financiación
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion
+
+Saldo final de efectivo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, liquidez
+
+Saldo inicial de efectivo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, liquidez
+
+Variación neta de efectivo
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, liquidez
+
+Efecto del tipo de cambio
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, fx
+
+Impuesto sobre la renta pagado (info. complementaria)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, impuestos
+
+Intereses pagados (info. complementaria)
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiero
+
+Flujo de caja libre
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, fcf
+
+Recompra de capital social
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, acciones
+
+Emisión de deuda
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, deuda
+
+Amortización de deuda
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, financiacion, deuda
+
+Change In Accrued Expense
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, circulante
+
+Change In Payable
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, circulante
+
+Change In Account Payable
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, circulante
+
+Change In Prepaid Assets
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, circulante
+
+Changes In Account Receivables
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, circulante
+
+Unrealized Gain Loss On Investment Securities
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow
+
+Asset Impairment Charge
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, deterioro
+
+Deferred Tax
+Definicion:
+Sinonimos:
+Presentacion:
+Tags: cashflow, impuestos
+
+
+# ===========================================================================
+# KPIs Y FÓRMULAS DERIVADAS
+# ---------------------------------------------------------------------------
+# Añade aquí los indicadores calculados. El resolver sustituirá cada [X] por
+# el valor numérico de esa partida (en el periodo que indique la pregunta,
+# por defecto el último FY cerrado) y evaluará la expresión.
+#
+# Operadores soportados: + - * / ( )
+# Para desambiguar duplicados entre estados: [pyg.X] / [balance.X] / [cashflow.X]
+#
+# Ejemplos comentados (quita el '#' inicial para activarlos):
+# ===========================================================================
+
+# Margen EBITDA
+# Definicion: Rentabilidad operativa antes de amortizaciones sobre ingresos.
+# Sinonimos: EBITDA margin
+# Formula: [EBITDA] / [Ingresos totales] * 100
+# Presentacion: Un decimal, formato porcentaje. Comparar vs ejercicio anterior.
+# Tags: kpi, rentabilidad
+
+# Margen neto
+# Definicion: Porcentaje del beneficio neto sobre ingresos.
+# Sinonimos: net margin
+# Formula: [Beneficio neto] / [Ingresos totales] * 100
+# Presentacion: Un decimal, formato porcentaje.
+# Tags: kpi, rentabilidad
+
+# Payout ratio
+# Definicion: Porcentaje del beneficio distribuido como dividendo.
+# Sinonimos: ratio de reparto
+# Formula: [Dividendos pagados en efectivo] / [Beneficio neto] * 100
+# Presentacion: Un decimal, formato porcentaje. Marcar como anomalía si >100%.
+# Tags: kpi, retribucion
+
+# DFN sobre EBITDA
+# Definicion: Años teóricos de EBITDA necesarios para repagar la deuda neta.
+# Sinonimos: Deuda neta / EBITDA; NFD / EBITDA; apalancamiento
+# Formula: [Deuda neta] / [EBITDA]
+# Presentacion: Un decimal con sufijo "x" (ej: 2,3x). Semáforo: <2 bajo, 2-4 medio, >4 alto.
+# Tags: kpi, apalancamiento
+
+# Ratio de liquidez
+# Definicion: Cobertura de los pasivos a corto plazo con los activos corrientes.
+# Sinonimos: current ratio
+# Formula: [Activos corrientes] / [Pasivos corrientes]
+# Presentacion: Dos decimales. Saludable típicamente entre 1,0 y 2,0.
+# Tags: kpi, liquidez
+
+# Conversión de caja
+# Definicion: Qué porcentaje del EBITDA se convierte en caja operativa.
+# Sinonimos: cash conversion
+# Formula: [Flujo de caja operativo] / [EBITDA] * 100
+# Presentacion: Un decimal, formato porcentaje.
+# Tags: kpi, caja
+
+# ROE
+# Definicion: Rentabilidad sobre fondos propios.
+# Sinonimos: return on equity
+# Formula: [Beneficio neto] / [Patrimonio neto total] * 100
+# Presentacion: Un decimal, formato porcentaje.
+# Tags: kpi, rentabilidad
+
+# ROA
+# Definicion: Rentabilidad sobre activos totales.
+# Sinonimos: return on assets
+# Formula: [Beneficio neto] / [Activos totales] * 100
+# Presentacion: Un decimal, formato porcentaje.
+# Tags: kpi, rentabilidad

@@ -35,6 +35,7 @@ import logging as _logging
 import threading as _threading
 from pathlib import Path as _Path
 import rag as _rag
+import diccionario as _dicc
 
 # Ticker activo durante la sesión de la app. Se arranca sin ticker
 # (`python app.py`) y el usuario selecciona la empresa al entrar en la
@@ -5489,14 +5490,11 @@ def _parsear_respuesta_con_citas(texto, fuentes_por_numero):
 
 @app.route("/consulta-documental")
 def consulta_documental():
-    if not TICKER_FIJO:
-        from flask import redirect
-        return redirect("/")
-    return render_template(
-        "consulta_documental.html",
-        modelos_disponibles=MODELOS_DISPONIBLES,
-        modelo_default=MODELO_POR_DEFECTO,
-    )
+    """Jubilada: ahora redirige a 'Habla con tus datos' en modo solo documental.
+    Los endpoints /consulta-documental/* se mantienen por compatibilidad para
+    las conversaciones ya guardadas en Empresas/{TICKER}/memoria/chats/.
+    """
+    return redirect(url_for("habla_con_tus_datos", fuente="solo_doc"))
 
 
 @app.route("/consulta-documental/chats", methods=["GET"])
@@ -6315,6 +6313,484 @@ def admin():
         fichero_coste=str(_COSTE_FILE),
         fichero_coste_existe=_COSTE_FILE.exists(),
     )
+
+
+# =====================================================================
+# Habla con tus datos — chat mixto (estructurado + RAG) con diccionario
+# =====================================================================
+
+def _dir_habla_chats():
+    if not TICKER_FIJO:
+        return None
+    d = _ROOT_DIR / "Empresas" / TICKER_FIJO / "memoria" / "habla"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _ruta_habla_chat(chat_id):
+    d = _dir_habla_chats()
+    if not d or not chat_id:
+        return None
+    if not re.fullmatch(r"[0-9a-fA-F\-]{8,64}", chat_id):
+        return None
+    return d / f"{chat_id}.json"
+
+
+def _cargar_habla_chat(chat_id):
+    ruta = _ruta_habla_chat(chat_id)
+    if not ruta or not ruta.exists():
+        return None
+    try:
+        return json.loads(ruta.read_text(encoding="utf-8"))
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.habla").warning("Chat %s ilegible: %s", chat_id, e)
+        return None
+
+
+def _guardar_habla_chat(chat):
+    ruta = _ruta_habla_chat(chat.get("id", ""))
+    if not ruta:
+        return False
+    try:
+        _escribir_json_atomico(ruta, chat)
+        return True
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.habla").warning(
+            "No se pudo persistir chat %s: %s", chat.get("id"), e,
+        )
+        return False
+
+
+def _listar_habla_chats():
+    d = _dir_habla_chats()
+    if not d or not d.exists():
+        return []
+    resumenes = []
+    for ruta in d.glob("*.json"):
+        try:
+            data = json.loads(ruta.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            continue
+        resumenes.append({
+            "id": data.get("id"),
+            "titulo": data.get("titulo") or "Conversación sin título",
+            "modelo": data.get("modelo"),
+            "creado": data.get("creado"),
+            "actualizado": data.get("actualizado") or data.get("creado"),
+            "n_mensajes": len(data.get("mensajes") or []),
+        })
+    resumenes.sort(key=lambda r: r.get("actualizado") or "", reverse=True)
+    return resumenes
+
+
+def _cargar_diccionario_activo():
+    """Carga el diccionario funcional de la empresa activa (dict + texto)."""
+    if not TICKER_FIJO:
+        return {}, ""
+    try:
+        return _dicc.cargar_diccionario_empresa(
+            TICKER_FIJO, _ROOT_DIR / "Empresas",
+        )
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.habla").warning("Diccionario no cargado: %s", e)
+        return {}, ""
+
+
+def _kpis_precalculados(datos, entradas):
+    """Para cada entrada del diccionario con `Formula:`, evalúa el resolver
+    server-side y devuelve una lista `[(nombre, valor, trace, presentacion)]`.
+    Los fallos se devuelven con valor=None y error en trace (para el prompt).
+    """
+    resultados = []
+    for _k, entrada in entradas.items():
+        campos = entrada.get("campos", {})
+        formula = (campos.get("formula") or "").strip()
+        if not formula:
+            continue
+        try:
+            res = _dicc.resolver_formula(formula, datos, entradas)
+        except _dicc.ResolverError as e:
+            resultados.append({
+                "nombre": entrada.get("nombre"),
+                "formula": formula,
+                "valor": None,
+                "trace": [],
+                "error": str(e),
+                "presentacion": campos.get("presentacion", ""),
+            })
+            continue
+        resultados.append({
+            "nombre": entrada.get("nombre"),
+            "formula": formula,
+            "valor": res.get("valor"),
+            "trace": res.get("trace") or [],
+            "error": res.get("error"),
+            "presentacion": campos.get("presentacion", ""),
+        })
+    return resultados
+
+
+def _bloque_estructurado_para_prompt(datos, kpis):
+    """Prepara el bloque de datos estructurados a inyectar en el prompt."""
+    if not datos:
+        return "(sin datos estructurados disponibles)"
+    partes = [_texto_datos_para_prompt(datos)]
+    if kpis:
+        partes.append("\n--- KPIs YA CALCULADOS (cifras verificadas server-side; cítalas tal cual) ---")
+        for k in kpis:
+            if k["valor"] is not None:
+                trace_txt = " · ".join(
+                    f"[{et}={val:,.4g}]" if isinstance(val, (int, float))
+                    else f"[{et}=n/d]"
+                    for et, val in k["trace"]
+                )
+                linea = (
+                    f"- {k['nombre']} = {k['valor']:,.6g}  ({k['formula']}) · "
+                    f"inputs: {trace_txt}"
+                )
+                if k.get("presentacion"):
+                    linea += f"\n    presentar: {k['presentacion']}"
+                partes.append(linea)
+            else:
+                partes.append(
+                    f"- {k['nombre']} = (no calculable: {k.get('error') or 'sin datos'})"
+                )
+    return "\n".join(partes)
+
+
+_PROMPT_HABLA = """Eres un asistente financiero senior para {empresa}. Respondes preguntas combinando dos fuentes:
+
+  (A) DATOS ESTRUCTURADOS: cifras de los estados financieros ya calculadas y KPIs pre-computados server-side (cifras verificadas).
+  (B) DOCUMENTACIÓN CORPORATIVA: fragmentos numerados [1], [2], … de la documentación interna.
+
+REGLAS:
+1. PRIORIZA los DATOS ESTRUCTURADOS para cualquier cifra, ratio o KPI numérico. Cítalos como [EST] después de la frase.
+   Ejemplo: "El margen EBITDA FY2024 fue 57,8% [EST]."
+2. Usa la DOCUMENTACIÓN sólo para contexto cualitativo, estrategia, explicaciones o datos que no están en el bloque estructurado.
+   Cada afirmación extraída de la documentación lleva su marcador numérico [N] inline.
+   Ejemplo: "La dirección señala que la inversión continuará siendo elevada [2]."
+3. Puedes COMBINAR ambas fuentes en una misma respuesta cuando la pregunta lo requiera (dato + explicación).
+4. Si una cifra NO está en el bloque estructurado y tampoco en los fragmentos documentales, di literalmente:
+   «No dispongo de esa información ni en los datos financieros ni en la documentación cargada.»
+5. NUNCA inventes cifras. NUNCA uses conocimiento del mundo externo.
+6. Usa el DICCIONARIO FUNCIONAL para interpretar correctamente términos, sinónimos corporativos y reglas de presentación.
+7. Tono profesional, en español. Respuesta directa y concisa.
+
+FORMATO DE LA RESPUESTA:
+- Cuerpo con marcadores [EST] y [N] inline.
+- Después una LÍNEA EN BLANCO y la marca literal `---CITAS---` en una línea sola (solo si has usado algún [N]; omítela si solo usaste [EST]).
+- A continuación, una cita textual por cada [N] usado, en el idioma original del fragmento, entre comillas angulares:
+    [1] «texto literal del fragmento 1»
+    [2] «texto literal del fragmento 2»
+  Máximo ~40 palabras por cita. Solo marcadores que hayas usado.
+
+{bloque_historial}
+========== DATOS ESTRUCTURADOS ==========
+Moneda: {moneda}. Último ejercicio: {periodo_ultimo}.
+
+{bloque_estructurado}
+
+========== DICCIONARIO FUNCIONAL CORPORATIVO ==========
+{bloque_diccionario}
+
+========== DOCUMENTACIÓN CORPORATIVA (fragmentos) ==========
+{bloque_fragmentos}
+
+========== PREGUNTA DEL USUARIO ==========
+{pregunta}
+
+RESPUESTA:"""
+
+
+def _construir_prompt_habla(pregunta, datos, kpis, entradas_dicc, fragmentos_texto, historial, fuente):
+    """Compone el prompt mixto en función de la fuente seleccionada."""
+    bloque_historial = ""
+    if historial:
+        recientes = historial[-6:]
+        lineas = ["HISTORIAL DE LA CONVERSACIÓN (turnos previos):"]
+        for msg in recientes:
+            rol = "Usuario" if msg.get("rol") == "user" else "Asistente"
+            lineas.append(f"{rol}: {msg.get('contenido', '')}")
+        bloque_historial = "\n".join(lineas) + "\n\n"
+
+    moneda = (datos or {}).get("moneda") or "n/d"
+    periodo_ultimo = "n/d"
+    periodos = (datos or {}).get("periodos") or []
+    if periodos:
+        periodo_ultimo = str(periodos[0].get("periodo", "n/d"))
+
+    # Según fuente seleccionada, podemos vaciar uno de los dos bloques.
+    if fuente == "solo_doc":
+        bloque_estructurado = "(fuente estructurada desactivada por el usuario para esta pregunta)"
+        bloque_diccionario = "(diccionario desactivado por el usuario)"
+    else:
+        bloque_estructurado = _bloque_estructurado_para_prompt(datos, kpis)
+        bloque_diccionario = _dicc.diccionario_a_texto_prompt(entradas_dicc) or "(sin diccionario cargado)"
+
+    if fuente == "solo_est":
+        bloque_fragmentos = "(fuente documental desactivada por el usuario)"
+    else:
+        bloque_fragmentos = fragmentos_texto or "(no se han encontrado fragmentos relevantes)"
+
+    return _PROMPT_HABLA.format(
+        empresa=_BRANDING.get("empresa", "la empresa"),
+        bloque_historial=bloque_historial,
+        moneda=moneda,
+        periodo_ultimo=periodo_ultimo,
+        bloque_estructurado=bloque_estructurado,
+        bloque_diccionario=bloque_diccionario,
+        bloque_fragmentos=bloque_fragmentos,
+        pregunta=pregunta,
+    )
+
+
+@app.route("/habla-con-tus-datos")
+def habla_con_tus_datos():
+    if not TICKER_FIJO:
+        return redirect(url_for("index"))
+    fuente = request.args.get("fuente", "auto")
+    if fuente not in ("auto", "solo_est", "solo_doc", "mixto"):
+        fuente = "auto"
+    return render_template(
+        "habla_con_tus_datos.html",
+        fuente_inicial=fuente,
+        tiene_estructurado=_empresa_cotiza(),
+    )
+
+
+@app.route("/habla-con-tus-datos/chats", methods=["GET"])
+def habla_listar_chats():
+    from flask import jsonify
+    return jsonify({"ok": True, "chats": _listar_habla_chats()})
+
+
+@app.route("/habla-con-tus-datos/chats", methods=["POST"])
+def habla_crear_chat():
+    from flask import jsonify
+    from datetime import datetime as _dt, timezone as _tz
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    ahora = _dt.now(_tz.utc).isoformat()
+    chat = {
+        "id": str(uuid.uuid4()),
+        "ticker": TICKER_FIJO,
+        "titulo": "Nueva conversación",
+        "modelo": MODELO_POR_DEFECTO,
+        "creado": ahora,
+        "actualizado": ahora,
+        "mensajes": [],
+    }
+    _guardar_habla_chat(chat)
+    return jsonify({"ok": True, "chat": chat})
+
+
+@app.route("/habla-con-tus-datos/chats/<chat_id>", methods=["GET"])
+def habla_leer_chat(chat_id):
+    from flask import jsonify
+    chat = _cargar_habla_chat(chat_id)
+    if not chat:
+        return jsonify({"ok": False, "error": "Conversación no encontrada."}), 404
+    return jsonify({"ok": True, "chat": chat})
+
+
+@app.route("/habla-con-tus-datos/chats/<chat_id>", methods=["DELETE"])
+def habla_borrar_chat(chat_id):
+    from flask import jsonify
+    ruta = _ruta_habla_chat(chat_id)
+    if not ruta or not ruta.exists():
+        return jsonify({"ok": False, "error": "Conversación no encontrada."}), 404
+    try:
+        ruta.unlink()
+    except OSError as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True})
+
+
+@app.route("/habla-con-tus-datos/chats/<chat_id>", methods=["PATCH"])
+def habla_renombrar_chat(chat_id):
+    from flask import jsonify
+    from datetime import datetime as _dt, timezone as _tz
+    data = request.get_json(silent=True) or {}
+    nuevo = (data.get("titulo") or "").strip()
+    if not nuevo:
+        return jsonify({"ok": False, "error": "Título vacío."}), 400
+    chat = _cargar_habla_chat(chat_id)
+    if not chat:
+        return jsonify({"ok": False, "error": "Conversación no encontrada."}), 404
+    chat["titulo"] = nuevo[:120]
+    chat["actualizado"] = _dt.now(_tz.utc).isoformat()
+    _guardar_habla_chat(chat)
+    return jsonify({"ok": True, "chat": chat})
+
+
+@app.route("/habla-con-tus-datos/preguntar", methods=["POST"])
+def habla_preguntar():
+    from flask import jsonify
+    from datetime import datetime as _dt, timezone as _tz
+
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+
+    data = request.get_json(silent=True) or {}
+    chat_id = (data.get("chat_id") or "").strip()
+    pregunta = (data.get("pregunta") or "").strip()
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
+    fuente = data.get("fuente") or "auto"
+    if fuente not in ("auto", "solo_est", "solo_doc", "mixto"):
+        fuente = "auto"
+
+    if not pregunta:
+        return jsonify({"ok": False, "error": "La pregunta no puede estar vacía."}), 400
+    if len(pregunta) > 4000:
+        return jsonify({"ok": False, "error": "Pregunta demasiado larga (máx. 4000)."}), 400
+
+    chat = _cargar_habla_chat(chat_id) if chat_id else None
+    if not chat:
+        ahora = _dt.now(_tz.utc).isoformat()
+        chat = {
+            "id": str(uuid.uuid4()),
+            "ticker": TICKER_FIJO,
+            "titulo": _titulo_desde_pregunta(pregunta),
+            "modelo": modelo,
+            "creado": ahora,
+            "actualizado": ahora,
+            "mensajes": [],
+        }
+    elif not chat.get("mensajes"):
+        chat["titulo"] = _titulo_desde_pregunta(pregunta)
+
+    # --- Carga de datos estructurados (si la empresa cotiza y la fuente lo requiere) ---
+    datos = None
+    entradas_dicc = {}
+    kpis = []
+    if fuente != "solo_doc" and _empresa_cotiza():
+        try:
+            datos = _cargar_datos_ticker_fijo()
+        except Exception as e:  # noqa: BLE001
+            _logging.getLogger("dfin.habla").warning("Datos estructurados no cargados: %s", e)
+            datos = None
+        if datos:
+            entradas_dicc, _texto = _cargar_diccionario_activo()
+            kpis = _kpis_precalculados(datos, entradas_dicc)
+
+    # --- Recuperación RAG ---
+    fragmentos_texto = ""
+    fuentes_por_numero = {}
+    if fuente != "solo_est":
+        hits = _hits_locales_para_consulta(pregunta, top_k=6)
+        fragmentos_texto, fuentes_por_numero = _formatear_fragmentos_numerados(hits)
+    sin_fragmentos = not fuentes_por_numero
+
+    # --- Construcción de prompt y llamada ---
+    prompt = _construir_prompt_habla(
+        pregunta, datos, kpis, entradas_dicc,
+        fragmentos_texto, chat.get("mensajes", []), fuente,
+    )
+
+    try:
+        respuesta_bruta, _citas_modelo = llamar_ia_con_reintentos(
+            prompt, max_tokens=2000, modelo=modelo,
+            permitir_busqueda=False, modulo="habla-con-tus-datos",
+        )
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"Error al consultar la IA: {e}"}), 500
+
+    cuerpo, citas = _parsear_respuesta_con_citas(respuesta_bruta, fuentes_por_numero)
+
+    # KPIs usados por el frontend como "evidencias estructuradas"
+    kpis_usados = [
+        {
+            "nombre": k["nombre"],
+            "formula": k["formula"],
+            "valor": k["valor"],
+            "trace": [
+                {"etiqueta": et, "valor": val}
+                for et, val in k["trace"]
+            ],
+            "error": k.get("error"),
+        }
+        for k in kpis if k.get("valor") is not None
+    ]
+
+    ahora = _dt.now(_tz.utc).isoformat()
+    chat["mensajes"].append({
+        "rol": "user",
+        "contenido": pregunta,
+        "ts": ahora,
+    })
+    chat["mensajes"].append({
+        "rol": "assistant",
+        "contenido": cuerpo,
+        "citas": citas,
+        "kpis": kpis_usados,
+        "modelo": modelo,
+        "fuente": fuente,
+        "ts": ahora,
+    })
+    chat["modelo"] = modelo
+    chat["actualizado"] = ahora
+    _guardar_habla_chat(chat)
+
+    return jsonify({
+        "ok": True,
+        "chat_id": chat["id"],
+        "titulo": chat["titulo"],
+        "respuesta": cuerpo,
+        "citas": citas,
+        "kpis": kpis_usados,
+        "modelo": modelo,
+        "fuente": fuente,
+        "ts": ahora,
+        "sin_fragmentos": sin_fragmentos,
+        "sin_estructurado": datos is None,
+    })
+
+
+@app.route("/habla-con-tus-datos/diccionario", methods=["GET"])
+def habla_leer_diccionario():
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    entradas, texto = _cargar_diccionario_activo()
+    plantilla_ruta = _ROOT_DIR / "plantillas" / "diccionario.txt"
+    plantilla = ""
+    if not texto and plantilla_ruta.exists():
+        try:
+            plantilla = plantilla_ruta.read_text(encoding="utf-8")
+        except OSError:
+            plantilla = ""
+    return jsonify({
+        "ok": True,
+        "texto": texto,
+        "n_entradas": len(entradas),
+        "plantilla_disponible": bool(plantilla),
+        "plantilla": plantilla,
+    })
+
+
+@app.route("/habla-con-tus-datos/diccionario", methods=["POST"])
+def habla_guardar_diccionario():
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    texto = data.get("texto", "")
+    if not isinstance(texto, str):
+        return jsonify({"ok": False, "error": "El cuerpo debe tener 'texto' (string)."}), 400
+    if len(texto) > 500_000:
+        return jsonify({"ok": False, "error": "Diccionario demasiado grande (máx. 500 KB)."}), 400
+    try:
+        # Validamos que parsea antes de guardar
+        entradas = _dicc.parsear_diccionario(texto)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"Error de formato: {e}"}), 400
+    try:
+        _dicc.guardar_diccionario_empresa(
+            TICKER_FIJO, texto, _ROOT_DIR / "Empresas",
+        )
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"No se pudo guardar: {e}"}), 500
+    return jsonify({"ok": True, "n_entradas": len(entradas)})
 
 
 # =====================================================================

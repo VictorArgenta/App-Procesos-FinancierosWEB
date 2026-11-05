@@ -1,0 +1,1094 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Habla con tus datos — {{ EMPRESA_NOMBRE }}{% endblock %}
+
+{% block content %}
+<style>
+    .hd-wrap {
+        max-width: 1560px;
+        margin: 0 auto;
+        padding: 0.8rem 1rem 1rem;
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        gap: 1rem;
+        height: calc(100vh - 160px);
+        min-height: 540px;
+    }
+    @media (max-width: 960px) {
+        .hd-wrap { grid-template-columns: 1fr; height: auto; }
+    }
+
+    /* Sidebar */
+    .hd-sidebar {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 8px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 0;
+    }
+    .hd-btn-nuevo {
+        display: flex; align-items: center; justify-content: center; gap: 7px;
+        padding: 10px 14px;
+        background: var(--deloitte-green);
+        color: #000;
+        border: 0;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        cursor: pointer;
+        font-family: inherit;
+    }
+    .hd-btn-nuevo:hover { background: var(--deloitte-green-dark); color: #fff; }
+    .hd-section-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--gray-10);
+        margin: 0;
+        padding: 0 2px;
+    }
+    .hd-conv-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
+    }
+    .hd-conv {
+        padding: 9px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        min-width: 0;
+        position: relative;
+    }
+    .hd-conv:hover { background: var(--gray-bg); }
+    .hd-conv.active {
+        background: var(--deloitte-green-soft);
+        border-color: var(--deloitte-green);
+    }
+    .hd-conv-title {
+        font-size: 0.84rem;
+        font-weight: 500;
+        color: var(--black);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-right: 20px;
+    }
+    .hd-conv-meta {
+        font-size: 0.7rem;
+        color: var(--gray-10);
+        margin-top: 1px;
+    }
+    .hd-conv-del {
+        position: absolute;
+        right: 6px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: transparent;
+        border: 0;
+        color: var(--gray-7);
+        cursor: pointer;
+        padding: 3px;
+        border-radius: 3px;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+    .hd-conv:hover .hd-conv-del { opacity: 1; }
+    .hd-conv-del:hover { color: var(--danger); background: #FDECEA; }
+    .hd-sidebar-footer {
+        border-top: 1px solid var(--gray-border);
+        padding-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .hd-link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        font-size: 0.8rem;
+        color: var(--gray-10);
+        background: transparent;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+        width: 100%;
+    }
+    .hd-link:hover { background: var(--gray-bg); color: var(--black); }
+    .hd-empty {
+        padding: 18px 10px;
+        font-size: 0.78rem;
+        color: var(--gray-10);
+        font-style: italic;
+        text-align: center;
+    }
+
+    /* Main */
+    .hd-main {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+    }
+    .hd-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--gray-border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .hd-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin: 0;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .hd-ctrl { display: flex; align-items: center; gap: 7px; }
+    .hd-ctrl-label {
+        font-size: 0.68rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--gray-10);
+    }
+    .hd-select {
+        font-family: inherit;
+        font-size: 0.8rem;
+        padding: 5px 9px;
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        background: var(--white);
+        color: var(--black);
+        cursor: pointer;
+    }
+    .hd-select:focus { outline: none; border-color: var(--deloitte-green); }
+
+    /* Messages */
+    .hd-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 18px 20px 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-height: 0;
+    }
+    .hd-welcome {
+        margin: auto;
+        text-align: center;
+        max-width: 560px;
+        color: var(--gray-10);
+        padding: 20px;
+    }
+    .hd-welcome h3 {
+        margin: 0 0 6px;
+        font-size: 1.1rem;
+        color: var(--black);
+        font-weight: 600;
+    }
+    .hd-welcome p { margin: 0 0 14px; font-size: 0.86rem; line-height: 1.55; }
+    .hd-ejemplos {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 12px;
+    }
+    @media (max-width: 640px) { .hd-ejemplos { grid-template-columns: 1fr; } }
+    .hd-ejemplo {
+        background: var(--gray-bg);
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        padding: 10px 12px;
+        font-size: 0.8rem;
+        color: var(--black);
+        cursor: pointer;
+        text-align: left;
+        font-family: inherit;
+    }
+    .hd-ejemplo:hover {
+        background: var(--deloitte-green-soft);
+        border-color: var(--deloitte-green);
+    }
+    .hd-ejemplo-tag {
+        display: block;
+        font-size: 0.66rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        color: var(--gray-10);
+        margin-bottom: 4px;
+    }
+    .msg { display: flex; flex-direction: column; gap: 5px; max-width: 86%; min-width: 0; }
+    .msg-user { align-self: flex-end; align-items: flex-end; }
+    .msg-ai { align-self: flex-start; align-items: flex-start; max-width: 92%; }
+    .msg-bubble {
+        padding: 10px 14px;
+        border-radius: 11px;
+        font-size: 0.89rem;
+        line-height: 1.55;
+        word-wrap: break-word;
+    }
+    .msg-user .msg-bubble {
+        background: var(--deloitte-green-soft);
+        color: var(--black);
+        border-top-right-radius: 3px;
+    }
+    .msg-ai .msg-bubble {
+        background: var(--gray-bg);
+        color: var(--black);
+        border: 1px solid var(--gray-border);
+        border-top-left-radius: 3px;
+    }
+    .msg-bubble p { margin: 0 0 8px; }
+    .msg-bubble p:last-child { margin-bottom: 0; }
+    .msg-ai .msg-badges {
+        display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 3px;
+    }
+    .badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+    }
+    .badge.est { background: rgba(25,118,210,0.12); color: #1976D2; border: 1px solid rgba(25,118,210,0.3); }
+    .badge.doc { background: rgba(142,36,170,0.1); color: #8E24AA; border: 1px solid rgba(142,36,170,0.3); }
+    .badge.kpi { background: var(--deloitte-green-soft); color: var(--deloitte-green-dark); border: 1px solid var(--deloitte-green); }
+    .src-tag {
+        display: inline-block;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        padding: 1px 5px;
+        border-radius: 3px;
+        margin-left: 3px;
+        vertical-align: 1px;
+    }
+    .src-tag.est { background: rgba(25,118,210,0.15); color: #1976D2; }
+    .src-tag.doc { background: rgba(142,36,170,0.13); color: #8E24AA; cursor: pointer; }
+    .msg-actions {
+        display: flex; gap: 8px; margin-top: 3px; align-items: center;
+        font-size: 0.7rem; color: var(--gray-10);
+    }
+    .msg-actions button {
+        background: transparent; border: 0; color: var(--gray-10);
+        padding: 2px 5px; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 3px;
+        font-size: inherit; font-family: inherit; border-radius: 3px;
+    }
+    .msg-actions button:hover { color: var(--deloitte-green-dark); background: var(--deloitte-green-soft); }
+    details.evidence { margin-top: 2px; }
+    details.evidence summary {
+        cursor: pointer;
+        font-size: 0.72rem;
+        color: var(--gray-10);
+        list-style: none;
+        display: inline-flex; align-items: center; gap: 5px;
+        user-select: none;
+        padding: 2px 0;
+    }
+    details.evidence summary::-webkit-details-marker { display: none; }
+    details.evidence summary::before {
+        content: "▸"; font-size: 0.68rem; transition: transform 0.15s;
+    }
+    details.evidence[open] summary::before {
+        transform: rotate(90deg); display: inline-block;
+    }
+    details.evidence summary:hover { color: var(--deloitte-green-dark); }
+    .evidence-items {
+        margin-top: 5px;
+        display: flex; flex-direction: column; gap: 7px;
+    }
+    .evidence-item {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        padding: 8px 11px;
+        font-size: 0.78rem;
+    }
+    .evidence-head {
+        display: flex; gap: 7px; align-items: center;
+        margin-bottom: 4px;
+        font-weight: 600;
+        color: var(--black);
+    }
+    .evidence-head .tag {
+        font-size: 0.64rem; padding: 1px 6px;
+        border-radius: 3px; font-weight: 700;
+    }
+    .evidence-item.est .tag { background: rgba(25,118,210,0.1); color: #1976D2; }
+    .evidence-item.doc .tag { background: rgba(142,36,170,0.1); color: #8E24AA; }
+    .evidence-quote {
+        font-style: italic;
+        color: var(--gray-10);
+        border-left: 2px solid var(--gray-1);
+        padding-left: 9px;
+        margin: 0;
+        font-size: 0.77rem;
+        white-space: pre-wrap;
+    }
+    .kpi-trace {
+        margin-top: 6px;
+        padding: 7px 11px;
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-left: 3px solid var(--deloitte-green);
+        border-radius: 6px;
+        font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.74rem;
+        color: var(--gray-11);
+        overflow-x: auto;
+        white-space: pre-wrap;
+    }
+    .kpi-trace strong { color: var(--deloitte-green-dark); }
+
+    /* Composer */
+    .hd-composer {
+        border-top: 1px solid var(--gray-border);
+        padding: 10px 16px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        background: var(--gray-bg);
+    }
+    .hd-composer-row {
+        display: flex; gap: 8px; align-items: flex-end;
+    }
+    .hd-composer textarea {
+        flex: 1; font-family: inherit;
+        font-size: 0.9rem;
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        padding: 10px 11px;
+        background: var(--white); color: var(--black);
+        resize: none;
+        min-height: 44px;
+        max-height: 150px;
+        line-height: 1.5;
+    }
+    .hd-composer textarea:focus { outline: none; border-color: var(--deloitte-green); }
+    .hd-btn-enviar {
+        background: var(--deloitte-green);
+        color: #000; border: 0;
+        padding: 9px 16px;
+        border-radius: 6px;
+        font-weight: 600; font-size: 0.86rem;
+        cursor: pointer;
+        display: inline-flex; align-items: center; gap: 5px;
+        white-space: nowrap;
+        font-family: inherit;
+    }
+    .hd-btn-enviar:hover { background: var(--deloitte-green-dark); color: #fff; }
+    .hd-btn-enviar:disabled { opacity: 0.6; cursor: wait; }
+    .hd-composer-hint {
+        font-size: 0.68rem; color: var(--gray-10);
+        display: flex; gap: 10px; align-items: center;
+    }
+    .hd-composer-hint kbd {
+        font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.66rem;
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 3px;
+        padding: 1px 5px;
+    }
+    .hd-pending {
+        display: inline-flex; align-items: center; gap: 7px;
+        color: var(--gray-10); font-size: 0.82rem;
+    }
+    .hd-spin {
+        width: 12px; height: 12px;
+        border: 2px solid rgba(0,0,0,0.15);
+        border-top-color: var(--deloitte-green-dark);
+        border-radius: 50%;
+        animation: hd-spin 0.7s linear infinite;
+        display: inline-block;
+    }
+    @keyframes hd-spin { to { transform: rotate(360deg); } }
+    .hd-error {
+        background: #FDECEA; border: 1px solid #F5C6CB; color: var(--danger);
+        padding: 8px 12px; border-radius: 6px;
+        font-size: 0.82rem; margin: 10px 20px;
+    }
+
+    /* Modal diccionario y confirmaciones */
+    .hd-modal-backdrop {
+        position: fixed; inset: 0;
+        background: rgba(10,12,14,0.5);
+        backdrop-filter: blur(2px);
+        display: none;
+        align-items: center; justify-content: center;
+        z-index: 1200;
+        padding: 16px;
+    }
+    .hd-modal-backdrop[open] { display: flex; }
+    .hd-modal {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 8px;
+        width: min(900px, 100%);
+        max-height: 90vh;
+        display: flex; flex-direction: column;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .hd-modal.sm { width: min(460px, 100%); }
+    .hd-modal-head {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--gray-border);
+        display: flex; justify-content: space-between; align-items: flex-start;
+        gap: 10px;
+    }
+    .hd-modal-head h3 {
+        font-size: 1rem; margin: 0;
+        display: flex; align-items: center; gap: 7px;
+    }
+    .hd-modal-head .desc {
+        font-size: 0.76rem; color: var(--gray-10); margin-top: 2px;
+    }
+    .hd-modal-body { padding: 14px 16px; overflow-y: auto; flex: 1; min-height: 0; }
+    .hd-modal-body textarea {
+        width: 100%; min-height: 380px;
+        font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.8rem;
+        padding: 10px 12px;
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        background: var(--gray-bg);
+        color: var(--black);
+        line-height: 1.55; resize: vertical;
+    }
+    .hd-modal-body textarea:focus { outline: none; border-color: var(--deloitte-green); }
+    .hd-modal-body input[type="text"] {
+        width: 100%; font-family: inherit; font-size: 0.9rem;
+        padding: 8px 11px;
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        background: var(--white); color: var(--black);
+    }
+    .hd-modal-body input[type="text"]:focus { outline: none; border-color: var(--deloitte-green); }
+    .hd-modal-foot {
+        padding: 10px 16px;
+        border-top: 1px solid var(--gray-border);
+        display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    }
+    .hd-modal-foot .info { font-size: 0.74rem; color: var(--gray-10); }
+    .hd-btn-ghost {
+        background: transparent; color: var(--gray-10);
+        border: 1px solid var(--gray-border);
+        padding: 6px 13px; font-size: 0.82rem;
+        border-radius: 6px; cursor: pointer; font-family: inherit;
+    }
+    .hd-btn-ghost:hover { border-color: var(--gray-10); color: var(--black); }
+    .hd-btn-primary {
+        background: var(--deloitte-green);
+        color: #000; border: 0;
+        padding: 6px 14px; font-size: 0.82rem;
+        font-weight: 600; border-radius: 6px;
+        cursor: pointer; font-family: inherit;
+    }
+    .hd-btn-primary:hover { background: var(--deloitte-green-dark); color: #fff; }
+    .hd-btn-danger {
+        background: var(--danger); color: #fff; border: 0;
+        padding: 6px 14px; font-size: 0.82rem;
+        font-weight: 600; border-radius: 6px;
+        cursor: pointer; font-family: inherit;
+    }
+    .hd-btn-danger:hover { background: #a01a12; }
+    .hd-close-x {
+        background: transparent; border: 0; color: var(--gray-10);
+        cursor: pointer; padding: 3px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 4px;
+    }
+    .hd-close-x:hover { color: var(--black); background: var(--gray-bg); }
+</style>
+
+<div class="hd-wrap">
+    <!-- SIDEBAR -->
+    <aside class="hd-sidebar">
+        <button type="button" class="hd-btn-nuevo" id="btn-nuevo-chat">
+            {{ icon("pencil", size=14) }} Nuevo chat
+        </button>
+
+        <h3 class="hd-section-title">Conversaciones</h3>
+        <ul class="hd-conv-list" id="conv-list">
+            <li class="hd-empty">Sin conversaciones todavía.</li>
+        </ul>
+
+        <div class="hd-sidebar-footer">
+            <button type="button" class="hd-link" id="btn-dict">
+                {{ icon("folder", size=14) }} Editar diccionario
+            </button>
+            <button type="button" class="hd-link" id="btn-borrar-chat">
+                {{ icon("x", size=14) }} Borrar chat actual
+            </button>
+        </div>
+    </aside>
+
+    <!-- CHAT MAIN -->
+    <section class="hd-main">
+        <header class="hd-header">
+            <h2 class="hd-title" id="chat-titulo">Nueva conversación</h2>
+            <div class="hd-ctrl">
+                <span class="hd-ctrl-label">Fuente:</span>
+                <select class="hd-select" id="sel-fuente">
+                    <option value="auto">Automático (recomendado)</option>
+                    {% if tiene_estructurado %}<option value="solo_est">Solo estructurado</option>{% endif %}
+                    <option value="solo_doc">Solo documental</option>
+                    <option value="mixto">Mixto forzado</option>
+                </select>
+            </div>
+            <div class="hd-ctrl">
+                <span class="hd-ctrl-label">Modelo:</span>
+                <select class="hd-select" id="sel-modelo">
+                    {% for id, label in MODELOS_ORDENADOS %}
+                    <option value="{{ id }}" {% if id == MODELO_POR_DEFECTO %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </header>
+
+        <div class="hd-messages" id="messages">
+            <div class="hd-welcome">
+                <h3>Pregunta por tus datos financieros y por tu documentación</h3>
+                <p>La IA busca primero en los estados financieros (Yahoo) y en los KPIs definidos en el diccionario, y complementa con la documentación corporativa cuando hace falta. Cada afirmación lleva evidencia.</p>
+                <div class="hd-ejemplos">
+                    <button type="button" class="hd-ejemplo" data-q="¿Cuál ha sido nuestro margen EBITDA en el último ejercicio y cómo ha evolucionado?">
+                        <span class="hd-ejemplo-tag">Estructurado · KPI</span>
+                        Margen EBITDA y evolución
+                    </button>
+                    <button type="button" class="hd-ejemplo" data-q="¿Qué dice la memoria sobre nuestra estrategia de inversión para el próximo año?">
+                        <span class="hd-ejemplo-tag">Documental</span>
+                        Estrategia de inversión
+                    </button>
+                    <button type="button" class="hd-ejemplo" data-q="¿Cuál es nuestra deuda neta y qué dice el informe sobre su gestión?">
+                        <span class="hd-ejemplo-tag">Mixto</span>
+                        Deuda neta + lectura
+                    </button>
+                    <button type="button" class="hd-ejemplo" data-q="Dame el payout ratio del último FY y explícame si es consistente con nuestra política de dividendos.">
+                        <span class="hd-ejemplo-tag">KPI + política</span>
+                        Payout ratio y política
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="hd-error-box"></div>
+
+        <div class="hd-composer">
+            <div class="hd-composer-row">
+                <textarea id="composer-input" rows="2" placeholder="Pregunta por una cifra, un KPI o por algo que diga la documentación…"></textarea>
+                <button type="button" class="hd-btn-enviar" id="btn-enviar">
+                    Enviar
+                    {{ icon("send", size=13) }}
+                </button>
+            </div>
+            <div class="hd-composer-hint">
+                <span><kbd>Enter</kbd> enviar · <kbd>Shift</kbd>+<kbd>Enter</kbd> nueva línea</span>
+                <span id="hd-status" style="margin-left: auto;"></span>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- Modal diccionario -->
+<div class="hd-modal-backdrop" id="dict-modal" role="dialog" aria-modal="true" aria-labelledby="dict-title">
+    <div class="hd-modal">
+        <div class="hd-modal-head">
+            <div>
+                <h3 id="dict-title">{{ icon("folder", size=16) }} Diccionario funcional — {{ EMPRESA_NOMBRE }}</h3>
+                <div class="desc" id="dict-desc">Cargando…</div>
+            </div>
+            <button type="button" class="hd-close-x" onclick="hdDict.close()" aria-label="Cerrar">{{ icon("x", size=16) }}</button>
+        </div>
+        <div class="hd-modal-body">
+            <textarea id="dict-text" spellcheck="false" placeholder="Escribe aquí el vocabulario corporativo y los KPIs…"></textarea>
+        </div>
+        <div class="hd-modal-foot">
+            <span class="info" id="dict-info">Los cambios se aplican a la próxima pregunta.</span>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="hd-btn-ghost" id="dict-plantilla-btn" style="display: none;">Cargar plantilla</button>
+                <button type="button" class="hd-btn-ghost" onclick="hdDict.close()">Cancelar</button>
+                <button type="button" class="hd-btn-primary" onclick="hdDict.guardar()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal confirmación -->
+<div class="hd-modal-backdrop" id="confirm-modal" role="dialog" aria-modal="true">
+    <div class="hd-modal sm">
+        <div class="hd-modal-head">
+            <h3 id="confirm-title">Confirmar</h3>
+            <button type="button" class="hd-close-x" onclick="hdConfirm.close(false)" aria-label="Cerrar">{{ icon("x", size=16) }}</button>
+        </div>
+        <div class="hd-modal-body">
+            <p id="confirm-msg" style="margin: 0; font-size: 0.9rem; line-height: 1.5;"></p>
+        </div>
+        <div class="hd-modal-foot">
+            <span class="info"></span>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="hd-btn-ghost" onclick="hdConfirm.close(false)">Cancelar</button>
+                <button type="button" class="hd-btn-danger" id="confirm-ok">Borrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function() {
+    const FUENTE_INICIAL = {{ fuente_inicial|tojson }};
+    const EL = {
+        convList: document.getElementById('conv-list'),
+        messages: document.getElementById('messages'),
+        titulo: document.getElementById('chat-titulo'),
+        selFuente: document.getElementById('sel-fuente'),
+        selModelo: document.getElementById('sel-modelo'),
+        composer: document.getElementById('composer-input'),
+        btnEnviar: document.getElementById('btn-enviar'),
+        status: document.getElementById('hd-status'),
+        errorBox: document.getElementById('hd-error-box'),
+        btnNuevo: document.getElementById('btn-nuevo-chat'),
+        btnDict: document.getElementById('btn-dict'),
+        btnBorrar: document.getElementById('btn-borrar-chat'),
+    };
+
+    EL.selFuente.value = FUENTE_INICIAL;
+
+    const STATE = {
+        chatId: null,
+        chat: null,
+        enviando: false,
+    };
+
+    function escapeHtml(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function renderParrafos(texto) {
+        // Convierte el texto plano del LLM en párrafos HTML, escapando.
+        // Convierte los marcadores [EST] y [N] a <span class="src-tag">.
+        const seguro = escapeHtml(texto || '');
+        const conMarcadores = seguro
+            .replace(/\[EST\]/g, '<span class="src-tag est">EST</span>')
+            .replace(/\[(\d+)\]/g, (m, n) => `<span class="src-tag doc" data-cita="${n}" title="Ver cita ${n}">[${n}]</span>`);
+        const parrafos = conMarcadores.split(/\n{2,}/);
+        return parrafos.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+    }
+
+    function fechaCorta(iso) {
+        if (!iso) return '';
+        try {
+            const d = new Date(iso);
+            const hoy = new Date();
+            const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
+            const esHoy = d.toDateString() === hoy.toDateString();
+            const esAyer = d.toDateString() === ayer.toDateString();
+            if (esHoy) return 'Hoy ' + d.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'});
+            if (esAyer) return 'Ayer';
+            return d.toLocaleDateString('es-ES', {day: '2-digit', month: 'short'});
+        } catch (_) { return iso.slice(0, 10); }
+    }
+
+    // ---------- Sidebar ----------
+    async function cargarListaConversaciones() {
+        try {
+            const r = await fetch('/habla-con-tus-datos/chats');
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || 'No se pudo cargar');
+            pintarListaConversaciones(j.chats || []);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function pintarListaConversaciones(chats) {
+        EL.convList.innerHTML = '';
+        if (!chats.length) {
+            EL.convList.innerHTML = '<li class="hd-empty">Sin conversaciones todavía.</li>';
+            return;
+        }
+        chats.forEach(c => {
+            const li = document.createElement('li');
+            li.className = 'hd-conv' + (c.id === STATE.chatId ? ' active' : '');
+            li.dataset.id = c.id;
+            li.innerHTML = `
+                <div class="hd-conv-title"></div>
+                <div class="hd-conv-meta">${fechaCorta(c.actualizado)} · ${c.n_mensajes} msg</div>
+                <button type="button" class="hd-conv-del" title="Borrar conversación" data-id="${c.id}" aria-label="Borrar">✕</button>
+            `;
+            li.querySelector('.hd-conv-title').textContent = c.titulo || 'Sin título';
+            li.addEventListener('click', (e) => {
+                if (e.target.classList.contains('hd-conv-del')) return;
+                cargarChat(c.id);
+            });
+            li.querySelector('.hd-conv-del').addEventListener('click', (e) => {
+                e.stopPropagation();
+                borrarConversacion(c.id);
+            });
+            EL.convList.appendChild(li);
+        });
+    }
+
+    async function nuevoChat() {
+        STATE.chatId = null;
+        STATE.chat = null;
+        EL.titulo.textContent = 'Nueva conversación';
+        EL.messages.innerHTML = '';
+        EL.messages.appendChild(welcomeNode());
+        document.querySelectorAll('.hd-conv').forEach(e => e.classList.remove('active'));
+    }
+
+    function welcomeNode() {
+        const w = document.createElement('div');
+        w.className = 'hd-welcome';
+        w.innerHTML = `
+            <h3>Pregunta por tus datos financieros y por tu documentación</h3>
+            <p>La IA busca primero en los estados financieros y en los KPIs definidos, y complementa con la documentación corporativa cuando hace falta. Cada afirmación lleva evidencia.</p>
+        `;
+        return w;
+    }
+
+    async function cargarChat(id) {
+        try {
+            const r = await fetch(`/habla-con-tus-datos/chats/${id}`);
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            STATE.chat = j.chat;
+            STATE.chatId = j.chat.id;
+            EL.titulo.textContent = j.chat.titulo || 'Sin título';
+            pintarChat(j.chat);
+            cargarListaConversaciones();  // refresca active
+        } catch (e) {
+            mostrarError('No se pudo cargar la conversación: ' + e.message);
+        }
+    }
+
+    function pintarChat(chat) {
+        EL.messages.innerHTML = '';
+        if (!chat.mensajes || !chat.mensajes.length) {
+            EL.messages.appendChild(welcomeNode());
+            return;
+        }
+        for (let i = 0; i < chat.mensajes.length; i++) {
+            const m = chat.mensajes[i];
+            if (m.rol === 'user') {
+                EL.messages.appendChild(nodoUsuario(m.contenido));
+            } else {
+                EL.messages.appendChild(nodoAsistente(m));
+            }
+        }
+        EL.messages.scrollTop = EL.messages.scrollHeight;
+    }
+
+    function nodoUsuario(texto) {
+        const d = document.createElement('article');
+        d.className = 'msg msg-user';
+        const b = document.createElement('div');
+        b.className = 'msg-bubble';
+        b.textContent = texto;
+        d.appendChild(b);
+        return d;
+    }
+
+    function nodoAsistente(msg) {
+        const d = document.createElement('article');
+        d.className = 'msg msg-ai';
+
+        const citas = msg.citas || [];
+        const kpis = msg.kpis || [];
+        const usoEst = /\[EST\]/.test(msg.contenido || '') || kpis.length > 0;
+        const usoDoc = citas.length > 0;
+
+        if (usoEst || usoDoc || kpis.length) {
+            const badges = document.createElement('div');
+            badges.className = 'msg-badges';
+            if (usoEst) badges.innerHTML += '<span class="badge est">📊 Estructurado</span>';
+            if (kpis.length) badges.innerHTML += `<span class="badge kpi">${kpis.length} KPI calculado${kpis.length>1?'s':''}</span>`;
+            if (usoDoc) badges.innerHTML += '<span class="badge doc">📚 Documentación</span>';
+            d.appendChild(badges);
+        }
+
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+        bubble.innerHTML = renderParrafos(msg.contenido);
+
+        // Añadir trace de KPIs calculados dentro de la burbuja
+        if (kpis.length) {
+            kpis.forEach(k => {
+                const kb = document.createElement('div');
+                kb.className = 'kpi-trace';
+                const inputs = (k.trace || [])
+                    .map(t => `[${escapeHtml(t.etiqueta)}=${t.valor === null ? 'n/d' : Number(t.valor).toLocaleString('es-ES', {maximumFractionDigits: 2})}]`)
+                    .join(' · ');
+                kb.innerHTML = `<strong>${escapeHtml(k.nombre)}</strong> = ${escapeHtml(k.formula)}${inputs ? '\n  inputs: ' + inputs : ''}\n  = <strong>${Number(k.valor).toLocaleString('es-ES', {maximumFractionDigits: 4})}</strong>`;
+                bubble.appendChild(kb);
+            });
+        }
+        d.appendChild(bubble);
+
+        // Evidencias plegables
+        const totalEv = citas.length + kpis.length;
+        if (totalEv) {
+            const details = document.createElement('details');
+            details.className = 'evidence';
+            details.innerHTML = `<summary>Ver evidencias (${totalEv})</summary><div class="evidence-items"></div>`;
+            const items = details.querySelector('.evidence-items');
+            kpis.forEach(k => {
+                const e = document.createElement('div');
+                e.className = 'evidence-item est';
+                e.innerHTML = `<div class="evidence-head"><span class="tag">EST</span> KPI calculado · ${escapeHtml(k.nombre)}</div>`;
+                const q = document.createElement('p');
+                q.className = 'evidence-quote';
+                q.textContent = `${k.formula} = ${Number(k.valor).toLocaleString('es-ES', {maximumFractionDigits: 6})}`;
+                e.appendChild(q);
+                items.appendChild(e);
+            });
+            citas.forEach(c => {
+                const e = document.createElement('div');
+                e.className = 'evidence-item doc';
+                const head = document.createElement('div');
+                head.className = 'evidence-head';
+                head.innerHTML = `<span class="tag">DOC [${c.n}]</span>`;
+                const docLbl = document.createElement('span');
+                docLbl.textContent = `${c.documento} · ${c.localizador || ''}`;
+                head.appendChild(docLbl);
+                e.appendChild(head);
+                const q = document.createElement('p');
+                q.className = 'evidence-quote';
+                q.textContent = c.cita_literal || c.fragmento_texto || '(sin cita literal)';
+                e.appendChild(q);
+                items.appendChild(e);
+            });
+            d.appendChild(details);
+        }
+
+        // Acciones
+        const acc = document.createElement('div');
+        acc.className = 'msg-actions';
+        acc.innerHTML = `
+            <button type="button" title="Copiar respuesta">${copySvg()} Copiar</button>
+            <button type="button" title="Editar diccionario">${pencilSvg()} Añadir al diccionario</button>
+        `;
+        acc.querySelectorAll('button')[0].addEventListener('click', () => copiarTexto(msg.contenido));
+        acc.querySelectorAll('button')[1].addEventListener('click', () => hdDict.abrir());
+        d.appendChild(acc);
+        return d;
+    }
+
+    function copySvg() {
+        return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+    }
+    function pencilSvg() {
+        return '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+    }
+
+    async function copiarTexto(t) {
+        try { await navigator.clipboard.writeText(t); EL.status.textContent = 'Copiado'; setTimeout(() => EL.status.textContent = '', 2000); }
+        catch (_) { EL.status.textContent = 'No se pudo copiar'; setTimeout(() => EL.status.textContent = '', 2000); }
+    }
+
+    // ---------- Enviar pregunta ----------
+    async function enviar() {
+        if (STATE.enviando) return;
+        const pregunta = EL.composer.value.trim();
+        if (!pregunta) return;
+        STATE.enviando = true;
+        EL.btnEnviar.disabled = true;
+        EL.status.innerHTML = '<span class="hd-pending"><span class="hd-spin"></span> Consultando…</span>';
+
+        // Muestra la pregunta en el chat de inmediato
+        const w = document.querySelector('.hd-welcome');
+        if (w) w.remove();
+        EL.messages.appendChild(nodoUsuario(pregunta));
+        EL.messages.scrollTop = EL.messages.scrollHeight;
+        EL.composer.value = '';
+
+        try {
+            const body = {
+                pregunta,
+                modelo: EL.selModelo.value,
+                fuente: EL.selFuente.value,
+                chat_id: STATE.chatId || null,
+            };
+            const r = await fetch('/habla-con-tus-datos/preguntar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+            });
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error || 'Fallo al consultar');
+            STATE.chatId = j.chat_id;
+            EL.titulo.textContent = j.titulo;
+            EL.messages.appendChild(nodoAsistente({
+                contenido: j.respuesta,
+                citas: j.citas,
+                kpis: j.kpis,
+                modelo: j.modelo,
+                fuente: j.fuente,
+            }));
+            EL.messages.scrollTop = EL.messages.scrollHeight;
+            cargarListaConversaciones();
+        } catch (e) {
+            mostrarError(e.message);
+        } finally {
+            STATE.enviando = false;
+            EL.btnEnviar.disabled = false;
+            EL.status.textContent = '';
+        }
+    }
+
+    function mostrarError(m) {
+        EL.errorBox.innerHTML = `<div class="hd-error">${escapeHtml(m)}</div>`;
+        setTimeout(() => { EL.errorBox.innerHTML = ''; }, 6000);
+    }
+
+    // ---------- Borrar / renombrar ----------
+    async function borrarConversacion(id) {
+        const ok = await hdConfirm.ask('¿Borrar esta conversación?', 'No se puede deshacer.');
+        if (!ok) return;
+        try {
+            const r = await fetch(`/habla-con-tus-datos/chats/${id}`, {method: 'DELETE'});
+            const j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            if (STATE.chatId === id) nuevoChat();
+            cargarListaConversaciones();
+        } catch (e) {
+            mostrarError('No se pudo borrar: ' + e.message);
+        }
+    }
+
+    EL.btnBorrar.addEventListener('click', () => {
+        if (!STATE.chatId) {
+            mostrarError('No hay chat activo que borrar.');
+            return;
+        }
+        borrarConversacion(STATE.chatId);
+    });
+
+    EL.btnNuevo.addEventListener('click', nuevoChat);
+
+    // Enviar con Enter (Shift+Enter nueva línea)
+    EL.composer.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            enviar();
+        }
+    });
+    EL.btnEnviar.addEventListener('click', enviar);
+
+    // Ejemplos iniciales
+    document.querySelectorAll('.hd-ejemplo').forEach(b => {
+        b.addEventListener('click', () => {
+            EL.composer.value = b.dataset.q;
+            EL.composer.focus();
+        });
+    });
+
+    // ---------- Modal diccionario ----------
+    const hdDict = {
+        el: document.getElementById('dict-modal'),
+        txt: document.getElementById('dict-text'),
+        desc: document.getElementById('dict-desc'),
+        btnPlantilla: document.getElementById('dict-plantilla-btn'),
+        plantilla: '',
+        async abrir() {
+            this.el.setAttribute('open', '');
+            this.desc.textContent = 'Cargando…';
+            this.txt.value = '';
+            try {
+                const r = await fetch('/habla-con-tus-datos/diccionario');
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                this.txt.value = j.texto || '';
+                this.plantilla = j.plantilla || '';
+                this.desc.textContent = `${j.n_entradas} entrada${j.n_entradas===1?'':'s'} cargadas.`;
+                if (!j.texto && j.plantilla_disponible) {
+                    this.btnPlantilla.style.display = '';
+                    this.btnPlantilla.onclick = () => { this.txt.value = this.plantilla; };
+                } else {
+                    this.btnPlantilla.style.display = 'none';
+                }
+            } catch (e) {
+                this.desc.textContent = 'Error: ' + e.message;
+            }
+        },
+        close() { this.el.removeAttribute('open'); },
+        async guardar() {
+            try {
+                const r = await fetch('/habla-con-tus-datos/diccionario', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({texto: this.txt.value}),
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                this.desc.textContent = `Guardado · ${j.n_entradas} entrada${j.n_entradas===1?'':'s'}`;
+                setTimeout(() => this.close(), 800);
+            } catch (e) {
+                this.desc.textContent = 'Error: ' + e.message;
+            }
+        },
+    };
+    window.hdDict = hdDict;
+    EL.btnDict.addEventListener('click', () => hdDict.abrir());
+    hdDict.el.addEventListener('click', (e) => { if (e.target === hdDict.el) hdDict.close(); });
+
+    // ---------- Confirm modal ----------
+    const hdConfirm = {
+        el: document.getElementById('confirm-modal'),
+        title: document.getElementById('confirm-title'),
+        msg: document.getElementById('confirm-msg'),
+        ok: document.getElementById('confirm-ok'),
+        _resolver: null,
+        ask(title, msg) {
+            this.title.textContent = title;
+            this.msg.textContent = msg;
+            this.el.setAttribute('open', '');
+            return new Promise((res) => { this._resolver = res; });
+        },
+        close(val) {
+            this.el.removeAttribute('open');
+            if (this._resolver) { this._resolver(val); this._resolver = null; }
+        },
+    };
+    hdConfirm.ok.addEventListener('click', () => hdConfirm.close(true));
+    hdConfirm.el.addEventListener('click', (e) => { if (e.target === hdConfirm.el) hdConfirm.close(false); });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            hdConfirm.close(false);
+            hdDict.close();
+        }
+    });
+    window.hdConfirm = hdConfirm;
+
+    // Cargar lista al arranque
+    cargarListaConversaciones();
+})();
+</script>
+{% endblock %}
