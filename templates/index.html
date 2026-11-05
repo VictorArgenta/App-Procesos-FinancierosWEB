@@ -45,7 +45,7 @@
         align-items: center;
         gap: 1rem;
         padding: 0.7rem 1rem;
-        background: #fff;
+        background: var(--white);
         border: 1px solid var(--gray-border);
         border-left-width: 4px;
         border-left-style: solid;
@@ -63,7 +63,7 @@
     .home-card.disponible { border-left-color: #86BC25; }
     .home-card.preview    {
         border-left-color: #A7A8AA;
-        background: #F5F5F4;     /* sombreado sutil para los Preview */
+        background: var(--gray-bg);     /* sombreado sutil para los Preview */
     }
     .home-card.preview h2 { color: var(--gray-11); }  /* un pelín menos énfasis */
 
@@ -130,7 +130,7 @@
         white-space: nowrap;
     }
     .home-card.preview .btn-mini {
-        background: #fff;
+        background: var(--white);
         color: var(--gray-11);
         border-color: var(--gray-1);
     }
@@ -173,7 +173,7 @@
     @media (max-width: 500px) { .dh-strip { grid-template-columns: 1fr; } }
 
     .dh-card {
-        background: #fff;
+        background: var(--white);
         border: 1px solid var(--gray-border);
         border-radius: 3px;
         padding: 0.4rem 0.55rem 0.35rem;
@@ -288,7 +288,7 @@
 
     /* --- Dashboard charts compactos en la columna derecha --- */
     .dh-chart-box {
-        background: #fff; border: 1px solid var(--gray-border); border-radius: 3px;
+        background: var(--white); border: 1px solid var(--gray-border); border-radius: 3px;
         padding: 0.5rem 0.7rem;
     }
     .dh-chart-box h3 {

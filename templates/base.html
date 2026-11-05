@@ -4,6 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}DFin AI — Financial Intelligence Platform{% endblock %}</title>
+    <script>
+        // Pre-aplicar tema antes de pintar nada para evitar flash.
+        (function() {
+            try {
+                var t = localStorage.getItem('dfin-theme');
+                if (t === 'dark' || t === 'light') {
+                    document.documentElement.setAttribute('data-theme', t);
+                }
+            } catch (_) {}
+        })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo-mark.svg') }}">
     <!-- Inter: tipografía de interfaz (con fallback a system fonts si el CDN
          está bloqueado por la red corporativa) -->
@@ -15,7 +26,7 @@
             --deloitte-green: #86BC25;
             --deloitte-green-dark: #43B02A;
             --deloitte-green-soft: #e8f2d5;
-            --black: #000000;
+            --black: #0E1015;
             --white: #FFFFFF;
             --gray-11: #53565A;
             --gray-10: #63666A;
@@ -28,6 +39,41 @@
             --danger: #DA291C;
             --warning: #ED8B00;
             --info: #00A3E0;
+            color-scheme: light;
+        }
+
+        /* --- Modo noche: redefine los tokens; el nav con logos y la banda
+             de cotizaciones se mantienen en su color original mediante
+             reglas específicas más abajo. --- */
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --black: #F0F2F5;
+                --white: #1A1D24;
+                --gray-11: #DADCE0;
+                --gray-10: #A8ACB3;
+                --gray-7: #7C8088;
+                --gray-6: #626670;
+                --gray-3: #4A4E57;
+                --gray-1: #363B45;
+                --gray-bg: #13161B;
+                --gray-border: #262A32;
+                --deloitte-green-soft: #253717;
+                color-scheme: dark;
+            }
+        }
+        :root[data-theme="dark"] {
+            --black: #F0F2F5;
+            --white: #1A1D24;
+            --gray-11: #DADCE0;
+            --gray-10: #A8ACB3;
+            --gray-7: #7C8088;
+            --gray-6: #626670;
+            --gray-3: #4A4E57;
+            --gray-1: #363B45;
+            --gray-bg: #13161B;
+            --gray-border: #262A32;
+            --deloitte-green-soft: #253717;
+            color-scheme: dark;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -959,6 +1005,62 @@
             .cmdk-trigger kbd { display: none; }
             dialog.cmdk { top: 8vh; }
         }
+
+        /* ==== Nav siempre en claro ====
+           Los logos (DFin, empresa, Deloitte) tienen fondo blanco: la nav
+           superior se mantiene en claro en ambos temas; es el resto de la
+           pantalla la que cambia. */
+        nav.main-nav { background: #FFFFFF !important; border-bottom-color: #E4E4E2 !important; }
+        nav.main-nav .dropdown-menu {
+            background: #FFFFFF !important;
+            border-color: #E4E4E2 !important;
+            color: #0E1015 !important;
+        }
+        nav.main-nav .dropdown-menu a { color: #0E1015 !important; }
+        nav.main-nav .dropdown-menu a small { color: #63666A !important; }
+        nav.main-nav .dropdown-menu a:hover { background: #F5F5F4 !important; }
+        nav.main-nav .nav-links > li > a,
+        nav.main-nav .nav-links > li > button { color: #53565A !important; }
+        nav.main-nav .nav-links > li > a:hover,
+        nav.main-nav .nav-links > li > button:hover,
+        nav.main-nav .nav-links > li.open > button,
+        nav.main-nav .nav-links > li > a.active { color: #000 !important; }
+        nav.main-nav .cmdk-trigger {
+            background: #F5F5F4 !important; border-color: #E4E4E2 !important; color: #53565A !important;
+        }
+        nav.main-nav .cmdk-trigger:hover {
+            background: #e8f2d5 !important; border-color: #86BC25 !important; color: #43B02A !important;
+        }
+        nav.main-nav .cmdk-trigger kbd {
+            background: #FFFFFF !important; border-color: #E4E4E2 !important; color: #63666A !important;
+        }
+        nav.main-nav .user-chip {
+            background: #F5F5F4 !important; border-color: #E4E4E2 !important; color: #53565A !important;
+        }
+        nav.main-nav .icon-btn {
+            background: #FFFFFF !important; border-color: #E4E4E2 !important; color: #53565A !important;
+        }
+        nav.main-nav .icon-btn:hover {
+            border-color: #86BC25 !important; color: #43B02A !important;
+        }
+        nav.main-nav .nav-logo-empresa .nav-logo-sep,
+        nav.main-nav .nav-logo-deloitte-inline .nav-logo-sep { background: #E4E4E2 !important; }
+
+        /* Impresión siempre en modo claro para que los PDFs del Panel
+           Ejecutivo y del Benchmark no salgan con fondo negro. */
+        @media print {
+            :root, :root[data-theme="dark"], :root[data-theme="light"] {
+                --black: #000000 !important;
+                --white: #FFFFFF !important;
+                --gray-11: #53565A !important;
+                --gray-10: #63666A !important;
+                --gray-bg: #F5F5F4 !important;
+                --gray-border: #E4E4E2 !important;
+                --deloitte-green-soft: #e8f2d5 !important;
+                color-scheme: light !important;
+            }
+            body { background: #FFFFFF !important; color: #000 !important; }
+        }
     </style>
 
     {# Tema visual personalizable por empresa. Sobrescribe variables CSS si
@@ -1030,6 +1132,10 @@
                         Buscar <kbd>Ctrl K</kbd>
                     </button>
                     <span class="user-chip">{{ TENANT_NOMBRE }}{% if TICKER_FIJO %} · {{ TICKER_FIJO }}{% else %} · Tenant ES-01{% endif %}</span>
+                    <button type="button" class="icon-btn" id="theme-toggle" title="Alternar modo noche" aria-label="Alternar modo noche">
+                        <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                        <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" hidden><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                    </button>
                     <button class="icon-btn" title="Notificaciones" aria-label="Notificaciones">&#9873;</button>
                 </li>
             </ul>
@@ -1380,6 +1486,43 @@
             document.addEventListener('click', function() {
                 items.forEach(function(i) { i.classList.remove('open'); });
             });
+        })();
+
+        // Toggle de tema (persistente). El pre-aplicar está en el <head>.
+        (function() {
+            var btn = document.getElementById('theme-toggle');
+            var icoMoon = document.getElementById('theme-icon-moon');
+            var icoSun = document.getElementById('theme-icon-sun');
+            if (!btn) return;
+            function temaActual() {
+                var attr = document.documentElement.getAttribute('data-theme');
+                if (attr === 'dark' || attr === 'light') return attr;
+                try {
+                    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+                        ? 'dark' : 'light';
+                } catch (_) { return 'light'; }
+            }
+            function pintarIcono() {
+                var t = temaActual();
+                if (icoMoon && icoSun) {
+                    icoMoon.hidden = (t === 'dark');
+                    icoSun.hidden = (t !== 'dark');
+                }
+                btn.setAttribute('title', t === 'dark' ? 'Activar modo claro' : 'Activar modo noche');
+            }
+            btn.addEventListener('click', function() {
+                var siguiente = temaActual() === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', siguiente);
+                try { localStorage.setItem('dfin-theme', siguiente); } catch (_) {}
+                pintarIcono();
+            });
+            pintarIcono();
+            // Si el usuario no ha elegido explícitamente y cambia el OS,
+            // re-pintamos el icono para reflejarlo.
+            try {
+                var mq = window.matchMedia('(prefers-color-scheme: dark)');
+                mq.addEventListener && mq.addEventListener('change', pintarIcono);
+            } catch (_) {}
         })();
 
         function showLoading() {
