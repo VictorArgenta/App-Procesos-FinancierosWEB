@@ -581,7 +581,7 @@ def empresa_logo():
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Credenciales de Gmail. El módulo Relación con Inversores lee los correos
+# Credenciales de Gmail. El módulo Relación con Stakeholders lee los correos
 # cuyo asunto empieza por `f"{TICKER_FIJO}-{IR_PREFIJO_ASUNTO}-"` (por defecto
 # "META-Inversores-" si se arrancó con `python app.py META`) recibidos en las
 # últimas dos horas. Si faltan credenciales, el módulo muestra una vista de
@@ -4348,7 +4348,7 @@ def _resolver_correo_ir(correo, datos, modelo=None, fuentes_activas=None):
     ticker = TICKER_FIJO or ""
     tabla = _texto_datos_para_prompt(datos) if datos else "(no hay datos financieros disponibles en este momento)"
 
-    prompt = f"""Eres el equipo de Relación con Inversores de {empresa} ({ticker}).
+    prompt = f"""Eres el equipo de Relación con Stakeholders de {empresa} ({ticker}).
 Acabas de recibir el siguiente correo electrónico de un inversor.
 
 [CORREO RECIBIDO]
@@ -4478,7 +4478,7 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
   "perfil_estimado": "Frase breve describiendo al remitente y por qué.",
   "puede_resolver": true,
   "asunto_respuesta": "Re: {correo['asunto']}",
-  "cuerpo_respuesta": "Estimado/a ...\\n\\n[texto en prosa, sin tablas ni listados tabulares]\\n\\nUn saludo,\\nEquipo de Relación con Inversores — {empresa}",
+  "cuerpo_respuesta": "Estimado/a ...\\n\\n[texto en prosa, sin tablas ni listados tabulares]\\n\\nUn saludo,\\nEquipo de Relación con Stakeholders — {empresa}",
   "nota_interna": "1-2 frases para el usuario."
 }}
 """
@@ -4894,7 +4894,7 @@ def _refinar_correo_ir(correo, datos, borrador_actual, historial, mensaje_usuari
         rol = "Usuario" if (turno.get("role") == "user") else "Asistente"
         historial_txt += f"\n{rol}: {(turno.get('content') or '').strip()}"
 
-    prompt = f"""Eres el equipo de Relación con Inversores de {empresa} ({ticker}).
+    prompt = f"""Eres el equipo de Relación con Stakeholders de {empresa} ({ticker}).
 Estás revisando con el usuario el borrador de respuesta a un correo de un
 inversor. El usuario te pedirá cambios o te preguntará cosas; aplica las
 modificaciones necesarias al borrador.

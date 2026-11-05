@@ -1009,7 +1009,7 @@
                         <a href="/analisis">Generar Informe Narrativo<small>Informe individual con IA + datos de Yahoo</small></a>
                         {% endif %}
                         <a href="/informes-generados">Informes generados<small>Histórico de informes Word / PDF</small></a>
-                        <a href="/relacion-inversores">Relación con Inversores<small>Bandeja de consultas con IA</small></a>
+                        <a href="/relacion-inversores">Relación con Stakeholders<small>Bandeja de consultas con IA</small></a>
                         <a href="/habla-con-tus-datos">Habla con tus datos<small>Chat sobre indicadores financieros y documentación</small></a>
                     </div>
                 </li>
@@ -1105,7 +1105,7 @@
                     {% if EMPRESA_COTIZA %}
                     <li><a href="/analisis">Informe Narrativo</a></li>
                     {% endif %}
-                    <li><a href="/relacion-inversores">Relación con Inversores</a></li>
+                    <li><a href="/relacion-inversores">Relación con Stakeholders</a></li>
                     <li><a href="/habla-con-tus-datos">Habla con tus datos</a></li>
                     <li><a href="/presupuesto">Presupuesto ML</a></li>
                 </ul>
@@ -1180,7 +1180,7 @@
             ITEMS.push({ name: 'Benchmark Sectorial', desc: 'Comparativa con competidores (múltiplos, márgenes, crecimiento)', url: '/benchmark', icon: 'trend-up', group: 'Módulos', keys: 'benchmark sectorial competidores comparativa peers pe margen crecimiento' });
         }
         ITEMS.push(
-            { name: 'Relación con Inversores', desc: 'Bandeja de correos de IR con IA', url: '/relacion-inversores', icon: 'mail', group: 'Módulos', keys: 'ir inversores correos gmail bandeja' },
+            { name: 'Relación con Stakeholders', desc: 'Bandeja de correos con IA (inversores, analistas, reguladores…)', url: '/relacion-inversores', icon: 'mail', group: 'Módulos', keys: 'stakeholders ir inversores analistas reguladores auditores correos gmail bandeja' },
             { name: 'Habla con tus datos', desc: 'Chat sobre indicadores financieros y documentación corporativa', url: '/habla-con-tus-datos', icon: 'chat', group: 'Módulos', keys: 'habla chat datos consulta documental kpi rag diccionario pregunta' },
             { name: 'Noticias del Sector', desc: 'Noticias del sector y de la compañía', url: '/noticias', icon: 'newspaper', group: 'Módulos', keys: 'noticias sector actualidad news' },
             { name: 'Informes generados', desc: 'Histórico de informes Word / PDF', url: '/informes-generados', icon: 'folder', group: 'Módulos', keys: 'informes generados historico word pdf descargas' },
