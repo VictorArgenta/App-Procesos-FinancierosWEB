@@ -45,7 +45,7 @@
         align-items: center;
         gap: 1rem;
         padding: 0.7rem 1rem;
-        background: #fff;
+        background: var(--white);
         border: 1px solid var(--gray-border);
         border-left-width: 4px;
         border-left-style: solid;
@@ -63,7 +63,7 @@
     .home-card.disponible { border-left-color: #86BC25; }
     .home-card.preview    {
         border-left-color: #A7A8AA;
-        background: #F5F5F4;     /* sombreado sutil para los Preview */
+        background: var(--gray-bg);     /* sombreado sutil para los Preview */
     }
     .home-card.preview h2 { color: var(--gray-11); }  /* un pelín menos énfasis */
 
@@ -130,7 +130,7 @@
         white-space: nowrap;
     }
     .home-card.preview .btn-mini {
-        background: #fff;
+        background: var(--white);
         color: var(--gray-11);
         border-color: var(--gray-1);
     }
@@ -173,7 +173,7 @@
     @media (max-width: 500px) { .dh-strip { grid-template-columns: 1fr; } }
 
     .dh-card {
-        background: #fff;
+        background: var(--white);
         border: 1px solid var(--gray-border);
         border-radius: 3px;
         padding: 0.4rem 0.55rem 0.35rem;
@@ -288,7 +288,7 @@
 
     /* --- Dashboard charts compactos en la columna derecha --- */
     .dh-chart-box {
-        background: #fff; border: 1px solid var(--gray-border); border-radius: 3px;
+        background: var(--white); border: 1px solid var(--gray-border); border-radius: 3px;
         padding: 0.5rem 0.7rem;
     }
     .dh-chart-box h3 {
@@ -317,6 +317,15 @@
 <div class="home-layout">
     <!-- COLUMNA IZQUIERDA: funcionalidades compactas -->
     <div class="home-left app-stagger">
+        <a href="/habla-con-tus-datos" class="home-card disponible">
+            <span class="ico">{{ icon("chat", size=22) }}</span>
+            <div class="body">
+                <h2>Habla con tus datos</h2>
+                <div class="desc">Pregunta en lenguaje natural sobre los indicadores financieros y la documentación corporativa en una sola conversación. La inteligencia artificial resuelve con la información de la base de datos cuando es posible —incluyendo los KPIs definidos en el diccionario funcional— y complementa con evidencias del repositorio documental. Cada afirmación es trazable a su fuente.</div>
+            </div>
+            <div class="right"><span class="btn-mini">Acceder</span></div>
+        </a>
+
         {% if EMPRESA_COTIZA %}
         <a href="/analisis" class="home-card disponible">
             <span class="ico">{{ icon("bar-chart", size=22) }}</span>
@@ -332,7 +341,7 @@
             <span class="ico">{{ icon("mail", size=22) }}</span>
             <div class="body">
                 <h2>
-                    Relación con Inversores
+                    Relación con Stakeholders
                     {% if ir_pendientes is none %}
                         <span class="pill-badge warn">{{ icon("alert", size=13) }} Gmail no conectado</span>
                     {% elif ir_pendientes == 0 %}
@@ -343,16 +352,7 @@
                         <span class="pill-badge ok">{{ icon("mail-open", size=13) }} {{ ir_pendientes }} correos pendientes en bandeja</span>
                     {% endif %}
                 </h2>
-                <div class="desc">Centraliza las consultas entrantes de inversores, clasifica cada mensaje por tipología (minorista o institucional) y propone un borrador de respuesta trazable, apoyado en la documentación corporativa oficial y en las líneas maestras aprobadas por la compañía.</div>
-            </div>
-            <div class="right"><span class="btn-mini">Acceder</span></div>
-        </a>
-
-        <a href="/habla-con-tus-datos" class="home-card disponible">
-            <span class="ico">{{ icon("chat", size=22) }}</span>
-            <div class="body">
-                <h2>Habla con tus datos</h2>
-                <div class="desc">Pregunta en lenguaje natural sobre los indicadores financieros y la documentación corporativa en una sola conversación. La inteligencia artificial resuelve con los datos estructurados cuando es posible —incluyendo los KPIs definidos en el diccionario funcional— y complementa con evidencias del repositorio documental. Cada afirmación es trazable a su fuente.</div>
+                <div class="desc">Centraliza las consultas entrantes de los stakeholders corporativos —inversores, analistas, auditores, reguladores y otros interlocutores— clasifica cada mensaje por tipología y propone un borrador de respuesta trazable, apoyado en la documentación corporativa oficial y en las líneas maestras aprobadas por la compañía.</div>
             </div>
             <div class="right"><span class="btn-mini">Acceder</span></div>
         </a>

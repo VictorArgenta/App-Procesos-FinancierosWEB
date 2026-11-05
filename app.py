@@ -581,7 +581,7 @@ def empresa_logo():
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# Credenciales de Gmail. El módulo Relación con Inversores lee los correos
+# Credenciales de Gmail. El módulo Relación con Stakeholders lee los correos
 # cuyo asunto empieza por `f"{TICKER_FIJO}-{IR_PREFIJO_ASUNTO}-"` (por defecto
 # "META-Inversores-" si se arrancó con `python app.py META`) recibidos en las
 # últimas dos horas. Si faltan credenciales, el módulo muestra una vista de
@@ -4348,7 +4348,7 @@ def _resolver_correo_ir(correo, datos, modelo=None, fuentes_activas=None):
     ticker = TICKER_FIJO or ""
     tabla = _texto_datos_para_prompt(datos) if datos else "(no hay datos financieros disponibles en este momento)"
 
-    prompt = f"""Eres el equipo de Relación con Inversores de {empresa} ({ticker}).
+    prompt = f"""Eres el equipo de Relación con Stakeholders de {empresa} ({ticker}).
 Acabas de recibir el siguiente correo electrónico de un inversor.
 
 [CORREO RECIBIDO]
@@ -4478,7 +4478,7 @@ válido, sin comentarios, sin texto antes ni después, sin acentos graves:
   "perfil_estimado": "Frase breve describiendo al remitente y por qué.",
   "puede_resolver": true,
   "asunto_respuesta": "Re: {correo['asunto']}",
-  "cuerpo_respuesta": "Estimado/a ...\\n\\n[texto en prosa, sin tablas ni listados tabulares]\\n\\nUn saludo,\\nEquipo de Relación con Inversores — {empresa}",
+  "cuerpo_respuesta": "Estimado/a ...\\n\\n[texto en prosa, sin tablas ni listados tabulares]\\n\\nUn saludo,\\nEquipo de Relación con Stakeholders — {empresa}",
   "nota_interna": "1-2 frases para el usuario."
 }}
 """
@@ -4894,7 +4894,7 @@ def _refinar_correo_ir(correo, datos, borrador_actual, historial, mensaje_usuari
         rol = "Usuario" if (turno.get("role") == "user") else "Asistente"
         historial_txt += f"\n{rol}: {(turno.get('content') or '').strip()}"
 
-    prompt = f"""Eres el equipo de Relación con Inversores de {empresa} ({ticker}).
+    prompt = f"""Eres el equipo de Relación con Stakeholders de {empresa} ({ticker}).
 Estás revisando con el usuario el borrador de respuesta a un correo de un
 inversor. El usuario te pedirá cambios o te preguntará cosas; aplica las
 modificaciones necesarias al borrador.
@@ -6759,13 +6759,261 @@ def habla_leer_diccionario():
             plantilla = plantilla_ruta.read_text(encoding="utf-8")
         except OSError:
             plantilla = ""
+    # Serializamos las entradas a JSON "amable" para la ficha estructurada.
+    entradas_json = []
+    for _k, e in entradas.items():
+        campos = e.get("campos", {})
+        entradas_json.append({
+            "nombre": e.get("nombre", ""),
+            "clave": e.get("clave_norm", ""),
+            "definicion": campos.get("definicion", ""),
+            "sinonimos": [s.strip() for s in re.split(r"[;,]", campos.get("sinonimos") or "") if s.strip()],
+            "formula": campos.get("formula", ""),
+            "presentacion": campos.get("presentacion", ""),
+            "tags": [t.strip() for t in re.split(r"[;,]", campos.get("tags") or "") if t.strip()],
+        })
+    # Ordenar alfabéticamente por nombre (case-insensitive).
+    entradas_json.sort(key=lambda e: e["nombre"].lower())
     return jsonify({
         "ok": True,
         "texto": texto,
+        "entradas": entradas_json,
         "n_entradas": len(entradas),
         "plantilla_disponible": bool(plantilla),
         "plantilla": plantilla,
     })
+
+
+@app.route("/habla-con-tus-datos/partidas", methods=["GET"])
+def habla_listar_partidas():
+    """Devuelve la lista de partidas disponibles en el dataset de la empresa
+    activa, para el autocompletar de referencias [X] en el editor de fórmulas.
+    """
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    if not _empresa_cotiza():
+        return jsonify({"ok": True, "partidas": []})
+    try:
+        datos = _cargar_datos_ticker_fijo()
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)}), 500
+    if not datos:
+        return jsonify({"ok": True, "partidas": []})
+    nombres = set()
+    # 1) Campos de alto nivel de datos.periodos
+    etiquetas = [
+        "Ingresos totales", "Coste de los ingresos", "Beneficio bruto",
+        "Gastos operativos", "EBITDA", "EBIT", "Amortizaciones (D&A)",
+        "Gastos generales y de administración", "Investigación y desarrollo",
+        "Ingresos por intereses", "Gastos por intereses",
+        "Resultado financiero neto", "Beneficio antes de impuestos",
+        "Provisión para impuestos sobre la renta", "Beneficio neto",
+        "BPA básico", "BPA diluido",
+    ]
+    nombres.update(etiquetas)
+    # 2) Conceptos reales de los tres estados
+    estados = datos.get("estados") or {}
+    for clave in ("income_statement", "balance_sheet", "cashflow"):
+        bloque = estados.get(clave) or {}
+        for fila in bloque.get("filas") or []:
+            concepto = fila.get("concepto") or ""
+            if concepto:
+                nombres.add(concepto)
+    return jsonify({
+        "ok": True,
+        "partidas": sorted(nombres, key=lambda s: s.lower()),
+    })
+
+
+@app.route("/habla-con-tus-datos/diccionario/entrada", methods=["POST"])
+def habla_guardar_entrada():
+    """Crea o actualiza UNA entrada del diccionario (modo ficha estructurada).
+
+    Body JSON:
+        {
+          "nombre": "<nombre canónico>",            (req)
+          "clave_original": "<clave previa si editas>",  (opcional)
+          "definicion": "",
+          "sinonimos": ["alias1", "alias2"],
+          "formula": "[X] + [Y]",
+          "presentacion": "",
+          "tags": ["tag1"]
+        }
+
+    Devuelve `{ok, warnings, n_entradas}` donde `warnings` puede contener:
+      - `duplicado`: ya había una entrada con ese nombre.
+      - `sinonimos_colision`: alias que ya pertenecen a otra entrada.
+      - `formula_error`: la fórmula no parsea o referencia partidas inexistentes.
+    """
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    nombre = (data.get("nombre") or "").strip()
+    if not nombre:
+        return jsonify({"ok": False, "error": "El nombre es obligatorio."}), 400
+    if len(nombre) > 200:
+        return jsonify({"ok": False, "error": "Nombre demasiado largo."}), 400
+    definicion = (data.get("definicion") or "").strip()
+    sinonimos = [s.strip() for s in (data.get("sinonimos") or []) if s and s.strip()]
+    formula = (data.get("formula") or "").strip()
+    presentacion = (data.get("presentacion") or "").strip()
+    tags = [t.strip() for t in (data.get("tags") or []) if t and t.strip()]
+    clave_original = (data.get("clave_original") or "").strip().lower()
+
+    # Carga actual
+    entradas, texto = _cargar_diccionario_activo()
+    clave_nueva = _dicc._normalizar(nombre)
+
+    warnings = []
+
+    # Si editas y cambias de nombre, quita la clave antigua
+    if clave_original and clave_original != clave_nueva and clave_original in entradas:
+        del entradas[clave_original]
+
+    # Aviso de duplicado al crear
+    if not clave_original and clave_nueva in entradas:
+        warnings.append({
+            "tipo": "duplicado",
+            "mensaje": f"Ya existe una entrada '{entradas[clave_nueva].get('nombre')}' con ese nombre; se sobrescribe.",
+        })
+
+    # Sinónimos colisionan con otra entrada
+    sin_norm = {_dicc._normalizar(s): s for s in sinonimos}
+    colisiones = []
+    for k, e in entradas.items():
+        if k == clave_nueva:
+            continue
+        existentes = [s.strip() for s in re.split(r"[;,]", (e.get("campos", {}).get("sinonimos") or "")) if s.strip()]
+        for s_ex in existentes:
+            if _dicc._normalizar(s_ex) in sin_norm:
+                colisiones.append({"sinonimo": sin_norm[_dicc._normalizar(s_ex)], "en": e.get("nombre")})
+    if colisiones:
+        warnings.append({
+            "tipo": "sinonimos_colision",
+            "mensaje": "Alias ya en uso en otras entradas: " +
+                       ", ".join(f"{c['sinonimo']} → {c['en']}" for c in colisiones),
+            "detalle": colisiones,
+        })
+
+    # Validación de fórmula: parseo + verificar referencias
+    if formula:
+        # Intentamos resolver contra los datos actuales si existen; sin
+        # datos, solo chequeamos que parsee con AST seguro usando valores
+        # dummy 1.0.
+        try:
+            datos_dummy = None
+            if _empresa_cotiza():
+                try:
+                    datos_dummy = _cargar_datos_ticker_fijo()
+                except Exception:  # noqa: BLE001
+                    datos_dummy = None
+            refs = re.findall(r"\[([^\]]+)\]", formula)
+            if not refs:
+                warnings.append({"tipo": "formula_error",
+                                 "mensaje": "La fórmula no contiene referencias [Nombre]."})
+            else:
+                # Validamos referencias contra el dataset real (si tenemos)
+                if datos_dummy:
+                    entradas_temp = dict(entradas)
+                    # Insertamos la entrada tal como quedará para permitir
+                    # auto-referencias en la validación recursiva.
+                    entradas_temp[clave_nueva] = {
+                        "nombre": nombre, "clave_norm": clave_nueva,
+                        "campos": {"formula": formula, "sinonimos": "; ".join(sinonimos)},
+                    }
+                    res = _dicc.resolver_formula(formula, datos_dummy, entradas_temp)
+                    if not res.get("ok"):
+                        warnings.append({
+                            "tipo": "formula_error",
+                            "mensaje": f"Fórmula no resoluble ahora: {res.get('error')}",
+                        })
+        except Exception as e:  # noqa: BLE001
+            warnings.append({"tipo": "formula_error",
+                             "mensaje": f"Error validando fórmula: {e}"})
+
+    # Compone el nuevo bloque y reescribe el fichero completo
+    entradas[clave_nueva] = {
+        "nombre": nombre,
+        "clave_norm": clave_nueva,
+        "campos": {
+            **({"definicion": definicion} if definicion else {}),
+            **({"sinonimos": "; ".join(sinonimos)} if sinonimos else {}),
+            **({"formula": formula} if formula else {}),
+            **({"presentacion": presentacion} if presentacion else {}),
+            **({"tags": ", ".join(tags)} if tags else {}),
+        },
+    }
+
+    nuevo_texto = _diccionario_a_texto_plano(entradas, texto)
+    try:
+        _dicc.guardar_diccionario_empresa(TICKER_FIJO, nuevo_texto, _ROOT_DIR / "Empresas")
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"No se pudo guardar: {e}"}), 500
+
+    return jsonify({
+        "ok": True,
+        "warnings": warnings,
+        "n_entradas": len(entradas),
+    })
+
+
+@app.route("/habla-con-tus-datos/diccionario/entrada/<path:clave>", methods=["DELETE"])
+def habla_borrar_entrada(clave):
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    entradas, texto = _cargar_diccionario_activo()
+    clave_norm = _dicc._normalizar(clave)
+    if clave_norm not in entradas:
+        return jsonify({"ok": False, "error": "Entrada no encontrada."}), 404
+    nombre = entradas[clave_norm].get("nombre", clave)
+    del entradas[clave_norm]
+    nuevo_texto = _diccionario_a_texto_plano(entradas, texto)
+    try:
+        _dicc.guardar_diccionario_empresa(TICKER_FIJO, nuevo_texto, _ROOT_DIR / "Empresas")
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"No se pudo guardar: {e}"}), 500
+    return jsonify({"ok": True, "borrada": nombre, "n_entradas": len(entradas)})
+
+
+def _diccionario_a_texto_plano(entradas, texto_original=""):
+    """Serializa el dict de entradas al formato bloque plano del .txt.
+
+    Conserva el preámbulo de comentarios del texto original (líneas '#' antes
+    de la primera entrada) para no perder los metadatos / instrucciones.
+    """
+    preambulo = ""
+    if texto_original:
+        lineas_prev = texto_original.splitlines()
+        buffer = []
+        for ln in lineas_prev:
+            s = ln.strip()
+            if not s or s.startswith("#"):
+                buffer.append(ln)
+                continue
+            break
+        preambulo = "\n".join(buffer).rstrip() + "\n\n" if buffer else ""
+
+    bloques = []
+    # Ordenar alfabéticamente por nombre para legibilidad
+    orden = sorted(entradas.values(), key=lambda e: e.get("nombre", "").lower())
+    for e in orden:
+        campos = e.get("campos", {})
+        bloque = [e.get("nombre", "")]
+        if campos.get("definicion"):
+            bloque.append(f"Definicion: {campos['definicion']}")
+        if campos.get("sinonimos"):
+            bloque.append(f"Sinonimos: {campos['sinonimos']}")
+        if campos.get("formula"):
+            bloque.append(f"Formula: {campos['formula']}")
+        if campos.get("presentacion"):
+            bloque.append(f"Presentacion: {campos['presentacion']}")
+        if campos.get("tags"):
+            bloque.append(f"Tags: {campos['tags']}")
+        bloques.append("\n".join(bloque))
+    return preambulo + "\n\n".join(bloques) + "\n"
 
 
 @app.route("/habla-con-tus-datos/diccionario", methods=["POST"])
