@@ -5490,14 +5490,11 @@ def _parsear_respuesta_con_citas(texto, fuentes_por_numero):
 
 @app.route("/consulta-documental")
 def consulta_documental():
-    if not TICKER_FIJO:
-        from flask import redirect
-        return redirect("/")
-    return render_template(
-        "consulta_documental.html",
-        modelos_disponibles=MODELOS_DISPONIBLES,
-        modelo_default=MODELO_POR_DEFECTO,
-    )
+    """Jubilada: ahora redirige a 'Habla con tus datos' en modo solo documental.
+    Los endpoints /consulta-documental/* se mantienen por compatibilidad para
+    las conversaciones ya guardadas en Empresas/{TICKER}/memoria/chats/.
+    """
+    return redirect(url_for("habla_con_tus_datos", fuente="solo_doc"))
 
 
 @app.route("/consulta-documental/chats", methods=["GET"])
