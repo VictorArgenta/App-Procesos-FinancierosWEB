@@ -524,6 +524,188 @@
         border-radius: 4px;
     }
     .hd-close-x:hover { color: var(--black); background: var(--gray-bg); }
+
+    /* === Diccionario: ficha con lista + formulario === */
+    .hd-modal.hd-modal-xl { width: min(1100px, 100%); }
+    .hd-modal-split {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 0;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+    @media (max-width: 760px) {
+        .hd-modal-split { grid-template-columns: 1fr; }
+        .hd-dict-list-col { border-right: 0; border-bottom: 1px solid var(--gray-border); max-height: 240px; }
+    }
+    .hd-dict-list-col {
+        border-right: 1px solid var(--gray-border);
+        display: flex; flex-direction: column;
+        min-height: 0;
+        background: var(--gray-bg);
+    }
+    .hd-dict-list-head {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--gray-border);
+        display: flex; gap: 6px; align-items: center;
+        background: #fff;
+    }
+    .hd-dict-search {
+        flex: 1; font-family: inherit; font-size: 0.82rem;
+        padding: 6px 10px;
+        border: 1px solid var(--gray-border);
+        border-radius: 5px; background: var(--white); color: var(--black);
+    }
+    .hd-dict-search:focus { outline: none; border-color: var(--deloitte-green); }
+    .hd-dict-new {
+        padding: 6px 10px !important; font-size: 0.75rem !important;
+        white-space: nowrap;
+    }
+    .hd-dict-list {
+        list-style: none; padding: 6px 4px; margin: 0;
+        overflow-y: auto; flex: 1; min-height: 0;
+    }
+    .hd-dict-item {
+        padding: 7px 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        margin-bottom: 1px;
+        position: relative;
+    }
+    .hd-dict-item:hover { background: #fff; border-color: var(--gray-border); }
+    .hd-dict-item.active {
+        background: var(--deloitte-green-soft);
+        border-color: var(--deloitte-green);
+    }
+    .hd-dict-item-name {
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--black);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-right: 22px;
+    }
+    .hd-dict-item-meta {
+        font-size: 0.68rem;
+        color: var(--gray-10);
+        margin-top: 2px;
+        display: flex; gap: 4px; flex-wrap: wrap;
+    }
+    .hd-dict-item-meta .marker {
+        background: var(--white);
+        border: 1px solid var(--gray-border);
+        border-radius: 3px;
+        padding: 0 5px;
+        font-weight: 600;
+    }
+    .hd-dict-item-meta .marker.kpi { background: var(--deloitte-green-soft); color: var(--deloitte-green-dark); border-color: var(--deloitte-green); }
+    .hd-dict-list-foot {
+        padding: 8px 12px;
+        border-top: 1px solid var(--gray-border);
+        font-size: 0.7rem;
+        color: var(--gray-10);
+        background: #fff;
+    }
+    .hd-dict-empty-list {
+        padding: 18px 12px;
+        text-align: center;
+        font-size: 0.78rem;
+        color: var(--gray-10);
+        font-style: italic;
+    }
+
+    .hd-dict-form-col {
+        overflow-y: auto;
+        padding: 16px 20px 20px;
+        background: var(--white);
+        min-height: 0;
+    }
+    .hd-dict-empty {
+        padding: 30px 20px;
+        text-align: center;
+        color: var(--gray-10);
+        font-size: 0.86rem;
+        max-width: 400px;
+        margin: 40px auto;
+    }
+    .hd-dict-empty p { margin: 0; line-height: 1.55; }
+
+    .hd-dict-form { display: flex; flex-direction: column; gap: 14px; }
+    .hd-dict-field { display: flex; flex-direction: column; gap: 4px; }
+    .hd-dict-field label {
+        font-size: 0.78rem; font-weight: 600; color: var(--black);
+        display: flex; flex-direction: column; gap: 2px;
+    }
+    .hd-dict-hint {
+        font-size: 0.7rem; color: var(--gray-10); font-weight: 400;
+    }
+    .hd-dict-field input[type="text"],
+    .hd-dict-field textarea {
+        font-family: inherit;
+        font-size: 0.86rem;
+        padding: 8px 10px;
+        border: 1px solid var(--gray-border);
+        border-radius: 5px;
+        background: var(--white); color: var(--black);
+        line-height: 1.5;
+        resize: vertical;
+    }
+    .hd-dict-field input[type="text"]:focus,
+    .hd-dict-field textarea:focus { outline: none; border-color: var(--deloitte-green); }
+    .hd-dict-field textarea { min-height: 42px; }
+    #dict-formula { font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 0.82rem; }
+    .hd-dict-fieldmsg {
+        font-size: 0.72rem; color: var(--gray-10); min-height: 14px;
+    }
+    .hd-dict-fieldmsg.error { color: var(--danger); }
+    .hd-dict-fieldmsg.warn  { color: var(--warning); }
+    .hd-dict-fieldmsg.ok    { color: var(--deloitte-green-dark); }
+
+    /* Chips */
+    .hd-chips {
+        display: flex; flex-wrap: wrap; gap: 5px;
+        padding: 4px 0 2px;
+    }
+    .hd-chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 4px 3px 9px;
+        background: var(--deloitte-green-soft);
+        border: 1px solid var(--deloitte-green);
+        border-radius: 999px;
+        font-size: 0.76rem;
+        color: var(--deloitte-green-dark);
+    }
+    .hd-chip button {
+        background: transparent; border: 0;
+        color: var(--deloitte-green-dark);
+        padding: 2px 4px; cursor: pointer;
+        border-radius: 50%;
+        font-size: 0.78rem; line-height: 1;
+    }
+    .hd-chip button:hover { background: var(--deloitte-green); color: #fff; }
+    .hd-chips-input {
+        margin-top: 4px;
+    }
+
+    /* Warnings bloque */
+    .hd-dict-warnings {
+        display: flex; flex-direction: column; gap: 6px;
+    }
+    .hd-dict-warnings .warn-box {
+        background: #FFF8E1; border: 1px solid #FFE082; color: #5D4037;
+        padding: 7px 11px; border-radius: 6px; font-size: 0.8rem;
+        display: flex; gap: 8px; align-items: flex-start;
+    }
+    .hd-dict-warnings .warn-box.err {
+        background: #FDECEA; border-color: #F5C6CB; color: var(--danger);
+    }
+    .hd-dict-warnings .warn-box.ok {
+        background: var(--deloitte-green-soft); border-color: var(--deloitte-green);
+        color: var(--deloitte-green-dark);
+    }
 </style>
 
 <div class="hd-wrap">
@@ -614,9 +796,9 @@
     </section>
 </div>
 
-<!-- Modal diccionario -->
+<!-- Modal diccionario (ficha estructurada) -->
 <div class="hd-modal-backdrop" id="dict-modal" role="dialog" aria-modal="true" aria-labelledby="dict-title">
-    <div class="hd-modal">
+    <div class="hd-modal hd-modal-xl">
         <div class="hd-modal-head">
             <div>
                 <h3 id="dict-title">{{ icon("folder", size=16) }} Diccionario funcional — {{ EMPRESA_NOMBRE }}</h3>
@@ -624,15 +806,117 @@
             </div>
             <button type="button" class="hd-close-x" onclick="hdDict.close()" aria-label="Cerrar">{{ icon("x", size=16) }}</button>
         </div>
-        <div class="hd-modal-body">
-            <textarea id="dict-text" spellcheck="false" placeholder="Escribe aquí el vocabulario corporativo y los KPIs…"></textarea>
+        <div class="hd-modal-split">
+            <!-- Columna izquierda: lista -->
+            <aside class="hd-dict-list-col">
+                <div class="hd-dict-list-head">
+                    <input type="text" id="dict-buscador" placeholder="Buscar entrada…" class="hd-dict-search">
+                    <button type="button" class="hd-btn-primary hd-dict-new" id="dict-nueva">
+                        {{ icon("pencil", size=13) }} Nueva
+                    </button>
+                </div>
+                <ul class="hd-dict-list" id="dict-list"></ul>
+                <div class="hd-dict-list-foot" id="dict-list-foot"></div>
+            </aside>
+
+            <!-- Columna derecha: ficha -->
+            <section class="hd-dict-form-col">
+                <div id="dict-empty-state" class="hd-dict-empty">
+                    <p>Selecciona una entrada de la izquierda o pulsa <strong>Nueva</strong> para crear una nueva definición, sinónimo, KPI o instrucción de presentación.</p>
+                </div>
+                <form id="dict-form" class="hd-dict-form" style="display: none;" onsubmit="return false;">
+                    <input type="hidden" id="dict-clave-original">
+
+                    <div class="hd-dict-field">
+                        <label for="dict-nombre">
+                            Nombre canónico
+                            <span class="hd-dict-hint">obligatorio · el concepto oficial, tal como lo entiende el sistema</span>
+                        </label>
+                        <input type="text" id="dict-nombre" list="dict-partidas-list" autocomplete="off" placeholder="Ej: EBITDA, Margen neto, Deuda neta…">
+                        <datalist id="dict-partidas-list"></datalist>
+                        <div class="hd-dict-fieldmsg" id="dict-nombre-msg"></div>
+                    </div>
+
+                    <div class="hd-dict-field">
+                        <label for="dict-definicion">
+                            Definición
+                            <span class="hd-dict-hint">qué es y cómo interpretarlo</span>
+                        </label>
+                        <textarea id="dict-definicion" rows="2" placeholder="Opcional. Explicación breve del concepto."></textarea>
+                    </div>
+
+                    <div class="hd-dict-field">
+                        <label>
+                            Sinónimos y alias corporativos
+                            <span class="hd-dict-hint">cómo se refieren internamente a este concepto</span>
+                        </label>
+                        <div class="hd-chips" id="dict-sinonimos-chips"></div>
+                        <input type="text" id="dict-sinonimos-input" class="hd-chips-input" placeholder="Escribe un alias y pulsa Enter…">
+                        <div class="hd-dict-fieldmsg" id="dict-sinonimos-msg"></div>
+                    </div>
+
+                    <div class="hd-dict-field">
+                        <label for="dict-formula">
+                            Fórmula (opcional, solo para KPIs calculados)
+                            <span class="hd-dict-hint">operadores + − × ÷ y referencias [Nombre] entre corchetes</span>
+                        </label>
+                        <textarea id="dict-formula" rows="2" spellcheck="false" placeholder="Ej: [EBITDA] / [Ingresos totales] * 100"></textarea>
+                        <div class="hd-dict-fieldmsg" id="dict-formula-msg"></div>
+                    </div>
+
+                    <div class="hd-dict-field">
+                        <label for="dict-presentacion">
+                            Instrucciones de presentación
+                            <span class="hd-dict-hint">cómo quieres que se muestre: unidad, decimales, desglose, semáforos…</span>
+                        </label>
+                        <textarea id="dict-presentacion" rows="2" placeholder="Ej: En millones, con margen sobre ingresos en %. Comparar contra año anterior."></textarea>
+                    </div>
+
+                    <div class="hd-dict-field">
+                        <label>
+                            Etiquetas
+                            <span class="hd-dict-hint">para agrupar entradas (pyg, balance, kpi, apalancamiento…)</span>
+                        </label>
+                        <div class="hd-chips" id="dict-tags-chips"></div>
+                        <input type="text" id="dict-tags-input" class="hd-chips-input" placeholder="Escribe una etiqueta y pulsa Enter…">
+                    </div>
+
+                    <div class="hd-dict-warnings" id="dict-warnings"></div>
+                </form>
+            </section>
         </div>
         <div class="hd-modal-foot">
-            <span class="info" id="dict-info">Los cambios se aplican a la próxima pregunta.</span>
             <div style="display: flex; gap: 8px;">
                 <button type="button" class="hd-btn-ghost" id="dict-plantilla-btn" style="display: none;">Cargar plantilla</button>
-                <button type="button" class="hd-btn-ghost" onclick="hdDict.close()">Cancelar</button>
-                <button type="button" class="hd-btn-primary" onclick="hdDict.guardar()">Guardar</button>
+                <button type="button" class="hd-btn-ghost" onclick="hdDictAdv.abrir()">Vista avanzada (texto)</button>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="hd-btn-danger" id="dict-borrar-btn" style="display: none;" onclick="hdDict.borrar()">Borrar entrada</button>
+                <button type="button" class="hd-btn-ghost" onclick="hdDict.close()">Cerrar</button>
+                <button type="button" class="hd-btn-primary" id="dict-guardar-btn" style="display: none;" onclick="hdDict.guardar()">Guardar entrada</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal avanzado: edición del fichero completo como texto -->
+<div class="hd-modal-backdrop" id="dict-adv-modal" role="dialog" aria-modal="true" aria-labelledby="dict-adv-title">
+    <div class="hd-modal">
+        <div class="hd-modal-head">
+            <div>
+                <h3 id="dict-adv-title">{{ icon("folder", size=16) }} Vista avanzada · diccionario completo</h3>
+                <div class="desc">Edición directa del fichero diccionario.txt. Para power users; los cambios se validan al guardar.</div>
+            </div>
+            <button type="button" class="hd-close-x" onclick="hdDictAdv.close()" aria-label="Cerrar">{{ icon("x", size=16) }}</button>
+        </div>
+        <div class="hd-modal-body">
+            <textarea id="dict-adv-text" spellcheck="false" placeholder="Escribe aquí el vocabulario corporativo y los KPIs…"></textarea>
+        </div>
+        <div class="hd-modal-foot">
+            <span class="info" id="dict-adv-info">Los cambios se aplican a la próxima pregunta.</span>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="hd-btn-ghost" onclick="hdDictAdv.close()">Cancelar</button>
+                <button type="button" class="hd-btn-primary" onclick="hdDictAdv.guardar()">Guardar</button>
             </div>
         </div>
     </div>
@@ -1010,32 +1294,406 @@
         });
     });
 
-    // ---------- Modal diccionario ----------
+    // ---------- Chips reusable ----------
+    function chipsController(contenedorId, inputId, iniciales) {
+        const cont = document.getElementById(contenedorId);
+        const inp = document.getElementById(inputId);
+        let items = (iniciales || []).slice();
+        function render() {
+            cont.innerHTML = '';
+            items.forEach((v, i) => {
+                const c = document.createElement('span');
+                c.className = 'hd-chip';
+                c.innerHTML = `<span></span><button type="button" title="Quitar" aria-label="Quitar">✕</button>`;
+                c.querySelector('span').textContent = v;
+                c.querySelector('button').addEventListener('click', () => {
+                    items.splice(i, 1);
+                    render();
+                });
+                cont.appendChild(c);
+            });
+        }
+        function add(v) {
+            const t = (v || '').trim();
+            if (!t) return;
+            if (items.some(x => x.toLowerCase() === t.toLowerCase())) return;
+            items.push(t);
+            render();
+            inp.value = '';
+        }
+        inp.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+                e.preventDefault();
+                add(inp.value);
+            } else if (e.key === 'Backspace' && !inp.value && items.length) {
+                items.pop();
+                render();
+            }
+        });
+        inp.addEventListener('blur', () => { if (inp.value) add(inp.value); });
+        render();
+        return {
+            get: () => items.slice(),
+            set: (nuevos) => { items = (nuevos || []).slice(); render(); },
+            clear: () => { items = []; render(); },
+        };
+    }
+
+    // ---------- Modal diccionario (ficha estructurada) ----------
     const hdDict = {
         el: document.getElementById('dict-modal'),
-        txt: document.getElementById('dict-text'),
         desc: document.getElementById('dict-desc'),
         btnPlantilla: document.getElementById('dict-plantilla-btn'),
+        emptyState: document.getElementById('dict-empty-state'),
+        form: document.getElementById('dict-form'),
+        buscador: document.getElementById('dict-buscador'),
+        lista: document.getElementById('dict-list'),
+        listaFoot: document.getElementById('dict-list-foot'),
+        partidasList: document.getElementById('dict-partidas-list'),
+        btnBorrar: document.getElementById('dict-borrar-btn'),
+        btnGuardar: document.getElementById('dict-guardar-btn'),
+        warnings: document.getElementById('dict-warnings'),
+        inp: {
+            claveOrig: document.getElementById('dict-clave-original'),
+            nombre: document.getElementById('dict-nombre'),
+            definicion: document.getElementById('dict-definicion'),
+            formula: document.getElementById('dict-formula'),
+            presentacion: document.getElementById('dict-presentacion'),
+        },
+        msg: {
+            nombre: document.getElementById('dict-nombre-msg'),
+            sinonimos: document.getElementById('dict-sinonimos-msg'),
+            formula: document.getElementById('dict-formula-msg'),
+        },
         plantilla: '',
+        entradas: [],
+        partidas: [],
+        seleccionada: null,  // clave original de la entrada activa
+        sinChips: null,
+        tagsChips: null,
+
         async abrir() {
             this.el.setAttribute('open', '');
             this.desc.textContent = 'Cargando…';
+            this.warnings.innerHTML = '';
+            await this.cargarTodo();
+        },
+        close() { this.el.removeAttribute('open'); },
+
+        async cargarTodo() {
+            try {
+                const [rDic, rPart] = await Promise.all([
+                    fetch('/habla-con-tus-datos/diccionario'),
+                    fetch('/habla-con-tus-datos/partidas').catch(() => null),
+                ]);
+                const j = await rDic.json();
+                if (!j.ok) throw new Error(j.error);
+                this.entradas = j.entradas || [];
+                this.plantilla = j.plantilla || '';
+                this.desc.textContent = `${j.n_entradas} entrada${j.n_entradas===1?'':'s'} cargadas.`;
+                if (!j.n_entradas && j.plantilla_disponible) {
+                    this.btnPlantilla.style.display = '';
+                    this.btnPlantilla.onclick = async () => {
+                        this.btnPlantilla.disabled = true;
+                        await this.guardarTextoCompleto(this.plantilla);
+                        this.btnPlantilla.style.display = 'none';
+                    };
+                } else {
+                    this.btnPlantilla.style.display = 'none';
+                }
+                if (rPart && rPart.ok) {
+                    try {
+                        const jp = await rPart.json();
+                        this.partidas = jp.partidas || [];
+                    } catch (_) { this.partidas = []; }
+                }
+                this.renderPartidasAutocomplete();
+                this.renderLista();
+                this.mostrarEmpty();
+            } catch (e) {
+                this.desc.textContent = 'Error: ' + e.message;
+            }
+        },
+
+        renderPartidasAutocomplete() {
+            this.partidasList.innerHTML = '';
+            this.partidas.forEach(p => {
+                const o = document.createElement('option');
+                o.value = p;
+                this.partidasList.appendChild(o);
+            });
+        },
+
+        renderLista() {
+            const q = (this.buscador.value || '').toLowerCase().trim();
+            const items = this.entradas.filter(e => {
+                if (!q) return true;
+                const hay = (e.nombre + ' ' + (e.sinonimos || []).join(' ') + ' ' + (e.tags || []).join(' ')).toLowerCase();
+                return hay.includes(q);
+            });
+            this.lista.innerHTML = '';
+            if (!items.length) {
+                this.lista.innerHTML = `<li class="hd-dict-empty-list">${this.entradas.length ? 'Sin resultados.' : 'Sin entradas aún. Pulsa Nueva para crear la primera.'}</li>`;
+                this.listaFoot.textContent = `${this.entradas.length} entrada${this.entradas.length===1?'':'s'} en total`;
+                return;
+            }
+            items.forEach(e => {
+                const li = document.createElement('li');
+                li.className = 'hd-dict-item' + (this.seleccionada === e.clave ? ' active' : '');
+                const markers = [];
+                if (e.formula) markers.push('<span class="marker kpi">KPI</span>');
+                if ((e.sinonimos || []).length) markers.push(`<span class="marker">${e.sinonimos.length} alias</span>`);
+                if (e.presentacion) markers.push('<span class="marker">presentación</span>');
+                li.innerHTML = `
+                    <div class="hd-dict-item-name"></div>
+                    <div class="hd-dict-item-meta">${markers.join('') || '<span style="opacity:0.6;">solo definición</span>'}</div>
+                `;
+                li.querySelector('.hd-dict-item-name').textContent = e.nombre;
+                li.addEventListener('click', () => this.cargarEntrada(e));
+                this.lista.appendChild(li);
+            });
+            this.listaFoot.textContent = `Mostrando ${items.length} de ${this.entradas.length}`;
+        },
+
+        mostrarEmpty() {
+            this.emptyState.style.display = '';
+            this.form.style.display = 'none';
+            this.btnBorrar.style.display = 'none';
+            this.btnGuardar.style.display = 'none';
+            this.warnings.innerHTML = '';
+            document.querySelectorAll('.hd-dict-item').forEach(x => x.classList.remove('active'));
+            this.seleccionada = null;
+        },
+
+        nueva() {
+            this.seleccionada = null;
+            document.querySelectorAll('.hd-dict-item').forEach(x => x.classList.remove('active'));
+            this.emptyState.style.display = 'none';
+            this.form.style.display = '';
+            this.btnBorrar.style.display = 'none';
+            this.btnGuardar.style.display = '';
+            this.inp.claveOrig.value = '';
+            this.inp.nombre.value = '';
+            this.inp.definicion.value = '';
+            this.inp.formula.value = '';
+            this.inp.presentacion.value = '';
+            this.sinChips = chipsController('dict-sinonimos-chips', 'dict-sinonimos-input', []);
+            this.tagsChips = chipsController('dict-tags-chips', 'dict-tags-input', []);
+            this.warnings.innerHTML = '';
+            this.limpiarMsgs();
+            setTimeout(() => this.inp.nombre.focus(), 50);
+        },
+
+        cargarEntrada(entrada) {
+            this.seleccionada = entrada.clave;
+            document.querySelectorAll('.hd-dict-item').forEach((x, i) => {
+                x.classList.remove('active');
+            });
+            // Volver a buscar el <li> correspondiente después del render.
+            this.renderLista();
+            this.emptyState.style.display = 'none';
+            this.form.style.display = '';
+            this.btnBorrar.style.display = '';
+            this.btnGuardar.style.display = '';
+            this.inp.claveOrig.value = entrada.clave || '';
+            this.inp.nombre.value = entrada.nombre || '';
+            this.inp.definicion.value = entrada.definicion || '';
+            this.inp.formula.value = entrada.formula || '';
+            this.inp.presentacion.value = entrada.presentacion || '';
+            this.sinChips = chipsController('dict-sinonimos-chips', 'dict-sinonimos-input', entrada.sinonimos || []);
+            this.tagsChips = chipsController('dict-tags-chips', 'dict-tags-input', entrada.tags || []);
+            this.warnings.innerHTML = '';
+            this.limpiarMsgs();
+            this.validarInline();
+        },
+
+        limpiarMsgs() {
+            ['nombre', 'sinonimos', 'formula'].forEach(k => {
+                this.msg[k].textContent = '';
+                this.msg[k].className = 'hd-dict-fieldmsg';
+            });
+        },
+
+        validarInline() {
+            // Nombre: duplicado en creación
+            const nombre = (this.inp.nombre.value || '').trim();
+            const claveOrig = this.inp.claveOrig.value;
+            const norm = normalizar(nombre);
+            const dup = this.entradas.find(e => e.clave === norm && e.clave !== claveOrig);
+            if (dup && nombre) {
+                this.msg.nombre.textContent = `Ya existe una entrada "${dup.nombre}". Si guardas, se sobrescribirá.`;
+                this.msg.nombre.className = 'hd-dict-fieldmsg warn';
+            } else {
+                this.msg.nombre.textContent = '';
+                this.msg.nombre.className = 'hd-dict-fieldmsg';
+            }
+            // Sinónimos: colisión con otras entradas
+            const sinActuales = this.sinChips ? this.sinChips.get() : [];
+            const colisiones = [];
+            sinActuales.forEach(s => {
+                const sn = normalizar(s);
+                this.entradas.forEach(e => {
+                    if (e.clave === claveOrig) return;
+                    if ((e.sinonimos || []).some(ex => normalizar(ex) === sn)) {
+                        colisiones.push(`"${s}" → ${e.nombre}`);
+                    }
+                });
+            });
+            if (colisiones.length) {
+                this.msg.sinonimos.textContent = 'Alias ya en uso: ' + colisiones.join(', ');
+                this.msg.sinonimos.className = 'hd-dict-fieldmsg warn';
+            } else {
+                this.msg.sinonimos.textContent = '';
+            }
+            // Fórmula: paréntesis balanceados, referencias conocidas
+            const f = (this.inp.formula.value || '').trim();
+            if (f) {
+                const balance = (f.match(/\(/g) || []).length - (f.match(/\)/g) || []).length;
+                const refs = Array.from(f.matchAll(/\[([^\]]+)\]/g)).map(m => m[1].trim());
+                let fmt_err = null;
+                if (balance !== 0) fmt_err = 'Paréntesis no balanceados.';
+                else if (!refs.length) fmt_err = 'La fórmula no contiene referencias [Nombre].';
+                else if (/[\^%]|\*\*/.test(f)) fmt_err = 'Solo se permiten operadores + − × ÷ y paréntesis.';
+                // Referencias desconocidas
+                const desconocidas = [];
+                refs.forEach(r => {
+                    const rn = normalizar(r.replace(/^(pyg|balance|cashflow)\./i, ''));
+                    const enPartidas = this.partidas.some(p => normalizar(p) === rn);
+                    const enEntradas = this.entradas.some(e => e.clave === rn);
+                    if (!enPartidas && !enEntradas) desconocidas.push(r);
+                });
+                if (fmt_err) {
+                    this.msg.formula.textContent = fmt_err;
+                    this.msg.formula.className = 'hd-dict-fieldmsg error';
+                } else if (desconocidas.length) {
+                    this.msg.formula.textContent = 'Partidas no encontradas: ' + desconocidas.join(', ');
+                    this.msg.formula.className = 'hd-dict-fieldmsg warn';
+                } else {
+                    this.msg.formula.textContent = `${refs.length} referencia${refs.length>1?'s':''} resueltas correctamente.`;
+                    this.msg.formula.className = 'hd-dict-fieldmsg ok';
+                }
+            } else {
+                this.msg.formula.textContent = '';
+                this.msg.formula.className = 'hd-dict-fieldmsg';
+            }
+        },
+
+        async guardar() {
+            const nombre = (this.inp.nombre.value || '').trim();
+            if (!nombre) {
+                this.msg.nombre.textContent = 'El nombre es obligatorio.';
+                this.msg.nombre.className = 'hd-dict-fieldmsg error';
+                this.inp.nombre.focus();
+                return;
+            }
+            this.btnGuardar.disabled = true;
+            this.warnings.innerHTML = '';
+            try {
+                const body = {
+                    nombre,
+                    clave_original: this.inp.claveOrig.value || '',
+                    definicion: this.inp.definicion.value || '',
+                    sinonimos: this.sinChips ? this.sinChips.get() : [],
+                    formula: this.inp.formula.value || '',
+                    presentacion: this.inp.presentacion.value || '',
+                    tags: this.tagsChips ? this.tagsChips.get() : [],
+                };
+                const r = await fetch('/habla-con-tus-datos/diccionario/entrada', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body),
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                this.pintarWarnings(j.warnings || [], true);
+                this.desc.textContent = `${j.n_entradas} entrada${j.n_entradas===1?'':'s'} · guardado ✓`;
+                await this.cargarTodo();
+                // Reposiciona en la nueva entrada
+                const nueva = this.entradas.find(e => e.clave === normalizar(nombre));
+                if (nueva) this.cargarEntrada(nueva);
+            } catch (e) {
+                this.pintarWarnings([{tipo: 'error', mensaje: e.message}], true);
+            } finally {
+                this.btnGuardar.disabled = false;
+            }
+        },
+
+        async borrar() {
+            if (!this.seleccionada) return;
+            const nombre = this.inp.nombre.value || this.seleccionada;
+            const ok = await hdConfirm.ask('Borrar entrada', `¿Eliminar "${nombre}" del diccionario?`);
+            if (!ok) return;
+            try {
+                const r = await fetch(`/habla-con-tus-datos/diccionario/entrada/${encodeURIComponent(this.seleccionada)}`, {method: 'DELETE'});
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                await this.cargarTodo();
+                this.mostrarEmpty();
+            } catch (e) {
+                this.pintarWarnings([{tipo: 'error', mensaje: e.message}], true);
+            }
+        },
+
+        pintarWarnings(items, scroll) {
+            this.warnings.innerHTML = '';
+            items.forEach(w => {
+                const d = document.createElement('div');
+                d.className = 'warn-box' + (w.tipo === 'error' ? ' err' : '');
+                d.textContent = w.mensaje || w.toString();
+                this.warnings.appendChild(d);
+            });
+            if (items.length && scroll) this.warnings.scrollIntoView({block: 'nearest'});
+        },
+
+        async guardarTextoCompleto(texto) {
+            try {
+                const r = await fetch('/habla-con-tus-datos/diccionario', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({texto}),
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                await this.cargarTodo();
+            } catch (e) {
+                this.desc.textContent = 'Error al cargar plantilla: ' + e.message;
+            }
+        },
+    };
+
+    function normalizar(s) {
+        return (s || '').toString().toLowerCase().trim()
+            .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+            .replace(/\s+/g, ' ');
+    }
+
+    document.getElementById('dict-nueva').addEventListener('click', () => hdDict.nueva());
+    hdDict.buscador.addEventListener('input', () => hdDict.renderLista());
+    ['nombre', 'definicion', 'formula', 'presentacion'].forEach(k => {
+        hdDict.inp[k].addEventListener('input', () => hdDict.validarInline());
+    });
+
+    window.hdDict = hdDict;
+    EL.btnDict.addEventListener('click', () => hdDict.abrir());
+    hdDict.el.addEventListener('click', (e) => { if (e.target === hdDict.el) hdDict.close(); });
+
+    // ---------- Modal avanzado (texto plano completo) ----------
+    const hdDictAdv = {
+        el: document.getElementById('dict-adv-modal'),
+        txt: document.getElementById('dict-adv-text'),
+        info: document.getElementById('dict-adv-info'),
+        async abrir() {
+            this.el.setAttribute('open', '');
+            this.info.textContent = 'Cargando…';
             this.txt.value = '';
             try {
                 const r = await fetch('/habla-con-tus-datos/diccionario');
                 const j = await r.json();
                 if (!j.ok) throw new Error(j.error);
                 this.txt.value = j.texto || '';
-                this.plantilla = j.plantilla || '';
-                this.desc.textContent = `${j.n_entradas} entrada${j.n_entradas===1?'':'s'} cargadas.`;
-                if (!j.texto && j.plantilla_disponible) {
-                    this.btnPlantilla.style.display = '';
-                    this.btnPlantilla.onclick = () => { this.txt.value = this.plantilla; };
-                } else {
-                    this.btnPlantilla.style.display = 'none';
-                }
+                this.info.textContent = `${j.n_entradas} entrada${j.n_entradas===1?'':'s'} cargadas.`;
             } catch (e) {
-                this.desc.textContent = 'Error: ' + e.message;
+                this.info.textContent = 'Error: ' + e.message;
             }
         },
         close() { this.el.removeAttribute('open'); },
@@ -1048,16 +1706,16 @@
                 });
                 const j = await r.json();
                 if (!j.ok) throw new Error(j.error);
-                this.desc.textContent = `Guardado · ${j.n_entradas} entrada${j.n_entradas===1?'':'s'}`;
-                setTimeout(() => this.close(), 800);
+                this.info.textContent = `Guardado · ${j.n_entradas} entrada${j.n_entradas===1?'':'s'}`;
+                if (hdDict.el.hasAttribute('open')) await hdDict.cargarTodo();
+                setTimeout(() => this.close(), 700);
             } catch (e) {
-                this.desc.textContent = 'Error: ' + e.message;
+                this.info.textContent = 'Error: ' + e.message;
             }
         },
     };
-    window.hdDict = hdDict;
-    EL.btnDict.addEventListener('click', () => hdDict.abrir());
-    hdDict.el.addEventListener('click', (e) => { if (e.target === hdDict.el) hdDict.close(); });
+    window.hdDictAdv = hdDictAdv;
+    hdDictAdv.el.addEventListener('click', (e) => { if (e.target === hdDictAdv.el) hdDictAdv.close(); });
 
     // ---------- Confirm modal ----------
     const hdConfirm = {
@@ -1082,7 +1740,8 @@
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             hdConfirm.close(false);
-            hdDict.close();
+            if (hdDictAdv && hdDictAdv.el.hasAttribute('open')) hdDictAdv.close();
+            else hdDict.close();
         }
     });
     window.hdConfirm = hdConfirm;
