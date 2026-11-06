@@ -1,654 +1,521 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-
-{% block title %}DFin AI — Plataforma de Inteligencia Financiera{% endblock %}
+{% block title %}DFin AI — {{ EMPRESA_NOMBRE or 'Plataforma de Inteligencia Financiera' }}{% endblock %}
+{% block breadcrumb_actual %}Inicio{% endblock %}
 
 {% block content %}
 <style>
-    /* --- Cabecera compacta --- */
+    /* ================= Home — página de inicio ================= */
     .home-head {
-        padding: 0.4rem 0 0.7rem;
-        margin-bottom: 0.7rem;
-        border-bottom: 1px solid var(--gray-border);
-    }
-    .home-head h1 {
-        font-size: 1.15rem;
-        margin: 0;
-        font-weight: 700;
-        color: var(--black);
-    }
-    .home-head.selector {
-        padding-top: 1.2rem;
-    }
-    .home-head.selector h1 {
-        font-size: 1.5rem;
-    }
-
-    /* --- Layout dos columnas --- */
-    .home-layout {
-        display: grid;
-        grid-template-columns: 1.7fr 1fr;
-        gap: 1rem;
-        align-items: stretch;  /* ambas columnas al mismo alto */
-    }
-    @media (max-width: 1100px) { .home-layout { grid-template-columns: 1fr; } }
-
-    /* --- Columna izquierda: funcionalidades compactas --- */
-    .home-left {
         display: flex;
-        flex-direction: column;
-        gap: 0.55rem;
-        height: 100%;  /* ocupa la altura del cell (= columna derecha) */
-    }
-    .home-card {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        padding: 0.7rem 1rem;
-        background: var(--white);
-        border: 1px solid var(--gray-border);
-        border-left-width: 4px;
-        border-left-style: solid;
-        border-radius: 3px;
-        text-decoration: none;
-        color: inherit;
-        flex: 1 1 0;         /* todas las cards reparten el alto equitativamente */
-        min-height: 72px;    /* altura mínima digna en móvil / columna única */
-        transition: box-shadow 0.12s, transform 0.12s;
-    }
-    .home-card:hover {
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        transform: translateX(1px);
-    }
-    .home-card.disponible { border-left-color: #86BC25; }
-    .home-card.preview    {
-        border-left-color: #A7A8AA;
-        background: var(--gray-bg);     /* sombreado sutil para los Preview */
-    }
-    .home-card.preview h2 { color: var(--gray-11); }  /* un pelín menos énfasis */
-
-    /* Etiqueta discreta "En desarrollo" encima del primer Preview */
-    .home-card.disponible + .home-card.preview {
-        margin-top: 1rem;
-        position: relative;
-    }
-    .home-card.disponible + .home-card.preview::before {
-        content: "EN DESARROLLO";
-        position: absolute;
-        top: -0.9rem;
-        left: 0;
-        font-size: 0.6rem;
-        letter-spacing: 1.2px;
-        color: var(--gray-9);
-        font-weight: 700;
-    }
-
-    .home-card .ico {
-        font-size: 1.6rem;
-        flex-shrink: 0;
-        width: 36px;
-        text-align: center;
-    }
-    .home-card .body { flex: 1; min-width: 0; }
-    .home-card h2 {
-        font-size: 0.98rem;
-        font-weight: 700;
-        margin: 0;
-        color: var(--black);
-        line-height: 1.2;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 22px;
         flex-wrap: wrap;
     }
-    .home-card .desc {
-        font-size: 0.78rem;
-        color: var(--gray-10);
-        line-height: 1.4;
-        margin-top: 3px;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;    /* hasta 2 líneas */
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+    .home-head h1 {
+        font-size: 1.55rem; font-weight: 700;
+        margin: 0 0 4px; color: var(--fg);
     }
-    .home-card .right {
-        display: flex;
-        align-items: center;
-        flex-shrink: 0;
-    }
-    .home-card .btn-mini {
-        display: inline-flex;
-        align-items: center;
-        padding: 6px 14px;
-        font-size: 0.75rem;
-        font-weight: 700;
-        border-radius: 3px;
-        border: 1px solid var(--deloitte-green);
-        background: var(--deloitte-green);
-        color: var(--brand-primary-text, var(--black));
+    .home-head p { margin: 0; color: var(--fg-dim); font-size: 0.92rem; }
+    .home-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .home-btn {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 8px 14px; border-radius: 7px;
+        font-size: 0.85rem; font-weight: 600;
+        font-family: inherit; cursor: pointer;
+        transition: all 0.12s; border: 1px solid transparent;
         text-decoration: none;
-        white-space: nowrap;
     }
-    .home-card.preview .btn-mini {
-        background: var(--white);
-        color: var(--gray-11);
-        border-color: var(--gray-1);
+    .home-btn.ghost {
+        background: var(--surface); color: var(--fg-dim); border-color: var(--border);
     }
-    .home-card .btn-mini:hover { opacity: 0.88; }
-
-    /* Chip de estado inline junto al título de "Relación con Inversores" */
-    .home-card .pill-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        padding: 2px 9px;
-        font-size: 0.68rem;
-        font-weight: 700;
-        border-radius: 999px;
-        letter-spacing: 0.2px;
-        text-transform: none;
+    .home-btn.ghost:hover { background: var(--surface-muted); color: var(--fg); border-color: var(--border-strong); }
+    .home-btn.brand {
+        background: var(--brand); color: var(--brand-on);
     }
-    .pill-badge.ok    { background: #E8F5E9; color: #1B5E20; border: 1px solid #A5D6A7; }
-    .pill-badge.zero  { background: var(--gray-bg); color: var(--gray-10); border: 1px solid var(--gray-border); }
-    .pill-badge.warn  { background: #FFEBEE; color: #B71C1C; border: 1px solid #EF9A9A; }
+    .home-btn.brand:hover { background: var(--brand-dark); color: #fff; }
+    .home-btn svg { width: 14px; height: 14px; }
 
-    /* --- Columna derecha: dashboard compacto --- */
-    .home-right { display: flex; flex-direction: column; gap: 0.7rem; }
-</style>
-
-<div class="home-head{% if not TICKER_FIJO %} selector{% endif %}">
-    <h1>{% if TICKER_FIJO %}{{ EMPRESA_NOMBRE }}{% else %}Un portfolio completo para el área financiera{% endif %}</h1>
-    {% if not TICKER_FIJO %}
-    <p class="lead" style="margin-top: 6px;">Seleccione el módulo que desee utilizar. Las funcionalidades marcadas como <span class="tag tag-green">Preview</span> se encuentran en fase de rollout controlado para el tenant <strong>{{ TENANT_NOMBRE }}</strong>.</p>
-    {% endif %}
-</div>
-
-{% if dashboard_home %}
-<style>
-    .dh-strip {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0.5rem;
-    }
-    @media (max-width: 500px) { .dh-strip { grid-template-columns: 1fr; } }
-
-    .dh-card {
-        background: var(--white);
-        border: 1px solid var(--gray-border);
-        border-radius: 3px;
-        padding: 0.4rem 0.55rem 0.35rem;
-        display: flex;
-        flex-direction: column;
-        gap: 1px;
-    }
-    .dh-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 0.3rem;
-    }
-    .dh-label {
-        font-size: 0.6rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: var(--gray-10);
-        font-weight: 700;
-    }
-    .dh-fy {
-        font-size: 0.58rem;
-        letter-spacing: 0.3px;
-        color: #0F4DA3;
-        background: #E3F2FD;
-        padding: 1px 5px;
-        border-radius: 3px;
-        font-weight: 700;
-    }
-    .dh-value-line { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
-    .dh-value { font-size: 1.05rem; font-weight: 700; color: var(--black); line-height: 1.1; }
-    .dh-unit { font-size: 0.6rem; color: var(--gray-10); font-weight: 500; }
-    .dh-delta {
-        font-size: 0.64rem;
-        font-weight: 700;
-        padding: 1px 5px;
-        border-radius: 999px;
-        margin-left: auto;
-    }
-    .dh-delta.up { background: #E8F5E9; color: #1B5E20; }
-    .dh-delta.dn { background: #FFEBEE; color: #B71C1C; }
-    .dh-delta.na { background: var(--gray-bg); color: var(--gray-10); }
-    .dh-detail { font-size: 0.6rem; color: var(--gray-10); line-height: 1.25; }
-    .dh-detail strong { color: var(--gray-11); font-weight: 600; }
-    .dh-chart { margin-top: 2px; height: 28px !important; width: 100% !important; }
-    .dh-strip canvas { height: 28px !important; }
-
-    /* --- Fila de cotizaciones live estilo ticker bursátil (marquee) --- */
-    .dh-quotes {
-        display: flex;
-        align-items: center;
-        gap: 0;
-        background: #0F1419;
-        color: #fff;
-        border: 1px solid var(--gray-border);
-        border-radius: 4px;
-        padding: 0;
-        margin-bottom: 0.8rem;
-        overflow: hidden;
-    }
-    .dh-quotes-head {
-        display: flex; align-items: center; gap: 6px;
-        font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.5px;
-        color: #fff; font-weight: 700;
-        padding: 8px 12px;
-        background: #1A1A1A;
-        border-right: 1px solid #333;
-        flex-shrink: 0;
-    }
-    .dh-quotes-head .dot {
-        width: 8px; height: 8px; border-radius: 50%;
-        background: #43B02A; box-shadow: 0 0 6px #43B02A;
-        animation: dh-pulse 2s ease-in-out infinite;
-    }
-    @keyframes dh-pulse { 50% { opacity: 0.45; } }
-
-    .dh-quotes-viewport {
-        flex: 1;
-        overflow: hidden;
-        position: relative;
-        padding: 8px 0;
-    }
-    .dh-quotes-track {
-        display: inline-flex;
-        gap: 2rem;
-        white-space: nowrap;
-        animation: dh-marquee 60s linear infinite;
-        padding-left: 2rem;
-        will-change: transform;
-    }
-    .dh-quotes-track:hover { animation-play-state: paused; }
-    @keyframes dh-marquee {
-        from { transform: translateX(0); }
-        to   { transform: translateX(-50%); }
-    }
-    .dh-quote { display: inline-flex; align-items: baseline; gap: 8px; font-size: 0.85rem; color: #fff; }
-    .dh-quote.principal .tk { color: #42A5F5; }
-    .dh-quote .tk { font-weight: 700; letter-spacing: 0.3px; }
-    .dh-quote .px { font-weight: 600; color: #E0E0E0; }
-    .dh-quote .ch { font-size: 0.78rem; font-weight: 700; padding: 1px 6px; border-radius: 3px; }
-    .dh-quote .ch.up { color: #4CAF50; background: rgba(76,175,80,0.12); }
-    .dh-quote .ch.dn { color: #EF5350; background: rgba(239,83,80,0.14); }
-    .dh-quote .ch.na { color: #9E9E9E; }
-    .dh-quote-sep { display: inline-block; width: 1px; align-self: stretch; background: #333; margin: 0 0.4rem; }
-    .dh-quotes-updated {
-        padding: 8px 12px;
-        font-size: 0.68rem; color: #9E9E9E;
-        border-left: 1px solid #333;
-        flex-shrink: 0;
-        background: #1A1A1A;
-    }
-
-    /* --- Dashboard charts compactos en la columna derecha --- */
-    .dh-chart-box {
-        background: var(--white); border: 1px solid var(--gray-border); border-radius: 3px;
-        padding: 0.5rem 0.7rem;
-    }
-    .dh-chart-box h3 {
-        font-size: 0.72rem; font-weight: 700; margin: 0 0 0.3rem;
-        text-transform: uppercase; letter-spacing: 0.5px; color: var(--gray-11);
-        display: flex; align-items: center; gap: 6px;
-    }
-    .dh-chart-box h3 .app-icon { color: var(--gray-10); }
-    .dh-chart-wrap { position: relative; height: 150px; width: 100%; }
-    .dh-chart-wrap canvas { position: absolute; inset: 0; }
-</style>
-
-{% if EMPRESA_COTIZA %}
-<div class="dh-quotes" id="dh-quotes">
-    <span class="dh-quotes-head"><span class="dot"></span> Cotización en vivo</span>
-    <div class="dh-quotes-viewport">
-        <div class="dh-quotes-track" id="dh-quotes-track">
-            <span class="dh-quote"><span class="tk">Cargando cotizaciones…</span></span>
-        </div>
-    </div>
-    <span class="dh-quotes-updated" id="dh-quotes-updated">—</span>
-</div>
-{% endif %}
-{% endif %}
-
-<div class="home-layout">
-    <!-- COLUMNA IZQUIERDA: funcionalidades compactas -->
-    <div class="home-left app-stagger">
-        <a href="/habla-con-tus-datos" class="home-card disponible">
-            <span class="ico">{{ icon("chat", size=22) }}</span>
-            <div class="body">
-                <h2>Habla con tus datos</h2>
-                <div class="desc">Pregunta en lenguaje natural sobre los indicadores financieros y la documentación corporativa en una sola conversación. La inteligencia artificial resuelve con la información de la base de datos cuando es posible —incluyendo los KPIs definidos en el diccionario funcional— y complementa con evidencias del repositorio documental. Cada afirmación es trazable a su fuente.</div>
-            </div>
-            <div class="right"><span class="btn-mini">Acceder</span></div>
-        </a>
-
-        {% if EMPRESA_COTIZA %}
-        <a href="/analisis" class="home-card disponible">
-            <span class="ico">{{ icon("bar-chart", size=22) }}</span>
-            <div class="body">
-                <h2>Generar Informe Narrativo</h2>
-                <div class="desc">Integra la cuenta de resultados, el balance y el estado de flujos de efectivo del ejercicio y elabora con inteligencia artificial el informe requerido —memoria, consejo o accionista— con exportación directa a Word y PDF.</div>
-            </div>
-            <div class="right"><span class="btn-mini">Acceder</span></div>
-        </a>
-        {% endif %}
-
-        <a href="/relacion-inversores" class="home-card disponible">
-            <span class="ico">{{ icon("mail", size=22) }}</span>
-            <div class="body">
-                <h2>
-                    Relación con Stakeholders
-                    {% if ir_pendientes is none %}
-                        <span class="pill-badge warn">{{ icon("alert", size=13) }} Gmail no conectado</span>
-                    {% elif ir_pendientes == 0 %}
-                        <span class="pill-badge zero">{{ icon("inbox", size=13) }} Sin pendientes en bandeja</span>
-                    {% elif ir_pendientes == 1 %}
-                        <span class="pill-badge ok">{{ icon("mail-open", size=13) }} 1 correo pendiente en bandeja</span>
-                    {% else %}
-                        <span class="pill-badge ok">{{ icon("mail-open", size=13) }} {{ ir_pendientes }} correos pendientes en bandeja</span>
-                    {% endif %}
-                </h2>
-                <div class="desc">Centraliza las consultas entrantes de los stakeholders corporativos —inversores, analistas, auditores, reguladores y otros interlocutores— clasifica cada mensaje por tipología y propone un borrador de respuesta trazable, apoyado en la documentación corporativa oficial y en las líneas maestras aprobadas por la compañía.</div>
-            </div>
-            <div class="right"><span class="btn-mini">Acceder</span></div>
-        </a>
-
-        <a href="/noticias" class="home-card disponible">
-            <span class="ico">{{ icon("newspaper", size=22) }}</span>
-            <div class="body">
-                <h2>Noticias del Sector</h2>
-                <div class="desc">Vigilancia continua de la actualidad del sector de referencia y de la propia compañía, con síntesis por áreas temáticas y envío programado por correo electrónico a los interlocutores corporativos designados.</div>
-            </div>
-            <div class="right"><span class="btn-mini">Acceder</span></div>
-        </a>
-
-        {% if EMPRESA_COTIZA %}
-        <a href="/panel-ejecutivo" class="home-card disponible">
-            <span class="ico">{{ icon("clipboard", size=22) }}</span>
-            <div class="body">
-                <h2>Panel Ejecutivo</h2>
-                <div class="desc">Resumen ejecutivo en una página con indicadores clave, evolución de los últimos ejercicios, composición de la cuenta de resultados y una lectura narrativa redactada por inteligencia artificial. Exportable a PDF para su presentación a la alta dirección.</div>
-            </div>
-            <div class="right"><span class="btn-mini">Acceder</span></div>
-        </a>
-
-        <a href="/benchmark" class="home-card disponible">
-            <span class="ico">{{ icon("trend-up", size=22) }}</span>
-            <div class="body">
-                <h2>Benchmark Sectorial</h2>
-                <div class="desc">Posicionamiento de la compañía frente a su grupo de referencia en múltiplos de valoración, estructura de márgenes y crecimiento interanual, con lectura narrativa elaborada por inteligencia artificial y exportación integrada a PDF.</div>
-            </div>
-            <div class="right"><span class="btn-mini">Acceder</span></div>
-        </a>
-        {% endif %}
-
-        <a href="/presupuesto" class="home-card preview">
-            <span class="ico">{{ icon("ruler", size=22) }}</span>
-            <div class="body">
-                <h2>Elaboración Presupuesto (ML)</h2>
-                <div class="desc">Elaboración asistida del presupuesto plurianual con proyecciones a 12, 24 y 36 meses apoyadas en modelos avanzados de Machine Learning sobre el histórico corporativo, con simulación de escenarios base, optimista y pesimista.</div>
-            </div>
-            <div class="right"><span class="btn-mini">Acceder</span></div>
-        </a>
-
-        <a href="/radar-normativo" class="home-card preview">
-            <span class="ico">{{ icon("radar", size=22) }}</span>
-            <div class="body">
-                <h2>Radar Normativo</h2>
-                <div class="desc">Supervisión automatizada de novedades regulatorias, contables y fiscales relevantes para la compañía, con alertas priorizadas por materialidad y jurisdicción, y resúmenes ejecutivos elaborados por inteligencia artificial.</div>
-            </div>
-            <div class="right"><span class="btn-mini">Acceder</span></div>
-        </a>
-    </div>
-
-    <!-- COLUMNA DERECHA: dashboard compacto -->
+    /* ================= KPIs ================= */
     {% if dashboard_home %}
-    <div class="home-right">
-        <div class="dh-chart-box">
-            <h3>{{ icon("trend-up", size=14) }} Evolución (últimos 5 ejercicios)</h3>
-            <div class="dh-chart-wrap">
-                <canvas id="dh-evolucion"
-                        data-labels='{{ dashboard_home.evolucion.labels|tojson }}'
-                        data-ingresos='{{ dashboard_home.evolucion.ingresos|tojson }}'
-                        data-bn='{{ dashboard_home.evolucion.beneficio_neto|tojson }}'
-                        data-moneda="{{ dashboard_home.moneda }}"></canvas>
-            </div>
+    .kpis-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+    @media (max-width: 1100px) { .kpis-row { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 560px) { .kpis-row { grid-template-columns: 1fr; } }
+    .home-kpi {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 15px 17px;
+        display: flex; flex-direction: column; gap: 5px;
+        position: relative; overflow: hidden;
+    }
+    .home-kpi .k-label {
+        font-size: 11px; font-weight: 600; letter-spacing: 0.4px;
+        text-transform: uppercase; color: var(--fg-mute);
+    }
+    .home-kpi .k-value {
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-size: 1.5rem; font-weight: 700;
+        letter-spacing: -0.02em; color: var(--fg);
+        font-variant-numeric: tabular-nums;
+    }
+    .home-kpi .k-row {
+        display: flex; align-items: center; gap: 10px;
+        font-size: 11.5px; color: var(--fg-mute);
+        margin-top: 1px;
+    }
+    .delta-chip {
+        display: inline-flex; align-items: center; gap: 3px;
+        font-size: 11.5px; font-weight: 600;
+        padding: 1px 7px; border-radius: 999px;
+    }
+    .delta-chip.up { background: var(--good-bg); color: var(--good); }
+    .delta-chip.down { background: var(--bad-bg); color: var(--bad); }
+    .delta-chip.flat { background: var(--surface-muted); color: var(--fg-dim); }
+    .home-kpi .k-spark {
+        height: 36px; margin: 4px -4px -8px;
+    }
+
+    /* ================= Charts grid ================= */
+    .charts-grid {
+        display: grid;
+        grid-template-columns: 1.5fr 1fr;
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+    @media (max-width: 1100px) { .charts-grid { grid-template-columns: 1fr; } }
+    .chart-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px 18px;
+    }
+    .chart-card h3 {
+        margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--fg);
+    }
+    .chart-card p.sub {
+        margin: 2px 0 10px; font-size: 12px; color: var(--fg-mute);
+    }
+    .chart-wrap { height: 260px; }
+    .chart-wrap.sm { height: 220px; }
+    {% endif %}
+
+    /* ================= Módulos ================= */
+    .modules-head {
+        display: flex; align-items: baseline;
+        justify-content: space-between;
+        margin: 6px 0 12px;
+    }
+    .modules-head h3 { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--fg); }
+
+    .mods-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+    @media (max-width: 1100px) { .mods-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .mods-grid { grid-template-columns: 1fr; } }
+    .mod-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px 18px;
+        display: flex; flex-direction: column; gap: 10px;
+        transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
+        text-decoration: none; color: inherit;
+        position: relative;
+    }
+    .mod-card:hover {
+        border-color: var(--border-strong);
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
+        transform: translateY(-1px);
+    }
+    .mod-card.featured {
+        border-color: var(--brand);
+        background: linear-gradient(135deg, var(--surface) 0%, var(--brand-soft) 100%);
+    }
+    .mod-card.preview { opacity: 0.85; }
+    .mod-head {
+        display: flex; align-items: center; gap: 10px;
+    }
+    .mod-icon {
+        width: 38px; height: 38px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--brand-soft); color: var(--brand-dark);
+        border-radius: 9px; flex-shrink: 0;
+    }
+    .mod-card.featured .mod-icon { background: var(--brand); color: var(--brand-on); }
+    .mod-icon svg { width: 18px; height: 18px; }
+    .mod-title {
+        font-size: 0.95rem; font-weight: 600;
+        color: var(--fg); line-height: 1.3;
+    }
+    .mod-tags {
+        display: flex; gap: 5px; margin-top: 2px; flex-wrap: wrap;
+    }
+    .mod-tag {
+        font-size: 10.5px; font-weight: 600;
+        padding: 1px 7px; border-radius: 999px;
+        letter-spacing: 0.2px; text-transform: uppercase;
+        background: var(--surface-muted); color: var(--fg-dim);
+        border: 1px solid var(--border);
+    }
+    .mod-tag.ok { background: var(--good-bg); color: var(--good); border-color: transparent; }
+    .mod-tag.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
+    .mod-tag.preview { background: var(--info-bg); color: var(--info); border-color: transparent; }
+    .mod-desc {
+        font-size: 0.86rem; color: var(--fg-dim);
+        line-height: 1.55; flex: 1;
+    }
+    .mod-meta {
+        display: flex; align-items: center; gap: 10px;
+        font-size: 11.5px; color: var(--fg-mute);
+        border-top: 1px solid var(--border); padding-top: 10px;
+    }
+    .mod-meta .sep { color: var(--border-strong); }
+
+    /* ================= Selector empresa (si no hay TICKER_FIJO) ================= */
+    .selector-wrap {
+        max-width: 760px; margin: 0 auto;
+        padding: 40px 20px;
+    }
+    .selector-wrap h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 6px; }
+    .selector-wrap p { color: var(--fg-dim); margin: 0 0 24px; }
+</style>
+
+{% if not TICKER_FIJO %}
+    {# Pantalla de selección de empresa inicial — se mantiene minimalista #}
+    <div class="selector-wrap">
+        <h1>Selecciona una empresa</h1>
+        <p>Elige la entidad con la que quieres trabajar en esta sesión.</p>
+        {% include "seleccionar_empresa.html" ignore missing %}
+    </div>
+{% else %}
+    <!-- Hero -->
+    <div class="home-head">
+        <div>
+            <h1>Buenos días{% if TENANT_NOMBRE %}{% endif %}</h1>
+            <p>
+                Resumen de {{ EMPRESA_NOMBRE }}{% if TICKER_FIJO %} · <strong>{{ TICKER_FIJO }}</strong>{% endif %}
+                {% if dashboard_home and dashboard_home.periodo_ultimo %} · ejercicio FY{{ dashboard_home.periodo_ultimo }} cerrado{% endif %}
+                {% if dashboard_home and dashboard_home.moneda %} · <span class="num">{{ dashboard_home.moneda }}</span>{% endif %}
+            </p>
         </div>
-        <div class="dh-chart-box">
-            <h3>{{ icon("pie-chart", size=14) }} Composición P&amp;L ({{ dashboard_home.periodo_ultimo }})</h3>
-            {% if dashboard_home.composicion_pyg %}
-            <div class="dh-chart-wrap">
-                <canvas id="dh-composicion"
-                        data-pyg='{{ dashboard_home.composicion_pyg|tojson }}'></canvas>
-            </div>
-            {% else %}
-            <p style="color: var(--gray-10); font-size: 0.8rem; padding: 0.6rem 0;">Sin datos para componer el gráfico.</p>
+        <div class="home-actions">
+            {% if EMPRESA_COTIZA %}
+            <a href="/panel-ejecutivo" class="home-btn ghost">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+                Panel ejecutivo
+            </a>
             {% endif %}
-        </div>
-        <div class="dh-strip">
-            {% for t in dashboard_home.tarjetas %}
-            <div class="dh-card">
-                <div class="dh-head">
-                    <span class="dh-label">{{ t.titulo }}</span>
-                    <span class="dh-fy">FY {{ dashboard_home.periodo_ultimo }}</span>
-                </div>
-                <div class="dh-value-line">
-                    <span class="dh-value" data-raw="{{ t.actual if t.actual is not none else '' }}">—</span>
-                    <span class="dh-unit">{{ dashboard_home.moneda }}</span>
-                    {% if t.delta is not none %}
-                        {% set cls = "up" if t.delta >= 0 else "dn" %}
-                        <span class="dh-delta {{ cls }}">{{ "%+.1f"|format(t.delta) }}%</span>
-                    {% else %}
-                        <span class="dh-delta na">—</span>
-                    {% endif %}
-                </div>
-                <div class="dh-detail">
-                    vs FY <strong>{{ dashboard_home.periodo_anterior or '—' }}</strong>:
-                    <span class="dh-prev" data-raw="{{ t.anterior if t.anterior is not none else '' }}">—</span>
-                </div>
-                <canvas class="dh-chart"
-                        data-serie='{{ t.serie|tojson }}'
-                        data-labels='{{ dashboard_home.labels|tojson }}'
-                        data-color="{{ t.color }}"></canvas>
-            </div>
-            {% endfor %}
+            <a href="/habla-con-tus-datos" class="home-btn brand">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Preguntar a DFin
+            </a>
         </div>
     </div>
+
+    {% if dashboard_home %}
+    <!-- KPIs -->
+    <section class="kpis-row app-stagger">
+        {% for t in dashboard_home.tarjetas %}
+        <div class="home-kpi">
+            <span class="k-label">{{ t.titulo }}</span>
+            <span class="k-value">{% if t.actual is not none %}{{ t.actual|fmt_corto }}{% else %}—{% endif %}</span>
+            <div class="k-row">
+                {% if t.delta is not none %}
+                <span class="delta-chip {% if t.delta > 0 %}up{% elif t.delta < 0 %}down{% else %}flat{% endif %}">
+                    {% if t.delta > 0 %}▲{% elif t.delta < 0 %}▼{% else %}·{% endif %}
+                    {{ "%+.1f"|format(t.delta) }}%
+                </span>
+                {% endif %}
+                <span>
+                    {% if t.anterior is not none %}vs FY {{ dashboard_home.periodo_anterior }}: {{ t.anterior|fmt_corto }}{% else %}—{% endif %}
+                </span>
+            </div>
+            <div class="k-spark"
+                 data-spark='{{ t.serie|tojson }}'
+                 data-color='{{ t.color }}'></div>
+        </div>
+        {% endfor %}
+    </section>
+
+    <!-- Charts -->
+    <section class="charts-grid">
+        <div class="chart-card">
+            <h3>Evolución de resultados</h3>
+            <p class="sub">Últimos {{ dashboard_home.labels|length }} ejercicios · ingresos vs beneficio neto</p>
+            <div class="chart-wrap" id="chart-evo"
+                 data-labels='{{ dashboard_home.evolucion.labels|tojson }}'
+                 data-ingresos='{{ dashboard_home.evolucion.ingresos|tojson }}'
+                 data-beneficio='{{ dashboard_home.evolucion.beneficio_neto|tojson }}'></div>
+        </div>
+        <div class="chart-card">
+            <h3>Composición P&amp;L</h3>
+            <p class="sub">Ejercicio FY{{ dashboard_home.periodo_ultimo }}</p>
+            <div class="chart-wrap sm" id="chart-pl"
+                 data-slices='{{ dashboard_home.composicion_pyg|tojson }}'></div>
+        </div>
+    </section>
     {% endif %}
-</div>
 
-{% if dashboard_home %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-<script>
-(function() {
-    const fmt = new Intl.NumberFormat('es-ES', {maximumFractionDigits: 1});
-    function corto(v) {
-        if (v === null || v === undefined || isNaN(v)) return '—';
-        const abs = Math.abs(v);
-        if (abs >= 1e9) return fmt.format(v/1e9) + ' B';
-        if (abs >= 1e6) return fmt.format(v/1e6) + ' M';
-        if (abs >= 1e3) return fmt.format(v/1e3) + ' K';
-        return fmt.format(v);
-    }
-    function _pintarValor(el) {
-        if (!el) return;
-        const raw = el.dataset.raw;
-        const val = raw === '' ? null : parseFloat(raw);
-        el.textContent = corto(val);
-    }
-    document.querySelectorAll('.dh-value').forEach(_pintarValor);
-    document.querySelectorAll('.dh-prev').forEach(_pintarValor);
-    document.querySelectorAll('.dh-card').forEach(card => {
-        const v = card.querySelector('.dh-value');
-        const u = card.querySelector('.dh-unit');
-        if (!v || !u) return;
-        if ((v.dataset.raw || '').trim() === '') u.textContent = '';
-    });
+    <!-- Módulos -->
+    <div class="modules-head">
+        <h3>Módulos disponibles</h3>
+    </div>
+    <section class="mods-grid app-stagger">
+        <a class="mod-card featured" href="/habla-con-tus-datos">
+            <div class="mod-head">
+                <span class="mod-icon">{{ icon("chat", size=18) }}</span>
+                <div>
+                    <div class="mod-title">Habla con tus datos</div>
+                    <div class="mod-tags">
+                        <span class="mod-tag ok">AI</span>
+                        <span class="mod-tag">Chat mixto</span>
+                    </div>
+                </div>
+            </div>
+            <p class="mod-desc">Pregunta en lenguaje natural sobre indicadores financieros y documentación corporativa. Prioriza la información de la base de datos y complementa con el repositorio documental; cada afirmación es trazable.</p>
+            <div class="mod-meta">
+                <span>KPIs del diccionario</span>
+                <span class="sep">·</span>
+                <span>Citas documentales</span>
+            </div>
+        </a>
 
-    function _mostrarErrorChart(canvas, msg) {
-        const wrap = canvas && canvas.parentElement;
-        if (!wrap) return;
-        wrap.innerHTML = `<div style="padding:0.6rem;color:#B71C1C;font-size:0.76rem;line-height:1.4;">⚠ ${msg}</div>`;
-    }
+        {% if EMPRESA_COTIZA %}
+        <a class="mod-card" href="/analisis">
+            <div class="mod-head">
+                <span class="mod-icon">{{ icon("bar-chart", size=18) }}</span>
+                <div>
+                    <div class="mod-title">Informe narrativo</div>
+                    <div class="mod-tags"><span class="mod-tag">Word · PDF</span></div>
+                </div>
+            </div>
+            <p class="mod-desc">Integra la cuenta de resultados, el balance y el estado de flujos de efectivo del ejercicio y elabora con IA la memoria, el informe del consejo o la carta al accionista.</p>
+            <div class="mod-meta"><span>Exportación directa</span></div>
+        </a>
+        {% endif %}
 
-    // Sparklines de las 4 mini-tarjetas
-    document.querySelectorAll('.dh-chart').forEach(canvas => {
-        if (typeof Chart === 'undefined') return;
-        try {
-            const serie = JSON.parse(canvas.dataset.serie || '[]');
-            const labels = JSON.parse(canvas.dataset.labels || '[]');
-            const color = canvas.dataset.color || '#1976D2';
-            if (!serie.length) return;
-            new Chart(canvas, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: serie, borderColor: color, backgroundColor: color + '22',
-                        borderWidth: 2, tension: 0.28, pointRadius: 1.5, pointHoverRadius: 3,
-                        fill: true, spanGaps: true,
-                    }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: {display: false}, tooltip: { callbacks: { label: (c) => corto(c.parsed.y) } } },
-                    scales: { x: {display: false}, y: {display: false} },
-                    animation: false,
-                }
-            });
-        } catch (e) { /* silencio */ }
-    });
+        <a class="mod-card" href="/relacion-inversores">
+            <div class="mod-head">
+                <span class="mod-icon">{{ icon("mail", size=18) }}</span>
+                <div>
+                    <div class="mod-title">Relación con Stakeholders</div>
+                    <div class="mod-tags">
+                        {% if ir_pendientes is none %}
+                        <span class="mod-tag warn">Gmail no conectado</span>
+                        {% elif ir_pendientes == 0 %}
+                        <span class="mod-tag">Sin pendientes</span>
+                        {% else %}
+                        <span class="mod-tag ok">{{ ir_pendientes }} pendiente{% if ir_pendientes != 1 %}s{% endif %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <p class="mod-desc">Centraliza consultas de inversores, analistas, auditores y reguladores. Clasifica cada mensaje y propone un borrador de respuesta trazable sobre la documentación corporativa aprobada.</p>
+            <div class="mod-meta"><span>Filtro: {{ ir_prefijo }}</span></div>
+        </a>
 
-    // Gráfico grande de evolución
-    (function() {
-        const el = document.getElementById('dh-evolucion');
-        if (!el) return;
-        if (typeof Chart === 'undefined') {
-            _mostrarErrorChart(el, 'Chart.js no se pudo cargar (posible bloqueo de cdn.jsdelivr.net).');
-            return;
-        }
-        try {
-            const labels = JSON.parse(el.dataset.labels || '[]');
-            const ingresos = JSON.parse(el.dataset.ingresos || '[]');
-            const bn = JSON.parse(el.dataset.bn || '[]');
-            if (!labels.length) { _mostrarErrorChart(el, 'Sin datos para el gráfico.'); return; }
-            new Chart(el, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        { type: 'bar', label: 'Ingresos', data: ingresos,
-                          backgroundColor: 'rgba(25, 118, 210, 0.65)', borderColor: '#1976D2',
-                          borderWidth: 1, borderRadius: 3, yAxisID: 'y' },
-                        { type: 'line', label: 'Beneficio neto', data: bn,
-                          borderColor: '#43B02A', backgroundColor: '#43B02A',
-                          borderWidth: 2, tension: 0.28, pointRadius: 2, yAxisID: 'y' },
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    interaction: {mode: 'index', intersect: false},
-                    plugins: {
-                        legend: {position: 'bottom', labels: {boxWidth: 10, font: {size: 10}}},
-                        tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': ' + corto(ctx.parsed.y) } }
-                    },
-                    scales: {
-                        y: { beginAtZero: true, ticks: {callback: (v) => corto(v), font: {size: 9}}, grid: {color: '#E4E4E2'} },
-                        x: { grid: {display: false}, ticks: {font: {size: 9}} },
-                    },
-                    animation: false,
-                }
-            });
-        } catch (e) { console.warn('evolucion chart:', e); _mostrarErrorChart(el, 'Error pintando: ' + e.message); }
-    })();
+        {% if EMPRESA_COTIZA %}
+        <a class="mod-card" href="/panel-ejecutivo">
+            <div class="mod-head">
+                <span class="mod-icon">{{ icon("clipboard", size=18) }}</span>
+                <div>
+                    <div class="mod-title">Panel ejecutivo</div>
+                    <div class="mod-tags"><span class="mod-tag">A4 · PDF</span></div>
+                </div>
+            </div>
+            <p class="mod-desc">Resumen en una página con KPIs, evolución, composición P&amp;L y una lectura narrativa elaborada por IA. Listo para presentar a dirección.</p>
+            <div class="mod-meta"><span>One-pager imprimible</span></div>
+        </a>
 
-    // Gráfico pie de composición
-    (function() {
-        const el = document.getElementById('dh-composicion');
-        if (!el) return;
-        if (typeof Chart === 'undefined') { _mostrarErrorChart(el, 'Chart.js no se pudo cargar.'); return; }
-        try {
-            const pyg = JSON.parse(el.dataset.pyg || '[]');
-            if (!pyg.length) { _mostrarErrorChart(el, 'Sin datos.'); return; }
-            new Chart(el, {
-                type: 'doughnut',
-                data: {
-                    labels: pyg.map(p => p.label),
-                    datasets: [{ data: pyg.map(p => p.valor), backgroundColor: pyg.map(p => p.color),
-                                 borderWidth: 2, borderColor: '#fff' }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    cutout: '55%',
-                    plugins: {
-                        legend: {position: 'bottom', labels: {boxWidth: 9, font: {size: 9.5}, padding: 6}},
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => {
-                                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
-                                    const pct = total ? (ctx.parsed / total * 100).toFixed(1) : '0';
-                                    return `${ctx.label}: ${corto(ctx.parsed)} (${pct}%)`;
-                                }
-                            }
-                        }
-                    },
-                    animation: false,
-                }
-            });
-        } catch (e) { console.warn('composicion chart:', e); _mostrarErrorChart(el, 'Error pintando: ' + e.message); }
-    })();
-})();
-</script>
+        <a class="mod-card" href="/benchmark">
+            <div class="mod-head">
+                <span class="mod-icon">{{ icon("trend-up", size=18) }}</span>
+                <div>
+                    <div class="mod-title">Benchmark sectorial</div>
+                    <div class="mod-tags"><span class="mod-tag">vs peers</span></div>
+                </div>
+            </div>
+            <p class="mod-desc">Posicionamiento de la compañía frente a su grupo de referencia en múltiplos de valoración, estructura de márgenes y crecimiento interanual, con lectura narrativa IA.</p>
+            <div class="mod-meta"><span>Exportable a PDF</span></div>
+        </a>
+        {% endif %}
+
+        <a class="mod-card" href="/noticias">
+            <div class="mod-head">
+                <span class="mod-icon">{{ icon("newspaper", size=18) }}</span>
+                <div>
+                    <div class="mod-title">Noticias del sector</div>
+                    <div class="mod-tags"><span class="mod-tag">Vigilancia</span></div>
+                </div>
+            </div>
+            <p class="mod-desc">Vigilancia continua de la actualidad del sector de referencia y de la propia compañía, con envío programado a los interlocutores corporativos designados.</p>
+            <div class="mod-meta"><span>Sector + empresa</span></div>
+        </a>
+
+        <a class="mod-card preview" href="/presupuesto">
+            <div class="mod-head">
+                <span class="mod-icon">{{ icon("ruler", size=18) }}</span>
+                <div>
+                    <div class="mod-title">Elaboración Presupuesto (ML)</div>
+                    <div class="mod-tags"><span class="mod-tag preview">Preview</span></div>
+                </div>
+            </div>
+            <p class="mod-desc">Elaboración asistida del presupuesto plurianual con proyecciones a 12, 24 y 36 meses sobre el histórico corporativo, con simulación de escenarios base, optimista y pesimista.</p>
+            <div class="mod-meta"><span>Lanzamiento Q3 2026</span></div>
+        </a>
+
+        <a class="mod-card preview" href="/radar-normativo">
+            <div class="mod-head">
+                <span class="mod-icon">{{ icon("radar", size=18) }}</span>
+                <div>
+                    <div class="mod-title">Radar normativo</div>
+                    <div class="mod-tags"><span class="mod-tag preview">Preview</span></div>
+                </div>
+            </div>
+            <p class="mod-desc">Supervisión automatizada de novedades regulatorias, contables y fiscales relevantes para la compañía, con alertas priorizadas por materialidad y jurisdicción.</p>
+            <div class="mod-meta"><span>Lanzamiento Q4 2026</span></div>
+        </a>
+    </section>
 {% endif %}
 
-{% if EMPRESA_COTIZA %}
+{% if dashboard_home %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js"></script>
 <script>
 (function() {
-    const fmt = new Intl.NumberFormat('es-ES', {maximumFractionDigits: 2});
-    function fmtPrecio(v, cur) {
+    if (typeof echarts === 'undefined') return;
+    function cssVar(name) {
+        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    }
+    function fmtCorto(v) {
         if (v === null || v === undefined || isNaN(v)) return '—';
-        const txt = fmt.format(v);
-        return cur ? `${txt} ${cur}` : txt;
-    }
-    const track = document.getElementById('dh-quotes-track');
-    const upd = document.getElementById('dh-quotes-updated');
-    if (!track || !upd) return;
-
-    function chipHtml(q) {
-        const chCls = q.change_pct === null ? 'na' : (q.change_pct >= 0 ? 'up' : 'dn');
-        const chTxt = q.change_pct === null ? '—' :
-                      (q.change_pct >= 0 ? '+' : '') + q.change_pct.toFixed(2) + '%';
-        const cls = 'dh-quote' + (q.principal ? ' principal' : '');
-        return `<span class="${cls}">` +
-                 `<span class="tk">${q.ticker}</span>` +
-                 `<span class="px">${fmtPrecio(q.price, q.currency)}</span>` +
-                 `<span class="ch ${chCls}">${chTxt}</span>` +
-               `</span><span class="dh-quote-sep"></span>`;
+        var a = Math.abs(v);
+        if (a >= 1e9) return (v / 1e9).toFixed(1).replace('.', ',') + ' B';
+        if (a >= 1e6) return (v / 1e6).toFixed(1).replace('.', ',') + ' M';
+        if (a >= 1e3) return (v / 1e3).toFixed(0) + ' K';
+        return String(Math.round(v));
     }
 
-    async function refrescar() {
+    // Sparklines de KPIs
+    document.querySelectorAll('.k-spark').forEach(function(el) {
         try {
-            const r = await fetch('/cotizaciones', {cache: 'no-store'});
-            const j = await r.json();
-            if (!j.ok) throw new Error(j.error || 'error');
-            const quotes = j.cotizaciones || [];
-            if (!quotes.length) {
-                track.innerHTML = '<span class="dh-quote"><span class="tk">Sin datos disponibles</span></span>';
-                upd.textContent = '—';
-                return;
-            }
-            const html = quotes.map(chipHtml).join('');
-            track.innerHTML = html + html;
-            const d = new Date();
-            upd.textContent = d.toLocaleTimeString('es-ES') + (j.cacheado ? ' · caché' : '');
-        } catch (e) { upd.textContent = 'error'; }
+            var data = JSON.parse(el.dataset.spark || '[]').filter(function(v) { return v !== null; });
+            if (data.length < 2) return;
+            var color = el.dataset.color || '#86BC25';
+            var c = echarts.init(el);
+            c.setOption({
+                grid: { left: 0, right: 0, top: 4, bottom: 0 },
+                xAxis: { type: 'category', show: false, boundaryGap: false, data: data.map(function(_, i) { return i; }) },
+                yAxis: { type: 'value', show: false, scale: true },
+                tooltip: { show: false },
+                series: [{
+                    type: 'line', data: data, smooth: true, symbol: 'none',
+                    lineStyle: { color: color, width: 2 },
+                    areaStyle: {
+                        color: {
+                            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+                            colorStops: [
+                                { offset: 0, color: color + '55' },
+                                { offset: 1, color: color + '00' },
+                            ],
+                        },
+                    },
+                }],
+            });
+            window.addEventListener('resize', function() { c.resize(); });
+        } catch (e) { console.error('spark', e); }
+    });
+
+    // Chart evolución
+    var elEvo = document.getElementById('chart-evo');
+    if (elEvo) {
+        try {
+            var labels = JSON.parse(elEvo.dataset.labels);
+            var ingresos = JSON.parse(elEvo.dataset.ingresos);
+            var benef = JSON.parse(elEvo.dataset.beneficio);
+            var axis = cssVar('--chart-axis');
+            var grid = cssVar('--chart-grid');
+            var fg = cssVar('--fg');
+            var surface = cssVar('--surface');
+            var brand = '#86BC25', blue = '#2563EB';
+            var cEvo = echarts.init(elEvo);
+            cEvo.setOption({
+                color: [blue, brand],
+                grid: { left: 54, right: 12, top: 14, bottom: 30 },
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: fg, borderColor: fg,
+                    textStyle: { color: surface, fontFamily: 'Inter', fontSize: 12 },
+                    padding: [8, 12],
+                    axisPointer: { type: 'shadow', shadowStyle: { color: axis + '22' } },
+                    valueFormatter: function(v) { return fmtCorto(v); },
+                },
+                legend: { show: false },
+                xAxis: {
+                    type: 'category', data: labels,
+                    axisLine: { lineStyle: { color: grid } },
+                    axisTick: { show: false },
+                    axisLabel: { color: axis, fontSize: 11, fontFamily: 'Inter' },
+                },
+                yAxis: {
+                    type: 'value',
+                    splitLine: { lineStyle: { color: grid, type: 'dashed' } },
+                    axisLabel: { color: axis, fontSize: 11, fontFamily: 'Inter', formatter: function(v) { return fmtCorto(v); } },
+                    axisLine: { show: false }, axisTick: { show: false },
+                },
+                series: [
+                    { name: 'Ingresos', type: 'bar', data: ingresos, barWidth: 20, itemStyle: { color: blue, borderRadius: [4, 4, 0, 0] } },
+                    { name: 'Beneficio neto', type: 'line', data: benef, smooth: true, symbol: 'circle', symbolSize: 7, itemStyle: { color: brand, borderColor: surface, borderWidth: 2 }, lineStyle: { color: brand, width: 2.5 } },
+                ],
+            });
+            window.addEventListener('resize', function() { cEvo.resize(); });
+        } catch (e) { console.error('chart-evo', e); }
     }
-    refrescar();
-    setInterval(refrescar, 20000);
+
+    // Chart composición P&L
+    var elPl = document.getElementById('chart-pl');
+    if (elPl) {
+        try {
+            var slices = JSON.parse(elPl.dataset.slices || '[]');
+            if (!slices.length) { elPl.innerHTML = '<p style="color: var(--fg-mute); font-size: 12px; text-align: center; margin-top: 60px;">Sin datos de composición.</p>'; }
+            else {
+                var fg = cssVar('--fg'); var fgDim = cssVar('--fg-dim'); var surface = cssVar('--surface');
+                var cPl = echarts.init(elPl);
+                cPl.setOption({
+                    tooltip: {
+                        trigger: 'item',
+                        backgroundColor: fg, borderColor: fg,
+                        textStyle: { color: surface, fontFamily: 'Inter', fontSize: 12 },
+                        padding: [8, 12],
+                        valueFormatter: function(v) { return fmtCorto(v); },
+                    },
+                    legend: {
+                        orient: 'vertical', right: 0, top: 'middle', itemGap: 10,
+                        textStyle: { color: fgDim, fontSize: 12, fontFamily: 'Inter' },
+                        icon: 'roundRect',
+                    },
+                    series: [{
+                        type: 'pie', radius: ['55%', '78%'], center: ['38%', '50%'],
+                        avoidLabelOverlap: true, padAngle: 2,
+                        itemStyle: { borderRadius: 4, borderColor: surface, borderWidth: 2 },
+                        label: { show: false }, labelLine: { show: false },
+                        data: slices.map(function(s) { return { value: s.valor, name: s.label, itemStyle: { color: s.color } }; }),
+                    }],
+                });
+                window.addEventListener('resize', function() { cPl.resize(); });
+            }
+        } catch (e) { console.error('chart-pl', e); }
+    }
 })();
 </script>
 {% endif %}
