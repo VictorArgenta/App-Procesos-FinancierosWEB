@@ -319,11 +319,11 @@
                 <span class="legend-dot" style="background:#8E24AA; margin-left:12px;"></span>Price / Book
             </small>
             <div class="bench-chart-canvas">
-                <canvas id="chart-valuacion"
-                        data-labels='{{ resultados|map(attribute="ticker")|list|tojson }}'
-                        data-pe='{{ resultados|map(attribute="pe")|list|tojson }}'
-                        data-pb='{{ resultados|map(attribute="price_to_book")|list|tojson }}'
-                        data-principal='{{ principal|tojson }}'></canvas>
+                <div id="chart-valuacion" style="width:100%;height:100%;"
+                     data-labels='{{ resultados|map(attribute="ticker")|list|tojson }}'
+                     data-pe='{{ resultados|map(attribute="pe")|list|tojson }}'
+                     data-pb='{{ resultados|map(attribute="price_to_book")|list|tojson }}'
+                     data-principal='{{ principal|tojson }}'></div>
             </div>
         </div>
 
@@ -335,12 +335,12 @@
                 <span class="legend-dot" style="background:#1976D2; margin-left:12px;"></span>Neto
             </small>
             <div class="bench-chart-canvas">
-                <canvas id="chart-margenes"
-                        data-labels='{{ resultados|map(attribute="ticker")|list|tojson }}'
-                        data-ebitda='{{ resultados|map(attribute="ebitda_margin")|list|tojson }}'
-                        data-operating='{{ resultados|map(attribute="operating_margin")|list|tojson }}'
-                        data-profit='{{ resultados|map(attribute="profit_margin")|list|tojson }}'
-                        data-principal='{{ principal|tojson }}'></canvas>
+                <div id="chart-margenes" style="width:100%;height:100%;"
+                     data-labels='{{ resultados|map(attribute="ticker")|list|tojson }}'
+                     data-ebitda='{{ resultados|map(attribute="ebitda_margin")|list|tojson }}'
+                     data-operating='{{ resultados|map(attribute="operating_margin")|list|tojson }}'
+                     data-profit='{{ resultados|map(attribute="profit_margin")|list|tojson }}'
+                     data-principal='{{ principal|tojson }}'></div>
             </div>
         </div>
 
@@ -351,11 +351,11 @@
                 <span class="legend-dot" style="background:#43B02A; margin-left:12px;"></span>BPA
             </small>
             <div class="bench-chart-canvas">
-                <canvas id="chart-crecimiento"
-                        data-labels='{{ resultados|map(attribute="ticker")|list|tojson }}'
-                        data-rev='{{ resultados|map(attribute="revenue_growth")|list|tojson }}'
-                        data-eps='{{ resultados|map(attribute="earnings_growth")|list|tojson }}'
-                        data-principal='{{ principal|tojson }}'></canvas>
+                <div id="chart-crecimiento" style="width:100%;height:100%;"
+                     data-labels='{{ resultados|map(attribute="ticker")|list|tojson }}'
+                     data-rev='{{ resultados|map(attribute="revenue_growth")|list|tojson }}'
+                     data-eps='{{ resultados|map(attribute="earnings_growth")|list|tojson }}'
+                     data-principal='{{ principal|tojson }}'></div>
             </div>
         </div>
     </div>
@@ -444,99 +444,89 @@
 </div>
 
 {% if resultados %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js"></script>
 <script>
 (function() {
-    if (typeof Chart === 'undefined') return;
-
+    if (typeof echarts === 'undefined') return;
+    function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
     function fmtPct(v) { return (v === null || v === undefined) ? '—' : (v * 100).toFixed(1) + '%'; }
     function fmtNum(v) { return (v === null || v === undefined) ? '—' : v.toFixed(2); }
 
-    function colorsForLabels(labels, principal, baseColor) {
-        return labels.map(function(l) {
-            return l === principal ? baseColor : baseColor + '66'; // alpha menor para peers
-        });
-    }
+    function barChart(el, datasets, opts) {
+        opts = opts || {};
+        var labels = JSON.parse(el.dataset.labels);
+        var principalTicker = JSON.parse(el.dataset.principal);
+        var axis = cssVar('--chart-axis') || '#94A3B8';
+        var grid = cssVar('--chart-grid') || '#E5E7EB';
+        var fg = cssVar('--fg') || '#0F172A';
+        var surface = cssVar('--surface') || '#FFFFFF';
+        var esPct = !!opts.pct;
 
-    function barChart(cvs, datasets, principal) {
-        var labels = JSON.parse(cvs.dataset.labels);
-        var principalTicker = JSON.parse(cvs.dataset.principal);
-        var pretty = datasets.map(function(d) {
+        var series = datasets.map(function(d) {
             return {
-                label: d.label,
+                name: d.label,
+                type: 'bar',
                 data: d.data,
-                backgroundColor: colorsForLabels(labels, principalTicker, d.color),
-                borderColor: d.color,
-                borderWidth: 1,
-                borderRadius: 4,
-                borderSkipped: false,
+                barGap: '15%',
+                itemStyle: {
+                    color: function(p) {
+                        var isPrincipal = labels[p.dataIndex] === principalTicker;
+                        return isPrincipal ? d.color : d.color + '66';
+                    },
+                    borderRadius: [3, 3, 0, 0],
+                },
             };
         });
-        new Chart(cvs, {
-            type: 'bar',
-            data: { labels: labels, datasets: pretty },
-            options: {
-                maintainAspectRatio: false,
-                responsive: true,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(ctx) {
-                                var v = ctx.parsed.y;
-                                if (ctx.dataset._fmt === 'pct') return ctx.dataset.label + ': ' + fmtPct(v);
-                                return ctx.dataset.label + ': ' + fmtNum(v);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { ticks: { font: { size: 10 } }, grid: { display: false } },
-                    y: {
-                        ticks: {
-                            font: { size: 10 },
-                            callback: function(v) { return cvs.dataset.fmt === 'pct' ? (v * 100).toFixed(0) + '%' : v; }
-                        },
-                        grid: { color: 'rgba(0,0,0,0.06)' }
-                    }
-                }
-            }
+        var c = echarts.init(el);
+        c.setOption({
+            grid: { left: 48, right: 10, top: 10, bottom: 24 },
+            tooltip: {
+                trigger: 'axis',
+                backgroundColor: fg, borderColor: fg,
+                textStyle: { color: surface, fontFamily: 'Inter', fontSize: 11 },
+                padding: [7, 11],
+                axisPointer: { type: 'shadow', shadowStyle: { color: axis + '22' } },
+                valueFormatter: function(v) { return esPct ? fmtPct(v) : fmtNum(v); },
+            },
+            legend: { show: false },
+            xAxis: { type: 'category', data: labels, axisLine: { lineStyle: { color: grid } }, axisTick: { show: false }, axisLabel: { color: axis, fontSize: 10, fontFamily: 'Inter' } },
+            yAxis: { type: 'value', splitLine: { lineStyle: { color: grid, type: 'dashed' } }, axisLabel: { color: axis, fontSize: 10, fontFamily: 'Inter', formatter: function(v) { return esPct ? (v * 100).toFixed(0) + '%' : v; } }, axisLine: { show: false }, axisTick: { show: false } },
+            series: series,
         });
+        window.addEventListener('resize', function() { c.resize(); });
     }
 
     // Valoración: P/E + P/B
-    var cvs1 = document.getElementById('chart-valuacion');
-    if (cvs1) {
+    var el1 = document.getElementById('chart-valuacion');
+    if (el1) {
         try {
-            barChart(cvs1, [
-                { label: 'P/E', data: JSON.parse(cvs1.dataset.pe), color: '#1976D2' },
-                { label: 'P/B', data: JSON.parse(cvs1.dataset.pb), color: '#8E24AA' },
+            barChart(el1, [
+                { label: 'P/E', data: JSON.parse(el1.dataset.pe), color: '#2563EB' },
+                { label: 'P/B', data: JSON.parse(el1.dataset.pb), color: '#8E24AA' },
             ]);
         } catch (e) { console.error('chart-valuacion', e); }
     }
 
     // Márgenes
-    var cvs2 = document.getElementById('chart-margenes');
-    if (cvs2) {
+    var el2 = document.getElementById('chart-margenes');
+    if (el2) {
         try {
-            cvs2.dataset.fmt = 'pct';
-            barChart(cvs2, [
-                { label: 'EBITDA',    data: JSON.parse(cvs2.dataset.ebitda),    color: '#43B02A', _fmt: 'pct' },
-                { label: 'Operativo', data: JSON.parse(cvs2.dataset.operating), color: '#F57C00', _fmt: 'pct' },
-                { label: 'Neto',      data: JSON.parse(cvs2.dataset.profit),    color: '#1976D2', _fmt: 'pct' },
-            ]);
+            barChart(el2, [
+                { label: 'EBITDA',    data: JSON.parse(el2.dataset.ebitda),    color: '#43B02A' },
+                { label: 'Operativo', data: JSON.parse(el2.dataset.operating), color: '#F57C00' },
+                { label: 'Neto',      data: JSON.parse(el2.dataset.profit),    color: '#2563EB' },
+            ], { pct: true });
         } catch (e) { console.error('chart-margenes', e); }
     }
 
     // Crecimiento
-    var cvs3 = document.getElementById('chart-crecimiento');
-    if (cvs3) {
+    var el3 = document.getElementById('chart-crecimiento');
+    if (el3) {
         try {
-            cvs3.dataset.fmt = 'pct';
-            barChart(cvs3, [
-                { label: 'Ingresos', data: JSON.parse(cvs3.dataset.rev), color: '#1976D2', _fmt: 'pct' },
-                { label: 'BPA',      data: JSON.parse(cvs3.dataset.eps), color: '#43B02A', _fmt: 'pct' },
-            ]);
+            barChart(el3, [
+                { label: 'Ingresos', data: JSON.parse(el3.dataset.rev), color: '#2563EB' },
+                { label: 'BPA',      data: JSON.parse(el3.dataset.eps), color: '#43B02A' },
+            ], { pct: true });
         } catch (e) { console.error('chart-crecimiento', e); }
     }
 

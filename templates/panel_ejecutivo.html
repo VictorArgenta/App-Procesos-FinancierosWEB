@@ -386,17 +386,17 @@
                 <h4>{{ icon("trend-up", size=14) }} Evolución últimos ejercicios</h4>
                 <small>Ingresos y beneficio neto, {{ dashboard.labels|length }} FY</small>
                 <div class="op-chart-canvas">
-                    <canvas id="op-evolucion"
-                            data-labels='{{ dashboard.evolucion.labels|tojson }}'
-                            data-ingresos='{{ dashboard.evolucion.ingresos|tojson }}'
-                            data-beneficio='{{ dashboard.evolucion.beneficio_neto|tojson }}'></canvas>
+                    <div id="op-evolucion" style="width:100%;height:100%;"
+                         data-labels='{{ dashboard.evolucion.labels|tojson }}'
+                         data-ingresos='{{ dashboard.evolucion.ingresos|tojson }}'
+                         data-beneficio='{{ dashboard.evolucion.beneficio_neto|tojson }}'></div>
                 </div>
             </div>
             <div class="op-chart-wrap">
                 <h4>{{ icon("pie-chart", size=14) }} Composición P&amp;L {{ dashboard.periodo_ultimo }}</h4>
                 <small>Por cada € de ingresos del último FY</small>
                 <div class="op-chart-canvas">
-                    <canvas id="op-composicion" data-slices='{{ dashboard.composicion_pyg|tojson }}'></canvas>
+                    <div id="op-composicion" style="width:100%;height:100%;" data-slices='{{ dashboard.composicion_pyg|tojson }}'></div>
                 </div>
             </div>
         </div>
@@ -448,12 +448,11 @@
 </div>
 
 {% if dashboard %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js"></script>
 <script>
 (function() {
-    if (typeof Chart === 'undefined') return;
-
-    // Formateador compacto: 134,9 B / 42,3 M / 215 K
+    if (typeof echarts === 'undefined') return;
+    function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
     function fmtCorto(v) {
         if (v === null || v === undefined || isNaN(v)) return '—';
         var a = Math.abs(v);
@@ -464,51 +463,38 @@
     }
 
     // --- Evolución (barras + línea) ---
-    var cvsEvo = document.getElementById('op-evolucion');
-    if (cvsEvo) {
+    var elEvo = document.getElementById('op-evolucion');
+    if (elEvo) {
         try {
-            var labels = JSON.parse(cvsEvo.dataset.labels);
-            var ingresos = JSON.parse(cvsEvo.dataset.ingresos);
-            var beneficio = JSON.parse(cvsEvo.dataset.beneficio);
-            new Chart(cvsEvo, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            type: 'bar',
-                            label: 'Ingresos',
-                            data: ingresos,
-                            backgroundColor: 'rgba(25, 118, 210, 0.75)',
-                            borderRadius: 4,
-                            borderSkipped: false
-                        },
-                        {
-                            type: 'line',
-                            label: 'Beneficio neto',
-                            data: beneficio,
-                            borderColor: '#43B02A',
-                            backgroundColor: 'rgba(67, 176, 42, 0.12)',
-                            tension: 0.3,
-                            fill: false,
-                            pointRadius: 3,
-                            borderWidth: 2
-                        }
-                    ]
+            var labels = JSON.parse(elEvo.dataset.labels);
+            var ingresos = JSON.parse(elEvo.dataset.ingresos);
+            var beneficio = JSON.parse(elEvo.dataset.beneficio);
+            var axis = cssVar('--chart-axis') || '#94A3B8';
+            var grid = cssVar('--chart-grid') || '#E5E7EB';
+            var fg = cssVar('--fg') || '#0F172A';
+            var surface = cssVar('--surface') || '#FFFFFF';
+            var brand = '#86BC25', blue = '#2563EB';
+            var cEvo = echarts.init(elEvo);
+            cEvo.setOption({
+                color: [blue, brand],
+                grid: { left: 54, right: 10, top: 12, bottom: 28 },
+                tooltip: {
+                    trigger: 'axis',
+                    backgroundColor: fg, borderColor: fg,
+                    textStyle: { color: surface, fontFamily: 'Inter', fontSize: 11 },
+                    padding: [7, 11],
+                    axisPointer: { type: 'shadow', shadowStyle: { color: axis + '22' } },
+                    valueFormatter: function(v) { return fmtCorto(v); },
                 },
-                options: {
-                    maintainAspectRatio: false,
-                    responsive: true,
-                    plugins: {
-                        legend: { labels: { font: { size: 10 }, boxWidth: 10 } },
-                        tooltip: { callbacks: { label: function(ctx) { return ctx.dataset.label + ': ' + fmtCorto(ctx.parsed.y); } } }
-                    },
-                    scales: {
-                        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
-                        y: { ticks: { font: { size: 10 }, callback: function(v) { return fmtCorto(v); } }, grid: { color: 'rgba(0,0,0,0.06)' } }
-                    }
-                }
+                legend: { show: false },
+                xAxis: { type: 'category', data: labels, axisLine: { lineStyle: { color: grid } }, axisTick: { show: false }, axisLabel: { color: axis, fontSize: 10, fontFamily: 'Inter' } },
+                yAxis: { type: 'value', splitLine: { lineStyle: { color: grid, type: 'dashed' } }, axisLabel: { color: axis, fontSize: 10, fontFamily: 'Inter', formatter: function(v) { return fmtCorto(v); } }, axisLine: { show: false }, axisTick: { show: false } },
+                series: [
+                    { name: 'Ingresos', type: 'bar', data: ingresos, barWidth: 16, itemStyle: { color: blue, borderRadius: [3, 3, 0, 0] } },
+                    { name: 'Beneficio neto', type: 'line', data: beneficio, smooth: true, symbol: 'circle', symbolSize: 6, itemStyle: { color: brand, borderColor: surface, borderWidth: 2 }, lineStyle: { color: brand, width: 2 } },
+                ],
             });
+            window.addEventListener('resize', function() { cEvo.resize(); });
         } catch (e) { console.error('Chart evolución:', e); }
     }
 
@@ -560,40 +546,37 @@
     }
 
     // --- Composición (doughnut) ---
-    var cvsPie = document.getElementById('op-composicion');
-    if (cvsPie) {
+    var elPie = document.getElementById('op-composicion');
+    if (elPie) {
         try {
-            var slices = JSON.parse(cvsPie.dataset.slices);
+            var slices = JSON.parse(elPie.dataset.slices);
             if (slices && slices.length) {
-                new Chart(cvsPie, {
-                    type: 'doughnut',
-                    data: {
-                        labels: slices.map(function(s) { return s.label; }),
-                        datasets: [{
-                            data: slices.map(function(s) { return s.valor; }),
-                            backgroundColor: slices.map(function(s) { return s.color; }),
-                            borderWidth: 1,
-                            borderColor: '#FFFFFF'
-                        }]
+                var fg = cssVar('--fg') || '#0F172A';
+                var fgDim = cssVar('--fg-dim') || '#475569';
+                var surface = cssVar('--surface') || '#FFFFFF';
+                var cPie = echarts.init(elPie);
+                cPie.setOption({
+                    tooltip: {
+                        trigger: 'item',
+                        backgroundColor: fg, borderColor: fg,
+                        textStyle: { color: surface, fontFamily: 'Inter', fontSize: 11 },
+                        padding: [7, 11],
+                        valueFormatter: function(v) { return fmtCorto(v); },
                     },
-                    options: {
-                        maintainAspectRatio: false,
-                        responsive: true,
-                        cutout: '55%',
-                        plugins: {
-                            legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 10 } },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(ctx) {
-                                        var tot = ctx.dataset.data.reduce(function(a, b) { return a + b; }, 0);
-                                        var pct = tot ? (ctx.parsed / tot * 100) : 0;
-                                        return ctx.label + ': ' + fmtCorto(ctx.parsed) + ' (' + pct.toFixed(1) + '%)';
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    legend: {
+                        orient: 'vertical', right: 0, top: 'middle', itemGap: 8,
+                        textStyle: { color: fgDim, fontSize: 11, fontFamily: 'Inter' },
+                        icon: 'roundRect',
+                    },
+                    series: [{
+                        type: 'pie', radius: ['55%', '78%'], center: ['38%', '50%'],
+                        avoidLabelOverlap: true, padAngle: 2,
+                        itemStyle: { borderRadius: 3, borderColor: surface, borderWidth: 2 },
+                        label: { show: false }, labelLine: { show: false },
+                        data: slices.map(function(s) { return { value: s.valor, name: s.label, itemStyle: { color: s.color } }; }),
+                    }],
                 });
+                window.addEventListener('resize', function() { cPie.resize(); });
             }
         } catch (e) { console.error('Chart composición:', e); }
     }
