@@ -277,8 +277,8 @@
 
 <div class="esc-head">
     <div>
-        <h1>Simulación de escenarios</h1>
-        <p>Ajusta los drivers con los mandos y visualiza el impacto sobre la cuenta de resultados y el flujo de caja del último ejercicio cerrado.</p>
+        <h1>Simulación del cierre proyectado</h1>
+        <p>Ajusta los drivers y lanza la proyección sobre el motor EPM corporativo. Partiendo del último ejercicio cerrado real, el motor calcula el cierre del próximo ejercicio con la cuenta de resultados y el flujo de caja proyectados.</p>
     </div>
     <div style="display: flex; gap: 8px; align-items: center;">
         <button type="button" class="esc-btn ghost" onclick="escModal.abrir('driver')">
@@ -308,31 +308,35 @@
             <div class="esc-actions">
                 <button type="button" class="esc-btn ghost" onclick="escApp.reset()">Resetear a 0</button>
                 <span style="flex: 1;"></span>
-                <select id="esc-modelo" class="esc-btn ghost" style="min-width: 220px;" title="Modelo IA">
+                <select id="esc-modelo" hidden>
                     {% for id, label in MODELOS_ORDENADOS %}
                     <option value="{{ id }}" {% if id == MODELO_POR_DEFECTO %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
+                <span class="esc-btn ghost" style="cursor: default; min-width: 180px; justify-content: center;" title="Motor de cálculo del cierre proyectado">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/><path d="M9 1v3"/><path d="M15 1v3"/><path d="M9 20v3"/><path d="M15 20v3"/><path d="M20 9h3"/><path d="M20 14h3"/><path d="M1 9h3"/><path d="M1 14h3"/></svg>
+                    Motor EPM
+                </span>
                 <button type="button" class="esc-btn ghost" onclick="escModal.abrir('guardar')" id="btn-guardar" title="Guarda los drivers actuales con un nombre">
                     {{ icon("check", size=13) }} Guardar escenario
                 </button>
-                <button type="button" class="esc-btn brand" onclick="escApp.simularIA()" id="btn-simular">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                    Simular con IA
+                <button type="button" class="esc-btn brand" onclick="escApp.simularIA()" id="btn-simular" title="Lanza el cálculo del cierre proyectado contra el motor EPM corporativo">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/></svg>
+                    Calcular cierre proyectado
                 </button>
             </div>
         </section>
 
         <!-- Resultados: PyG + Cash Flow + Márgenes -->
         <section class="esc-card">
-            <h2>Resultado proyectado <small style="font-weight: 500; color: var(--fg-mute); font-size: 0.78rem; margin-left: 10px;" id="esc-meta">mueve los drivers y pulsa "Simular con IA"</small></h2>
+            <h2>Cierre proyectado <small style="font-weight: 500; color: var(--fg-mute); font-size: 0.78rem; margin-left: 10px;" id="esc-meta">ajusta los drivers y pulsa "Calcular cierre proyectado"</small></h2>
 
             <div id="esc-sin-resultado" class="esc-narrativa-empty" style="padding: 24px 12px;">
-                Aún no hay escenario calculado. Ajusta los drivers y pulsa <strong>"Simular con IA"</strong> para que el modelo proyecte PyG y Cash Flow con su criterio de modelización.
+                Aún no se ha ejecutado el cálculo. Ajusta los drivers y pulsa <strong>"Calcular cierre proyectado"</strong> para enviar los parámetros al motor EPM y obtener la cuenta de resultados y el flujo de caja del próximo ejercicio.
             </div>
 
             <div id="esc-loading-ia" hidden style="padding: 28px 12px;">
-                <div class="esc-narrativa-loading">Pidiendo a la IA que calcule el escenario (puede tardar 10-30 s según el modelo)…</div>
+                <div class="esc-narrativa-loading">Conectando con el motor EPM y ejecutando el cálculo del cierre proyectado…</div>
             </div>
 
             <div id="esc-error-ia" hidden class="esc-narrativa-error"></div>
@@ -511,11 +515,9 @@ window.escApp = (function() {
     }
 
     function marcarCambiosPendientes() {
-        // Si hay un resultado previo pero el usuario ha cambiado los drivers,
-        // avisamos que hay cambios pendientes de simular.
         if (!ultimaSimulacion) return;
         var meta = document.getElementById('esc-meta');
-        meta.textContent = 'has cambiado los drivers · pulsa "Simular con IA" para recalcular';
+        meta.textContent = 'has cambiado los drivers · pulsa "Calcular cierre proyectado" para relanzar el motor';
         meta.style.color = 'var(--warn)';
     }
 
@@ -623,13 +625,15 @@ window.escApp = (function() {
 
     function renderResultadoIA(res) {
         var meta = document.getElementById('esc-meta');
-        meta.textContent = 'Periodo base: FY' + (res.periodo_base || '—') + (res.moneda ? ' · ' + res.moneda : '') + ' · modelo: ' + (res.modelo || '—');
+        var base = res.periodo_base || '—';
+        var proy = res.periodo_proyectado || '';
+        meta.textContent = 'Base FY' + base + (proy ? ' · cierre proyectado FY' + proy : '') + (res.moneda ? ' · ' + res.moneda : '') + ' · motor EPM';
         meta.style.color = '';
 
-        // Razonamiento breve
+        // Hipótesis del motor
         var raz = document.getElementById('esc-razonamiento');
         if (res.razonamiento_breve) {
-            raz.innerHTML = '<strong>Supuestos del modelo:</strong> ' + escapeHtml(res.razonamiento_breve);
+            raz.innerHTML = '<strong>Hipótesis consideradas por el motor:</strong> ' + escapeHtml(res.razonamiento_breve);
             raz.style.display = '';
         } else {
             raz.style.display = 'none';

@@ -5,7 +5,7 @@ import re
 import time
 import uuid
 import markdown
-from flask import Flask, render_template, request, send_file, redirect, url_for
+from flask import Flask, render_template, request, send_file, redirect, url_for, abort
 from dotenv import load_dotenv
 import yfinance as yf
 import anthropic
@@ -36,6 +36,7 @@ import threading as _threading
 from pathlib import Path as _Path
 import rag as _rag
 import diccionario as _dicc
+import meta_mocks as _mocks
 
 # Ticker activo durante la sesión de la app. Se arranca sin ticker
 # (`python app.py`) y el usuario selecciona la empresa al entrar en la
@@ -666,6 +667,10 @@ def _inyectar_branding():
         "COSTE_ACUMULADO_USD": _COSTE_ACUMULADO.get("usd", 0.0),
         "COSTE_LLAMADAS": _COSTE_ACUMULADO.get("llamadas", 0),
         "fecha_hoy": _dt_now().strftime("%d/%m/%Y"),
+        "MOCK_META": (TICKER_FIJO or "").upper() == "META",
+        "MOCK_NAV_CEO":    _mocks.MOCK_NAV.get("ceo", []),
+        "MOCK_NAV_CFO":    _mocks.MOCK_NAV.get("cfo", []),
+        "MOCK_NAV_EQUIPO": _mocks.MOCK_NAV.get("equipo", []),
     }
 
 
@@ -3287,6 +3292,26 @@ def parametros():
         kpis_seleccionados=_cargar_home_kpis_empresa(),
         kpi_max=_HOME_KPI_MAX,
         sector=_cargar_sector_empresa(),
+    )
+
+
+@app.route("/modulo/<slug>")
+def modulo_mock(slug):
+    """Módulo de maqueta (sólo disponible cuando la entidad activa es META).
+
+    Renderiza una vista estática construida desde ``meta_mocks.MOCK_MODULOS``
+    para ofrecer una visión completa del ecosistema DFin AI (CEO / CFO /
+    equipo) con datos realistas y argumentos preparados.
+    """
+    if (TICKER_FIJO or "").upper() != "META":
+        abort(404)
+    mod = _mocks.get_modulo(slug)
+    if not mod:
+        abort(404)
+    return render_template(
+        "mock_modulo.html",
+        mod=mod,
+        mod_js=json.dumps(mod, ensure_ascii=False),
     )
 
 
@@ -7190,6 +7215,11 @@ def _api_escenarios_simular_ia():
     base = periodos[0]
     periodo_base_lbl = str(base.get("periodo", ""))[:4]
     moneda = datos.get("moneda") or "n/d"
+    # Año siguiente al último FY disponible — es lo que proyectamos
+    try:
+        anio_siguiente = str(int(periodo_base_lbl) + 1)
+    except (TypeError, ValueError):
+        anio_siguiente = ""
 
     # Partidas clave del último FY
     def _n(x):
@@ -7264,14 +7294,15 @@ def _api_escenarios_simular_ia():
         ctx.append(f"- {d['nombre']} ({d['id']}): {signo}{d['valor']} {unidad_txt}  —  {d['descripcion']}")
 
     prompt = (
-        "Eres analista financiero senior en una firma Big Four. Tu tarea es "
-        "**proyectar la cuenta de resultados y el flujo de caja del próximo "
-        "ejercicio** aplicando los drivers que te indica el usuario. Puedes "
-        "ejercer tu criterio para efectos de segundo orden: apalancamiento "
-        "operativo, elasticidad precio-coste (si suben ingresos ¿el coste "
-        "variable escala proporcional?), estructura fija vs variable de los "
-        "gastos operativos, impacto en working capital sobre el OCF, etc. "
-        "Explica brevemente qué supuestos estás tomando.\n\n"
+        f"Eres el motor de cálculo del sistema EPM corporativo. Debes "
+        f"**proyectar el cierre del ejercicio FY{anio_siguiente or 'próximo'}** "
+        f"partiendo del último FY cerrado real (FY{periodo_base_lbl}) y aplicando "
+        "los drivers que te indica el usuario. Puedes ejercer criterio para "
+        "efectos de segundo orden: apalancamiento operativo, elasticidad "
+        "precio-coste (si suben ingresos ¿el coste variable escala proporcional?), "
+        "estructura fija vs variable de los gastos operativos, impacto en "
+        "working capital sobre el OCF, etc. Explica brevemente las hipótesis "
+        "que has tomado en el modelo.\n\n"
         "RESPONDE EXCLUSIVAMENTE con un objeto JSON válido con este schema, "
         "SIN texto antes o después, SIN markdown, SIN bloques de código. Las "
         "cifras numéricas van como números (no strings). Cuando una línea no "
@@ -7339,9 +7370,9 @@ def _api_escenarios_simular_ia():
     for seccion in ("pyg", "cashflow"):
         obj[seccion] = [_delta(f) for f in (obj.get(seccion) or [])]
     obj["periodo_base"] = periodo_base_lbl
+    obj["periodo_proyectado"] = anio_siguiente
     obj["moneda"] = moneda
-    obj["modelo"] = modelo
-
+    # No exponemos el modelo IA — el usuario debe percibir el motor como EPM
     return jsonify({"ok": True, "resultado": obj})
 
 
