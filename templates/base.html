@@ -274,9 +274,17 @@
             .ds-sidebar::after { animation: none !important; display: none; }
         }
         .ds-side-head {
-            padding: 18px 20px;
+            padding: 16px 20px;
             display: flex; align-items: center; gap: 10px;
             border-bottom: 1px solid var(--nav-divider);
+        }
+        .ds-logo-full {
+            display: inline-flex; align-items: center;
+            text-decoration: none;
+            line-height: 0;
+        }
+        .ds-logo-full img {
+            height: 36px; width: auto; display: block;
         }
         .ds-logo-mark {
             width: 36px; height: 36px;
@@ -940,11 +948,9 @@
     <!-- ============== SIDEBAR ============== -->
     <aside class="ds-sidebar">
         <div class="ds-side-head">
-            <a href="/" class="ds-logo-mark" title="Inicio · DFin AI">D</a>
-            <div class="ds-brand" style="flex: 1; min-width: 0;">
-                DFin AI
-                <small>Financial Intelligence</small>
-            </div>
+            <a href="/" class="ds-logo-full" title="Inicio · DFin AI" aria-label="DFin AI">
+                <img src="{{ url_for('static', filename='logo.svg') }}" alt="DFin AI">
+            </a>
         </div>
 
         <nav class="ds-side-nav">
