@@ -3656,20 +3656,48 @@ def _resumen_dashboard_home(datos, kpis_ids=None):
 
     ultimo = periodos[-1] if periodos else {}
 
-    # Composición de un € de ingresos del último ejercicio (para el pie).
-    composicion = []
-    ing_u = ultimo.get("ingresos") or 0
-    if ing_u > 0:
-        bloques = [
-            ("Coste de ventas", ultimo.get("coste_ventas"), "#DA291C"),
-            ("Gastos operativos", ultimo.get("gastos_operativos"), "#F57C00"),
-            ("Impuestos y otros", ultimo.get("impuestos"), "#546E7A"),
-            ("Beneficio neto",   ultimo.get("beneficio_neto"), "#43B02A"),
+    # Waterfall P&L del último ejercicio: de Ingresos a Beneficio neto,
+    # pasando por los subtotales clave. Cada paso lleva tipo:
+    #   total     = barra absoluta (ingresos, beneficio_bruto, ebit, beneficio_neto)
+    #   negativo  = resta sobre el acumulado
+    #   positivo  = suma sobre el acumulado
+    def _n(x):
+        try:
+            return float(x) if x is not None else None
+        except (TypeError, ValueError):
+            return None
+    ing_u = _n(ultimo.get("ingresos"))
+    waterfall = []
+    if ing_u and ing_u > 0:
+        cv = _n(ultimo.get("coste_ventas")) or 0
+        bruto = _n(ultimo.get("margen_bruto"))
+        if bruto is None:
+            bruto = ing_u - cv
+        go = _n(ultimo.get("gastos_operativos")) or 0
+        ebit = _n(ultimo.get("ebit"))
+        if ebit is None:
+            ebit = bruto - go
+        res_fin = _n(ultimo.get("resultado_financiero_neto")) or 0
+        imp = _n(ultimo.get("impuestos")) or 0
+        bn = _n(ultimo.get("beneficio_neto"))
+        if bn is None:
+            bn = ebit + res_fin - imp
+        waterfall = [
+            {"label": "Ingresos",         "valor": ing_u, "tipo": "total"},
+            {"label": "Coste de ventas",  "valor": abs(cv), "tipo": "negativo"},
+            {"label": "Beneficio bruto",  "valor": bruto, "tipo": "total"},
+            {"label": "Gastos operativos","valor": abs(go), "tipo": "negativo"},
+            {"label": "EBIT",             "valor": ebit, "tipo": "total"},
         ]
-        for label, val, color in bloques:
-            v = abs(val) if isinstance(val, (int, float)) else 0
-            if v > 0:
-                composicion.append({"label": label, "valor": v, "color": color})
+        if abs(res_fin) > 0:
+            waterfall.append({
+                "label": "Resultado financiero",
+                "valor": abs(res_fin),
+                "tipo": "positivo" if res_fin >= 0 else "negativo",
+            })
+        if imp:
+            waterfall.append({"label": "Impuestos", "valor": abs(imp), "tipo": "negativo"})
+        waterfall.append({"label": "Beneficio neto", "valor": bn, "tipo": "total"})
 
     return {
         "labels": labels,
@@ -3690,8 +3718,8 @@ def _resumen_dashboard_home(datos, kpis_ids=None):
             "ingresos": [p.get("ingresos") for p in periodos],
             "beneficio_neto": [p.get("beneficio_neto") for p in periodos],
         },
-        # Datos para el pie de composición P&L último año.
-        "composicion_pyg": composicion,
+        # Waterfall P&L del último FY (reemplaza el antiguo pie de composición)
+        "waterfall_pyg": waterfall,
     }
 
 
@@ -6612,12 +6640,10 @@ def noticias_enviar():
 
 @app.route("/admin")
 def admin():
-    return render_template(
-        "admin.html",
-        info_coste=_parsear_lineas_coste(limite_lineas=50),
-        fichero_coste=str(_COSTE_FILE),
-        fichero_coste_existe=_COSTE_FILE.exists(),
-    )
+    """Jubilada: la antigua pantalla /admin se ha fusionado con /parametros
+    (ahora llamada Administración). Mantengo el redirect por compatibilidad
+    con enlaces guardados."""
+    return redirect(url_for("parametros"))
 
 
 # =====================================================================

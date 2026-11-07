@@ -143,9 +143,9 @@
 {% else %}
     <div class="home-head">
         <div>
-            <h1>Buenos días</h1>
+            <h1>{{ EMPRESA_NOMBRE }}</h1>
             <p id="home-subtitle">
-                Resumen de {{ EMPRESA_NOMBRE }}{% if TICKER_FIJO %} · <strong>{{ TICKER_FIJO }}</strong>{% endif %}
+                {% if TICKER_FIJO %}Ticker <strong>{{ TICKER_FIJO }}</strong>{% endif %}
             </p>
         </div>
         <div class="home-actions">
@@ -189,11 +189,11 @@
             </div>
         </div>
         <div class="chart-card">
-            <h3>Composición P&amp;L</h3>
-            <p class="sub">Reparto del último ejercicio</p>
+            <h3>De ingresos a beneficio neto</h3>
+            <p class="sub">Bridge del último ejercicio · ingresos, deducciones y subtotales</p>
             <div class="chart-wrap sm">
-                <div id="chart-pl" style="position: absolute; inset: 0;"></div>
-                <div class="skel skel-chart" id="chart-pl-skel"></div>
+                <div id="chart-waterfall" style="position: absolute; inset: 0;"></div>
+                <div class="skel skel-chart" id="chart-waterfall-skel"></div>
             </div>
         </div>
     </section>
@@ -561,39 +561,79 @@
         }
     }
 
-    function pintarPl(dash) {
-        var sk = document.getElementById('chart-pl-skel'); if (sk) sk.remove();
-        var el = document.getElementById('chart-pl');
+    function pintarWaterfall(dash) {
+        var sk = document.getElementById('chart-waterfall-skel'); if (sk) sk.remove();
+        var el = document.getElementById('chart-waterfall');
         if (!el) return;
-        if (typeof echarts === 'undefined') { mostrarErrorChart('chart-pl', 'No se pudo cargar la librería de gráficos.'); return; }
-        var slices = (dash && dash.composicion_pyg) || [];
-        if (!slices.length) { mostrarErrorChart('chart-pl', 'Sin datos de composición para el último FY.'); return; }
+        if (typeof echarts === 'undefined') { mostrarErrorChart('chart-waterfall', 'No se pudo cargar la librería de gráficos.'); return; }
+        var pasos = (dash && dash.waterfall_pyg) || [];
+        if (!pasos.length) { mostrarErrorChart('chart-waterfall', 'Sin datos de P&L para el último FY.'); return; }
         try {
+            var axis = cssVar('--chart-axis') || '#94A3B8';
+            var grid = cssVar('--chart-grid') || '#E5E7EB';
             var fg = cssVar('--fg') || '#0F172A';
-            var fgDim = cssVar('--fg-dim') || '#475569';
             var surface = cssVar('--surface') || '#FFFFFF';
+            var COLORS = { total: '#2563EB', positivo: '#43B02A', negativo: '#DC2626' };
+            // Dos series apiladas: base (invisible) + valor visible.
+            var labels = [], basesData = [], valoresData = [];
+            var acumulado = 0;
+            pasos.forEach(function(p) {
+                labels.push(p.label);
+                if (p.tipo === 'total') {
+                    basesData.push(0);
+                    valoresData.push({ value: p.valor, itemStyle: { color: COLORS.total } });
+                    acumulado = p.valor;
+                } else if (p.tipo === 'negativo') {
+                    var base = acumulado - p.valor;
+                    basesData.push(base);
+                    valoresData.push({ value: p.valor, itemStyle: { color: COLORS.negativo } });
+                    acumulado = base;
+                } else {
+                    basesData.push(acumulado);
+                    valoresData.push({ value: p.valor, itemStyle: { color: COLORS.positivo } });
+                    acumulado = acumulado + p.valor;
+                }
+            });
             var c = echarts.init(el);
             c.setOption({
+                grid: { left: 56, right: 14, top: 14, bottom: 40 },
                 tooltip: {
-                    trigger: 'item',
+                    trigger: 'axis',
                     backgroundColor: fg, borderColor: fg,
                     textStyle: { color: surface, fontFamily: 'Inter', fontSize: 12 },
                     padding: [8, 12],
-                    valueFormatter: function(v) { return fmtCorto(v); },
+                    formatter: function(params) {
+                        var p = pasos[params[0].dataIndex];
+                        if (!p) return '';
+                        var signo = p.tipo === 'negativo' ? '− ' : (p.tipo === 'positivo' ? '+ ' : '');
+                        return '<strong>' + p.label + '</strong><br>' + signo + fmtCorto(p.valor);
+                    },
                 },
-                legend: { orient: 'vertical', right: 0, top: 'middle', itemGap: 10, textStyle: { color: fgDim, fontSize: 12, fontFamily: 'Inter' }, icon: 'roundRect' },
-                series: [{
-                    type: 'pie', radius: ['55%', '78%'], center: ['38%', '50%'],
-                    avoidLabelOverlap: true, padAngle: 2,
-                    itemStyle: { borderRadius: 4, borderColor: surface, borderWidth: 2 },
-                    label: { show: false }, labelLine: { show: false },
-                    data: slices.map(function(s) { return { value: s.valor, name: s.label, itemStyle: { color: s.color } }; }),
-                }],
+                xAxis: {
+                    type: 'category', data: labels,
+                    axisLine: { lineStyle: { color: grid } },
+                    axisTick: { show: false },
+                    axisLabel: {
+                        color: axis, fontSize: 10.5, fontFamily: 'Inter',
+                        interval: 0, rotate: labels.length > 5 ? -18 : 0,
+                        formatter: function(v) { return v.length > 14 ? v.slice(0, 13) + '…' : v; },
+                    },
+                },
+                yAxis: {
+                    type: 'value',
+                    splitLine: { lineStyle: { color: grid, type: 'dashed' } },
+                    axisLabel: { color: axis, fontSize: 11, fontFamily: 'Inter', formatter: function(v) { return fmtCorto(v); } },
+                    axisLine: { show: false }, axisTick: { show: false },
+                },
+                series: [
+                    { name: 'base', type: 'bar', stack: 'wf', itemStyle: { color: 'transparent' }, data: basesData, tooltip: { show: false }, emphasis: { disabled: true } },
+                    { name: 'valor', type: 'bar', stack: 'wf', data: valoresData, barWidth: 22, itemStyle: { borderRadius: [3, 3, 0, 0] }, label: { show: true, position: 'top', color: fg, fontSize: 10, fontFamily: 'Inter', formatter: function(p) { return fmtCorto(pasos[p.dataIndex].valor); } } },
+                ],
             });
             window.addEventListener('resize', function() { c.resize(); });
         } catch (e) {
-            console.error('chart-pl', e);
-            mostrarErrorChart('chart-pl', 'Error al pintar el gráfico: ' + e.message);
+            console.error('chart-waterfall', e);
+            mostrarErrorChart('chart-waterfall', 'Error al pintar el gráfico: ' + e.message);
         }
     }
 
@@ -606,22 +646,22 @@
                 if (!dash) {
                     document.getElementById('kpis-row').innerHTML = '<div style="color: var(--fg-mute); font-size: 13px; padding: 12px;">No hay datos financieros disponibles para esta empresa.</div>';
                     mostrarErrorChart('chart-evo', 'Sin datos financieros.');
-                    mostrarErrorChart('chart-pl', 'Sin datos financieros.');
+                    mostrarErrorChart('chart-waterfall', 'Sin datos financieros.');
                     return;
                 }
                 // Actualizar subtitle con moneda/periodo
                 var sub = document.getElementById('home-subtitle');
                 if (sub && dash.periodo_ultimo) {
-                    sub.innerHTML = 'Resumen de {{ EMPRESA_NOMBRE }} · <strong>{{ TICKER_FIJO }}</strong> · ejercicio FY' + dash.periodo_ultimo + ' cerrado' + (dash.moneda ? ' · <span class="num">' + dash.moneda + '</span>' : '');
+                    sub.innerHTML = 'Ticker <strong>{{ TICKER_FIJO }}</strong> · ejercicio FY' + dash.periodo_ultimo + ' cerrado' + (dash.moneda ? ' · <span class="num">' + dash.moneda + '</span>' : '');
                 }
                 pintarKpis(dash);
                 pintarEvo(dash);
-                pintarPl(dash);
+                pintarWaterfall(dash);
             })
             .catch(function(e) {
                 console.error('home dashboard', e);
                 mostrarErrorChart('chart-evo', 'Error al cargar datos: ' + e.message);
-                mostrarErrorChart('chart-pl', 'Error al cargar datos.');
+                mostrarErrorChart('chart-waterfall', 'Error al cargar datos.');
             });
     }
     if (window.requestIdleCallback) requestIdleCallback(cargarDashboard, { timeout: 200 });
