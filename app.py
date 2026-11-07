@@ -6922,6 +6922,38 @@ def habla_leer_diccionario():
     })
 
 
+@app.route("/habla-con-tus-datos/kpis/calcular", methods=["GET"])
+def habla_kpis_calcular():
+    """Calcula el valor actual de todos los KPIs del diccionario (entradas
+    con Formula:) contra los datos estructurados del último FY cerrado.
+
+    Devuelve `[{nombre, formula, valor, trace, error, presentacion}, ...]`.
+    """
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    entradas, _texto = _cargar_diccionario_activo()
+    datos = None
+    if _empresa_cotiza():
+        try:
+            datos = _cargar_datos_ticker_fijo()
+        except Exception:  # noqa: BLE001
+            datos = None
+    if not datos:
+        return jsonify({"ok": True, "kpis": [], "sin_datos": True})
+    kpis = _kpis_precalculados(datos, entradas)
+    # Normalizamos para el frontend
+    out = [{
+        "nombre": k["nombre"],
+        "formula": k["formula"],
+        "valor": k["valor"],
+        "error": k.get("error"),
+        "presentacion": k.get("presentacion", ""),
+        "trace": [{"etiqueta": e, "valor": v} for e, v in (k.get("trace") or [])],
+    } for k in kpis]
+    return jsonify({"ok": True, "kpis": out, "periodo": (datos.get("periodos") or [{}])[0].get("periodo", "")})
+
+
 @app.route("/habla-con-tus-datos/partidas", methods=["GET"])
 def habla_listar_partidas():
     """Devuelve la lista de partidas disponibles en el dataset de la empresa

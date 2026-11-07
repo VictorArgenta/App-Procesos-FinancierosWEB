@@ -690,6 +690,134 @@
         margin-top: 4px;
     }
 
+    /* === Tabs del diccionario === */
+    .dict-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--gray-border);
+        padding: 0 16px;
+        background: var(--white);
+        flex-shrink: 0;
+    }
+    .dict-tab {
+        background: transparent; border: 0;
+        padding: 12px 16px 14px;
+        font-family: inherit; font-size: 0.86rem; font-weight: 600;
+        color: var(--gray-10);
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        display: inline-flex; align-items: center; gap: 7px;
+        transition: color 0.12s, border-color 0.12s;
+    }
+    .dict-tab:hover { color: var(--black); }
+    .dict-tab.is-active {
+        color: var(--deloitte-green-dark);
+        border-bottom-color: var(--deloitte-green);
+    }
+    .dict-tab-count {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 20px; height: 18px;
+        padding: 0 5px;
+        font-size: 0.7rem; font-weight: 700;
+        background: var(--gray-bg);
+        color: var(--gray-10);
+        border-radius: 999px;
+    }
+    .dict-tab.is-active .dict-tab-count {
+        background: var(--deloitte-green-soft);
+        color: var(--deloitte-green-dark);
+    }
+
+    .dict-panel {
+        display: none;
+        flex: 1; flex-direction: column; min-height: 0;
+    }
+    .dict-panel.is-active { display: flex; }
+    .dict-panel-head {
+        display: flex; gap: 10px; align-items: center;
+        padding: 14px 16px;
+        background: var(--white);
+        border-bottom: 1px solid var(--gray-border);
+    }
+    .dict-search {
+        flex: 1; font-family: inherit; font-size: 0.86rem;
+        padding: 7px 11px;
+        border: 1px solid var(--gray-border);
+        border-radius: 6px;
+        background: var(--white); color: var(--black);
+    }
+    .dict-search:focus { outline: none; border-color: var(--deloitte-green); }
+    .dict-add { white-space: nowrap; padding: 7px 13px !important; font-size: 0.82rem !important; }
+
+    .dict-table-wrap {
+        flex: 1; overflow-y: auto; min-height: 0;
+        background: var(--gray-bg);
+    }
+    .dict-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--white);
+        font-size: 0.86rem;
+    }
+    .dict-table thead th {
+        position: sticky; top: 0; z-index: 1;
+        padding: 10px 14px;
+        text-align: left;
+        font-size: 0.7rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.5px;
+        color: var(--gray-10);
+        background: var(--gray-bg);
+        border-bottom: 1px solid var(--gray-border);
+    }
+    .dict-table tbody td {
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--gray-border);
+        vertical-align: top;
+    }
+    .dict-table tbody tr { cursor: pointer; transition: background 0.1s; }
+    .dict-table tbody tr:hover { background: var(--gray-bg); }
+    .dict-table td.cell-name {
+        font-weight: 600; color: var(--black);
+    }
+    .dict-table td.cell-formula {
+        font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+        font-size: 0.78rem;
+        color: var(--deloitte-green-dark);
+        word-break: break-word;
+    }
+    .dict-table td.cell-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.82rem; font-weight: 600;
+        color: var(--black);
+        white-space: nowrap;
+    }
+    .dict-table td.cell-val.err { color: var(--gray-10); font-weight: 400; font-style: italic; }
+    .dict-table td.cell-expl { color: var(--gray-11); font-size: 0.83rem; line-height: 1.45; }
+    .dict-table td.cell-expl .muted { color: var(--gray-7); font-style: italic; }
+    .dict-table td.cell-actions {
+        text-align: right; white-space: nowrap;
+    }
+    .dict-row-btn {
+        background: transparent; border: 0;
+        padding: 4px 6px; cursor: pointer;
+        color: var(--gray-10);
+        border-radius: 3px;
+    }
+    .dict-row-btn:hover { color: var(--deloitte-green-dark); background: var(--deloitte-green-soft); }
+    .dict-row-btn.del:hover { color: var(--danger); background: #FDECEA; }
+    .dict-empty-tbl {
+        padding: 32px 20px;
+        text-align: center;
+        color: var(--gray-10);
+        font-size: 0.86rem;
+        font-style: italic;
+        background: var(--white);
+    }
+
+    /* Mini-modal body usa los mismos hd-dict-field; aquí solo ajustamos */
+    .hd-modal-body .hd-dict-field + .hd-dict-field { margin-top: 14px; }
+    .hd-modal-body code { background: var(--gray-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.78rem; }
+
     /* Warnings bloque */
     .hd-dict-warnings {
         display: flex; flex-direction: column; gap: 6px;
@@ -806,94 +934,208 @@
             </div>
             <button type="button" class="hd-close-x" onclick="hdDict.close()" aria-label="Cerrar">{{ icon("x", size=16) }}</button>
         </div>
-        <div class="hd-modal-split">
-            <!-- Columna izquierda: lista -->
-            <aside class="hd-dict-list-col">
-                <div class="hd-dict-list-head">
-                    <input type="text" id="dict-buscador" placeholder="Buscar entrada…" class="hd-dict-search">
-                    <button type="button" class="hd-btn-primary hd-dict-new" id="dict-nueva">
-                        {{ icon("pencil", size=13) }} Nueva
-                    </button>
-                </div>
-                <ul class="hd-dict-list" id="dict-list"></ul>
-                <div class="hd-dict-list-foot" id="dict-list-foot"></div>
-            </aside>
 
-            <!-- Columna derecha: ficha -->
-            <section class="hd-dict-form-col">
-                <div id="dict-empty-state" class="hd-dict-empty">
-                    <p>Selecciona una entrada de la izquierda o pulsa <strong>Nueva</strong> para crear una nueva definición, sinónimo, KPI o instrucción de presentación.</p>
-                </div>
-                <form id="dict-form" class="hd-dict-form" style="display: none;" onsubmit="return false;">
-                    <input type="hidden" id="dict-clave-original">
-
-                    <div class="hd-dict-field">
-                        <label for="dict-nombre">
-                            Nombre canónico
-                            <span class="hd-dict-hint">obligatorio · el concepto oficial, tal como lo entiende el sistema</span>
-                        </label>
-                        <input type="text" id="dict-nombre" list="dict-partidas-list" autocomplete="off" placeholder="Ej: EBITDA, Margen neto, Deuda neta…">
-                        <datalist id="dict-partidas-list"></datalist>
-                        <div class="hd-dict-fieldmsg" id="dict-nombre-msg"></div>
-                    </div>
-
-                    <div class="hd-dict-field">
-                        <label for="dict-definicion">
-                            Definición
-                            <span class="hd-dict-hint">qué es y cómo interpretarlo</span>
-                        </label>
-                        <textarea id="dict-definicion" rows="2" placeholder="Opcional. Explicación breve del concepto."></textarea>
-                    </div>
-
-                    <div class="hd-dict-field">
-                        <label>
-                            Sinónimos y alias corporativos
-                            <span class="hd-dict-hint">cómo se refieren internamente a este concepto</span>
-                        </label>
-                        <div class="hd-chips" id="dict-sinonimos-chips"></div>
-                        <input type="text" id="dict-sinonimos-input" class="hd-chips-input" placeholder="Escribe un alias y pulsa Enter…">
-                        <div class="hd-dict-fieldmsg" id="dict-sinonimos-msg"></div>
-                    </div>
-
-                    <div class="hd-dict-field">
-                        <label for="dict-formula">
-                            Fórmula (opcional, solo para KPIs calculados)
-                            <span class="hd-dict-hint">operadores + − × ÷ y referencias [Nombre] entre corchetes</span>
-                        </label>
-                        <textarea id="dict-formula" rows="2" spellcheck="false" placeholder="Ej: [EBITDA] / [Ingresos totales] * 100"></textarea>
-                        <div class="hd-dict-fieldmsg" id="dict-formula-msg"></div>
-                    </div>
-
-                    <div class="hd-dict-field">
-                        <label for="dict-presentacion">
-                            Instrucciones de presentación
-                            <span class="hd-dict-hint">cómo quieres que se muestre: unidad, decimales, desglose, semáforos…</span>
-                        </label>
-                        <textarea id="dict-presentacion" rows="2" placeholder="Ej: En millones, con margen sobre ingresos en %. Comparar contra año anterior."></textarea>
-                    </div>
-
-                    <div class="hd-dict-field">
-                        <label>
-                            Etiquetas
-                            <span class="hd-dict-hint">para agrupar entradas (pyg, balance, kpi, apalancamiento…)</span>
-                        </label>
-                        <div class="hd-chips" id="dict-tags-chips"></div>
-                        <input type="text" id="dict-tags-input" class="hd-chips-input" placeholder="Escribe una etiqueta y pulsa Enter…">
-                    </div>
-
-                    <div class="hd-dict-warnings" id="dict-warnings"></div>
-                </form>
-            </section>
+        <!-- Tabs -->
+        <div class="dict-tabs" role="tablist">
+            <button type="button" class="dict-tab is-active" data-tab="sin" role="tab">
+                Sinónimos <span class="dict-tab-count" id="dict-count-sin">0</span>
+            </button>
+            <button type="button" class="dict-tab" data-tab="kpi" role="tab">
+                KPIs <span class="dict-tab-count" id="dict-count-kpi">0</span>
+            </button>
+            <button type="button" class="dict-tab" data-tab="def" role="tab">
+                Definiciones <span class="dict-tab-count" id="dict-count-def">0</span>
+            </button>
         </div>
+
+        <!-- Vista Sinónimos -->
+        <div class="dict-panel is-active" data-panel="sin">
+            <div class="dict-panel-head">
+                <input type="text" class="dict-search" placeholder="Buscar alias o concepto…" data-search="sin">
+                <button type="button" class="hd-btn-primary dict-add" data-add="sin">
+                    {{ icon("pencil", size=13) }} Añadir sinónimo
+                </button>
+            </div>
+            <div class="dict-table-wrap">
+                <table class="dict-table" id="dict-table-sin">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Alias / sinónimo</th>
+                            <th>Concepto oficial</th>
+                            <th style="width: 60px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div class="dict-empty-tbl" id="dict-empty-sin">No hay sinónimos aún. Pulsa "Añadir sinónimo" para empezar.</div>
+            </div>
+        </div>
+
+        <!-- Vista KPIs -->
+        <div class="dict-panel" data-panel="kpi">
+            <div class="dict-panel-head">
+                <input type="text" class="dict-search" placeholder="Buscar KPI…" data-search="kpi">
+                <button type="button" class="hd-btn-primary dict-add" data-add="kpi">
+                    {{ icon("pencil", size=13) }} Añadir KPI
+                </button>
+            </div>
+            <div class="dict-table-wrap">
+                <table class="dict-table" id="dict-table-kpi">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%;">Nombre</th>
+                            <th style="width: 40%;">Fórmula</th>
+                            <th style="width: 20%;">Valor actual</th>
+                            <th style="width: 60px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div class="dict-empty-tbl" id="dict-empty-kpi">No hay KPIs aún. Pulsa "Añadir KPI" para definir uno con fórmula.</div>
+            </div>
+        </div>
+
+        <!-- Vista Definiciones -->
+        <div class="dict-panel" data-panel="def">
+            <div class="dict-panel-head">
+                <input type="text" class="dict-search" placeholder="Buscar concepto…" data-search="def">
+                <button type="button" class="hd-btn-primary dict-add" data-add="def">
+                    {{ icon("pencil", size=13) }} Añadir definición
+                </button>
+            </div>
+            <div class="dict-table-wrap">
+                <table class="dict-table" id="dict-table-def">
+                    <thead>
+                        <tr>
+                            <th style="width: 28%;">Concepto</th>
+                            <th style="width: 42%;">Explicación</th>
+                            <th>Cómo presentarlo</th>
+                            <th style="width: 60px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <div class="dict-empty-tbl" id="dict-empty-def">No hay definiciones aún. Añade explicaciones e instrucciones de presentación para que la IA use tu vocabulario.</div>
+            </div>
+        </div>
+
         <div class="hd-modal-foot">
             <div style="display: flex; gap: 8px;">
                 <button type="button" class="hd-btn-ghost" id="dict-plantilla-btn" style="display: none;">Cargar plantilla</button>
                 <button type="button" class="hd-btn-ghost" onclick="hdDictAdv.abrir()">Vista avanzada (texto)</button>
             </div>
+            <button type="button" class="hd-btn-ghost" onclick="hdDict.close()">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Mini-modal: añadir / editar sinónimo -->
+<div class="hd-modal-backdrop" id="sin-modal" role="dialog" aria-modal="true">
+    <div class="hd-modal sm">
+        <div class="hd-modal-head">
+            <h3 id="sin-modal-title">Añadir sinónimo</h3>
+            <button type="button" class="hd-close-x" onclick="hdDict.cerrarForm('sin')" aria-label="Cerrar">{{ icon("x", size=16) }}</button>
+        </div>
+        <div class="hd-modal-body">
+            <div class="hd-dict-field">
+                <label>Alias o sinónimo corporativo
+                    <span class="hd-dict-hint">la forma en que internamente se refieren al concepto</span>
+                </label>
+                <input type="text" id="sin-alias" placeholder="Ej: margen de maniobra, DFN, FCO…">
+            </div>
+            <div class="hd-dict-field">
+                <label>Concepto oficial al que apunta
+                    <span class="hd-dict-hint">el nombre canónico tal como lo entiende el sistema</span>
+                </label>
+                <input type="text" id="sin-canonico" list="dict-partidas-list" autocomplete="off" placeholder="Ej: EBITDA, Deuda neta…">
+                <datalist id="dict-partidas-list"></datalist>
+            </div>
+            <div class="hd-dict-fieldmsg" id="sin-msg"></div>
+        </div>
+        <div class="hd-modal-foot">
+            <span class="info">Un concepto puede tener varios alias.</span>
             <div style="display: flex; gap: 8px;">
-                <button type="button" class="hd-btn-danger" id="dict-borrar-btn" style="display: none;" onclick="hdDict.borrar()">Borrar entrada</button>
-                <button type="button" class="hd-btn-ghost" onclick="hdDict.close()">Cerrar</button>
-                <button type="button" class="hd-btn-primary" id="dict-guardar-btn" style="display: none;" onclick="hdDict.guardar()">Guardar entrada</button>
+                <button type="button" class="hd-btn-ghost" onclick="hdDict.cerrarForm('sin')">Cancelar</button>
+                <button type="button" class="hd-btn-primary" onclick="hdDict.guardarSinonimo()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mini-modal: añadir / editar KPI -->
+<div class="hd-modal-backdrop" id="kpi-modal" role="dialog" aria-modal="true">
+    <div class="hd-modal sm">
+        <div class="hd-modal-head">
+            <h3 id="kpi-modal-title">Añadir KPI</h3>
+            <button type="button" class="hd-close-x" onclick="hdDict.cerrarForm('kpi')" aria-label="Cerrar">{{ icon("x", size=16) }}</button>
+        </div>
+        <div class="hd-modal-body">
+            <div class="hd-dict-field">
+                <label>Nombre del KPI
+                    <span class="hd-dict-hint">p. ej. Margen EBITDA, DFN/EBITDA, Payout ratio</span>
+                </label>
+                <input type="text" id="kpi-nombre" placeholder="Nombre que usarás al preguntar">
+            </div>
+            <div class="hd-dict-field">
+                <label>Fórmula
+                    <span class="hd-dict-hint">operadores <code>+</code> <code>−</code> <code>×</code> <code>÷</code> y partidas entre corchetes <code>[...]</code></span>
+                </label>
+                <textarea id="kpi-formula" rows="2" spellcheck="false" placeholder="Ej: [EBITDA] / [Ingresos totales] * 100" style="font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size: 0.82rem;"></textarea>
+                <div class="hd-dict-fieldmsg" id="kpi-formula-msg"></div>
+            </div>
+            <div class="hd-dict-field">
+                <label>Explicación breve (opcional)</label>
+                <textarea id="kpi-explicacion" rows="2" placeholder="Qué mide y cómo interpretarlo."></textarea>
+            </div>
+            <div class="hd-dict-field">
+                <label>Cómo presentarlo (opcional)
+                    <span class="hd-dict-hint">unidades, decimales, comparaciones, semáforos</span>
+                </label>
+                <textarea id="kpi-presentacion" rows="2" placeholder="Ej: Un decimal con sufijo x. Semáforo: <2 bajo, 2-4 medio, >4 alto."></textarea>
+            </div>
+            <div class="hd-dict-fieldmsg" id="kpi-msg"></div>
+        </div>
+        <div class="hd-modal-foot">
+            <span class="info" id="kpi-modal-info"></span>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="hd-btn-ghost" onclick="hdDict.cerrarForm('kpi')">Cancelar</button>
+                <button type="button" class="hd-btn-primary" onclick="hdDict.guardarKpi()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mini-modal: añadir / editar definición -->
+<div class="hd-modal-backdrop" id="def-modal" role="dialog" aria-modal="true">
+    <div class="hd-modal sm">
+        <div class="hd-modal-head">
+            <h3 id="def-modal-title">Añadir definición</h3>
+            <button type="button" class="hd-close-x" onclick="hdDict.cerrarForm('def')" aria-label="Cerrar">{{ icon("x", size=16) }}</button>
+        </div>
+        <div class="hd-modal-body">
+            <div class="hd-dict-field">
+                <label>Concepto
+                    <span class="hd-dict-hint">el nombre que estás explicando o sobre el que das instrucciones</span>
+                </label>
+                <input type="text" id="def-nombre" list="dict-partidas-list" autocomplete="off" placeholder="Ej: Ingresos totales, CAPEX, Deuda neta…">
+            </div>
+            <div class="hd-dict-field">
+                <label>Explicación</label>
+                <textarea id="def-explicacion" rows="3" placeholder="Qué es y cómo interpretarlo. Opcional si solo das instrucciones de presentación."></textarea>
+            </div>
+            <div class="hd-dict-field">
+                <label>Cómo presentarlo
+                    <span class="hd-dict-hint">unidades, acumulado vs periodo, desglose por segmento, comparativas, etc.</span>
+                </label>
+                <textarea id="def-presentacion" rows="3" placeholder="Ej: Mostrar en millones. Si existe desglose por segmento operativo, incluirlo. Comparar siempre contra año anterior."></textarea>
+            </div>
+            <div class="hd-dict-fieldmsg" id="def-msg"></div>
+        </div>
+        <div class="hd-modal-foot">
+            <span class="info"></span>
+            <div style="display: flex; gap: 8px;">
+                <button type="button" class="hd-btn-ghost" onclick="hdDict.cerrarForm('def')">Cancelar</button>
+                <button type="button" class="hd-btn-primary" onclick="hdDict.guardarDef()">Guardar</button>
             </div>
         </div>
     </div>
@@ -1294,7 +1536,14 @@
         });
     });
 
-    // ---------- Chips reusable ----------
+    // ---------- Normalizador compartido ----------
+    function normalizar(s) {
+        return (s || '').toString().toLowerCase().trim()
+            .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+            .replace(/\s+/g, ' ');
+    }
+
+    // ---------- Chips reusable (aún usado por otras partes del template) ----------
     function chipsController(contenedorId, inputId, iniciales) {
         const cont = document.getElementById(contenedorId);
         const inp = document.getElementById(inputId);
@@ -1339,338 +1588,495 @@
         };
     }
 
-    // ---------- Modal diccionario (ficha estructurada) ----------
+    // ---------- Modal diccionario con 3 tabs ----------
+    function fmtValorKpi(v, presentacion) {
+        if (v === null || v === undefined || isNaN(v)) return '—';
+        var p = (presentacion || '').toLowerCase();
+        var esPct = p.indexOf('%') !== -1 || p.indexOf('porcentaje') !== -1 || p.indexOf('porcentual') !== -1;
+        var esRatio = p.indexOf(' x') !== -1 || /\bx\b/.test(p);
+        var decimales = 1;
+        if (p.indexOf('dos decimales') !== -1) decimales = 2;
+        if (esPct) return v.toFixed(decimales).replace('.', ',') + '%';
+        if (esRatio) return v.toFixed(decimales).replace('.', ',') + 'x';
+        var abs = Math.abs(v);
+        if (abs >= 1e9) return (v/1e9).toFixed(1).replace('.', ',') + ' B';
+        if (abs >= 1e6) return (v/1e6).toFixed(1).replace('.', ',') + ' M';
+        if (abs >= 1e3) return (v/1e3).toFixed(0) + ' K';
+        return v.toFixed(decimales).replace('.', ',');
+    }
+
     const hdDict = {
         el: document.getElementById('dict-modal'),
         desc: document.getElementById('dict-desc'),
         btnPlantilla: document.getElementById('dict-plantilla-btn'),
-        emptyState: document.getElementById('dict-empty-state'),
-        form: document.getElementById('dict-form'),
-        buscador: document.getElementById('dict-buscador'),
-        lista: document.getElementById('dict-list'),
-        listaFoot: document.getElementById('dict-list-foot'),
-        partidasList: document.getElementById('dict-partidas-list'),
-        btnBorrar: document.getElementById('dict-borrar-btn'),
-        btnGuardar: document.getElementById('dict-guardar-btn'),
-        warnings: document.getElementById('dict-warnings'),
-        inp: {
-            claveOrig: document.getElementById('dict-clave-original'),
-            nombre: document.getElementById('dict-nombre'),
-            definicion: document.getElementById('dict-definicion'),
-            formula: document.getElementById('dict-formula'),
-            presentacion: document.getElementById('dict-presentacion'),
-        },
-        msg: {
-            nombre: document.getElementById('dict-nombre-msg'),
-            sinonimos: document.getElementById('dict-sinonimos-msg'),
-            formula: document.getElementById('dict-formula-msg'),
-        },
-        plantilla: '',
         entradas: [],
         partidas: [],
-        seleccionada: null,  // clave original de la entrada activa
-        sinChips: null,
-        tagsChips: null,
+        kpisCalculados: {},       // { clave: valor }
+        modoForm: 'nuevo',        // 'nuevo' | 'editar'
+        editandoClave: null,      // clave original cuando edito
 
         async abrir() {
             this.el.setAttribute('open', '');
             this.desc.textContent = 'Cargando…';
-            this.warnings.innerHTML = '';
             await this.cargarTodo();
         },
         close() { this.el.removeAttribute('open'); },
 
         async cargarTodo() {
             try {
-                const [rDic, rPart] = await Promise.all([
+                const [rDic, rPart, rKpi] = await Promise.all([
                     fetch('/habla-con-tus-datos/diccionario'),
                     fetch('/habla-con-tus-datos/partidas').catch(() => null),
+                    fetch('/habla-con-tus-datos/kpis/calcular').catch(() => null),
                 ]);
                 const j = await rDic.json();
                 if (!j.ok) throw new Error(j.error);
                 this.entradas = j.entradas || [];
-                this.plantilla = j.plantilla || '';
+                const plantilla = j.plantilla || '';
                 this.desc.textContent = `${j.n_entradas} entrada${j.n_entradas===1?'':'s'} cargadas.`;
                 if (!j.n_entradas && j.plantilla_disponible) {
                     this.btnPlantilla.style.display = '';
                     this.btnPlantilla.onclick = async () => {
                         this.btnPlantilla.disabled = true;
-                        await this.guardarTextoCompleto(this.plantilla);
+                        await this.guardarTextoCompleto(plantilla);
                         this.btnPlantilla.style.display = 'none';
                     };
                 } else {
                     this.btnPlantilla.style.display = 'none';
                 }
-                if (rPart && rPart.ok) {
-                    try {
-                        const jp = await rPart.json();
-                        this.partidas = jp.partidas || [];
-                    } catch (_) { this.partidas = []; }
+                if (rPart) {
+                    try { const jp = await rPart.json(); this.partidas = jp.partidas || []; }
+                    catch (_) { this.partidas = []; }
                 }
-                this.renderPartidasAutocomplete();
-                this.renderLista();
-                this.mostrarEmpty();
+                this.kpisCalculados = {};
+                if (rKpi) {
+                    try {
+                        const jk = await rKpi.json();
+                        (jk.kpis || []).forEach(k => {
+                            this.kpisCalculados[normalizar(k.nombre)] = k;
+                        });
+                    } catch (_) {}
+                }
+                // Rellenar <datalist> de partidas para los inputs
+                ['dict-partidas-list'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.innerHTML = '';
+                    this.partidas.forEach(p => {
+                        const o = document.createElement('option');
+                        o.value = p; el.appendChild(o);
+                    });
+                });
+                this.renderTodo();
             } catch (e) {
                 this.desc.textContent = 'Error: ' + e.message;
             }
         },
 
-        renderPartidasAutocomplete() {
-            this.partidasList.innerHTML = '';
-            this.partidas.forEach(p => {
-                const o = document.createElement('option');
-                o.value = p;
-                this.partidasList.appendChild(o);
+        clasificar() {
+            // Separa entradas por tipo principal:
+            //   kpi  = tiene formula
+            //   sin  = tiene sinonimos (y no formula)
+            //   def  = tiene definicion o presentacion (sin formula ni sinonimos)
+            const sin = [], kpi = [], def = [];
+            this.entradas.forEach(e => {
+                if (e.formula && e.formula.trim()) {
+                    kpi.push(e);
+                    return;
+                }
+                if (e.sinonimos && e.sinonimos.length) {
+                    sin.push(e);
+                    return;
+                }
+                if ((e.definicion && e.definicion.trim()) || (e.presentacion && e.presentacion.trim())) {
+                    def.push(e);
+                    return;
+                }
+                // Entrada vacía: la ponemos en definiciones para no perderla
+                def.push(e);
             });
+            return { sin: sin, kpi: kpi, def: def };
         },
 
-        renderLista() {
-            const q = (this.buscador.value || '').toLowerCase().trim();
-            const items = this.entradas.filter(e => {
-                if (!q) return true;
-                const hay = (e.nombre + ' ' + (e.sinonimos || []).join(' ') + ' ' + (e.tags || []).join(' ')).toLowerCase();
-                return hay.includes(q);
-            });
-            this.lista.innerHTML = '';
-            if (!items.length) {
-                this.lista.innerHTML = `<li class="hd-dict-empty-list">${this.entradas.length ? 'Sin resultados.' : 'Sin entradas aún. Pulsa Nueva para crear la primera.'}</li>`;
-                this.listaFoot.textContent = `${this.entradas.length} entrada${this.entradas.length===1?'':'s'} en total`;
-                return;
-            }
+        renderTodo() {
+            const cls = this.clasificar();
+            // Contadores en las tabs
+            // Para sinónimos contamos pares individuales (una entrada con 3 alias = 3 filas)
+            let totalAlias = 0;
+            cls.sin.forEach(e => { totalAlias += (e.sinonimos || []).length; });
+            document.getElementById('dict-count-sin').textContent = totalAlias;
+            document.getElementById('dict-count-kpi').textContent = cls.kpi.length;
+            document.getElementById('dict-count-def').textContent = cls.def.length;
+            this.renderSin(cls.sin);
+            this.renderKpi(cls.kpi);
+            this.renderDef(cls.def);
+        },
+
+        renderSin(items) {
+            const tbody = document.querySelector('#dict-table-sin tbody');
+            const empty = document.getElementById('dict-empty-sin');
+            const q = normalizar((document.querySelector('[data-search="sin"]').value) || '');
+            tbody.innerHTML = '';
+            // Expandimos cada entrada en una fila por alias
+            const pares = [];
             items.forEach(e => {
-                const li = document.createElement('li');
-                li.className = 'hd-dict-item' + (this.seleccionada === e.clave ? ' active' : '');
-                const markers = [];
-                if (e.formula) markers.push('<span class="marker kpi">KPI</span>');
-                if ((e.sinonimos || []).length) markers.push(`<span class="marker">${e.sinonimos.length} alias</span>`);
-                if (e.presentacion) markers.push('<span class="marker">presentación</span>');
-                li.innerHTML = `
-                    <div class="hd-dict-item-name"></div>
-                    <div class="hd-dict-item-meta">${markers.join('') || '<span style="opacity:0.6;">solo definición</span>'}</div>
-                `;
-                li.querySelector('.hd-dict-item-name').textContent = e.nombre;
-                li.addEventListener('click', () => this.cargarEntrada(e));
-                this.lista.appendChild(li);
-            });
-            this.listaFoot.textContent = `Mostrando ${items.length} de ${this.entradas.length}`;
-        },
-
-        mostrarEmpty() {
-            this.emptyState.style.display = '';
-            this.form.style.display = 'none';
-            this.btnBorrar.style.display = 'none';
-            this.btnGuardar.style.display = 'none';
-            this.warnings.innerHTML = '';
-            document.querySelectorAll('.hd-dict-item').forEach(x => x.classList.remove('active'));
-            this.seleccionada = null;
-        },
-
-        nueva() {
-            this.seleccionada = null;
-            document.querySelectorAll('.hd-dict-item').forEach(x => x.classList.remove('active'));
-            this.emptyState.style.display = 'none';
-            this.form.style.display = '';
-            this.btnBorrar.style.display = 'none';
-            this.btnGuardar.style.display = '';
-            this.inp.claveOrig.value = '';
-            this.inp.nombre.value = '';
-            this.inp.definicion.value = '';
-            this.inp.formula.value = '';
-            this.inp.presentacion.value = '';
-            this.sinChips = chipsController('dict-sinonimos-chips', 'dict-sinonimos-input', []);
-            this.tagsChips = chipsController('dict-tags-chips', 'dict-tags-input', []);
-            this.warnings.innerHTML = '';
-            this.limpiarMsgs();
-            setTimeout(() => this.inp.nombre.focus(), 50);
-        },
-
-        cargarEntrada(entrada) {
-            this.seleccionada = entrada.clave;
-            document.querySelectorAll('.hd-dict-item').forEach((x, i) => {
-                x.classList.remove('active');
-            });
-            // Volver a buscar el <li> correspondiente después del render.
-            this.renderLista();
-            this.emptyState.style.display = 'none';
-            this.form.style.display = '';
-            this.btnBorrar.style.display = '';
-            this.btnGuardar.style.display = '';
-            this.inp.claveOrig.value = entrada.clave || '';
-            this.inp.nombre.value = entrada.nombre || '';
-            this.inp.definicion.value = entrada.definicion || '';
-            this.inp.formula.value = entrada.formula || '';
-            this.inp.presentacion.value = entrada.presentacion || '';
-            this.sinChips = chipsController('dict-sinonimos-chips', 'dict-sinonimos-input', entrada.sinonimos || []);
-            this.tagsChips = chipsController('dict-tags-chips', 'dict-tags-input', entrada.tags || []);
-            this.warnings.innerHTML = '';
-            this.limpiarMsgs();
-            this.validarInline();
-        },
-
-        limpiarMsgs() {
-            ['nombre', 'sinonimos', 'formula'].forEach(k => {
-                this.msg[k].textContent = '';
-                this.msg[k].className = 'hd-dict-fieldmsg';
-            });
-        },
-
-        validarInline() {
-            // Nombre: duplicado en creación
-            const nombre = (this.inp.nombre.value || '').trim();
-            const claveOrig = this.inp.claveOrig.value;
-            const norm = normalizar(nombre);
-            const dup = this.entradas.find(e => e.clave === norm && e.clave !== claveOrig);
-            if (dup && nombre) {
-                this.msg.nombre.textContent = `Ya existe una entrada "${dup.nombre}". Si guardas, se sobrescribirá.`;
-                this.msg.nombre.className = 'hd-dict-fieldmsg warn';
-            } else {
-                this.msg.nombre.textContent = '';
-                this.msg.nombre.className = 'hd-dict-fieldmsg';
-            }
-            // Sinónimos: colisión con otras entradas
-            const sinActuales = this.sinChips ? this.sinChips.get() : [];
-            const colisiones = [];
-            sinActuales.forEach(s => {
-                const sn = normalizar(s);
-                this.entradas.forEach(e => {
-                    if (e.clave === claveOrig) return;
-                    if ((e.sinonimos || []).some(ex => normalizar(ex) === sn)) {
-                        colisiones.push(`"${s}" → ${e.nombre}`);
+                (e.sinonimos || []).forEach(alias => {
+                    const hay = normalizar(alias + ' ' + e.nombre);
+                    if (!q || hay.indexOf(q) !== -1) {
+                        pares.push({ alias, canonico: e.nombre, clave: e.clave });
                     }
                 });
             });
-            if (colisiones.length) {
-                this.msg.sinonimos.textContent = 'Alias ya en uso: ' + colisiones.join(', ');
-                this.msg.sinonimos.className = 'hd-dict-fieldmsg warn';
-            } else {
-                this.msg.sinonimos.textContent = '';
-            }
-            // Fórmula: paréntesis balanceados, referencias conocidas
-            const f = (this.inp.formula.value || '').trim();
-            if (f) {
-                const balance = (f.match(/\(/g) || []).length - (f.match(/\)/g) || []).length;
-                const refs = Array.from(f.matchAll(/\[([^\]]+)\]/g)).map(m => m[1].trim());
-                let fmt_err = null;
-                if (balance !== 0) fmt_err = 'Paréntesis no balanceados.';
-                else if (!refs.length) fmt_err = 'La fórmula no contiene referencias [Nombre].';
-                else if (/[\^%]|\*\*/.test(f)) fmt_err = 'Solo se permiten operadores + − × ÷ y paréntesis.';
-                // Referencias desconocidas
-                const desconocidas = [];
-                refs.forEach(r => {
-                    const rn = normalizar(r.replace(/^(pyg|balance|cashflow)\./i, ''));
-                    const enPartidas = this.partidas.some(p => normalizar(p) === rn);
-                    const enEntradas = this.entradas.some(e => e.clave === rn);
-                    if (!enPartidas && !enEntradas) desconocidas.push(r);
-                });
-                if (fmt_err) {
-                    this.msg.formula.textContent = fmt_err;
-                    this.msg.formula.className = 'hd-dict-fieldmsg error';
-                } else if (desconocidas.length) {
-                    this.msg.formula.textContent = 'Partidas no encontradas: ' + desconocidas.join(', ');
-                    this.msg.formula.className = 'hd-dict-fieldmsg warn';
-                } else {
-                    this.msg.formula.textContent = `${refs.length} referencia${refs.length>1?'s':''} resueltas correctamente.`;
-                    this.msg.formula.className = 'hd-dict-fieldmsg ok';
-                }
-            } else {
-                this.msg.formula.textContent = '';
-                this.msg.formula.className = 'hd-dict-fieldmsg';
-            }
-        },
-
-        async guardar() {
-            const nombre = (this.inp.nombre.value || '').trim();
-            if (!nombre) {
-                this.msg.nombre.textContent = 'El nombre es obligatorio.';
-                this.msg.nombre.className = 'hd-dict-fieldmsg error';
-                this.inp.nombre.focus();
+            if (!pares.length) {
+                empty.style.display = '';
+                empty.textContent = this.entradas.length ? 'Sin alias con ese filtro.' : empty.dataset._orig || empty.textContent;
                 return;
             }
-            this.btnGuardar.disabled = true;
-            this.warnings.innerHTML = '';
+            empty.style.display = 'none';
+            pares.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="cell-name"></td>
+                    <td></td>
+                    <td class="cell-actions">
+                        <button type="button" class="dict-row-btn del" title="Quitar alias">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+                        </button>
+                    </td>
+                `;
+                tr.querySelector('.cell-name').textContent = p.alias;
+                tr.cells[1].textContent = p.canonico;
+                tr.querySelector('.del').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.borrarAlias(p.clave, p.alias);
+                });
+                tbody.appendChild(tr);
+            });
+        },
+
+        renderKpi(items) {
+            const tbody = document.querySelector('#dict-table-kpi tbody');
+            const empty = document.getElementById('dict-empty-kpi');
+            const q = normalizar((document.querySelector('[data-search="kpi"]').value) || '');
+            tbody.innerHTML = '';
+            const filtrados = items.filter(e => !q || normalizar(e.nombre + ' ' + (e.formula || '')).indexOf(q) !== -1);
+            if (!filtrados.length) {
+                empty.style.display = '';
+                return;
+            }
+            empty.style.display = 'none';
+            filtrados.forEach(e => {
+                const calc = this.kpisCalculados[e.clave];
+                const valorHtml = (() => {
+                    if (!calc) return '<span class="cell-val err">—</span>';
+                    if (calc.valor === null || calc.valor === undefined) {
+                        return '<span class="cell-val err" title="' + (calc.error || '').replace(/"/g, '&quot;') + '">no calculable</span>';
+                    }
+                    return '<span class="cell-val">' + fmtValorKpi(calc.valor, e.presentacion) + '</span>';
+                })();
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="cell-name"></td>
+                    <td class="cell-formula"></td>
+                    <td>${valorHtml}</td>
+                    <td class="cell-actions">
+                        <button type="button" class="dict-row-btn del" title="Borrar KPI">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+                        </button>
+                    </td>
+                `;
+                tr.querySelector('.cell-name').textContent = e.nombre;
+                tr.querySelector('.cell-formula').textContent = e.formula;
+                tr.addEventListener('click', () => this.abrirForm('kpi', e));
+                tr.querySelector('.del').addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    this.borrarEntrada(e);
+                });
+                tbody.appendChild(tr);
+            });
+        },
+
+        renderDef(items) {
+            const tbody = document.querySelector('#dict-table-def tbody');
+            const empty = document.getElementById('dict-empty-def');
+            const q = normalizar((document.querySelector('[data-search="def"]').value) || '');
+            tbody.innerHTML = '';
+            const filtrados = items.filter(e => !q || normalizar(e.nombre + ' ' + (e.definicion || '') + ' ' + (e.presentacion || '')).indexOf(q) !== -1);
+            if (!filtrados.length) {
+                empty.style.display = '';
+                return;
+            }
+            empty.style.display = 'none';
+            filtrados.forEach(e => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="cell-name"></td>
+                    <td class="cell-expl"></td>
+                    <td class="cell-expl"></td>
+                    <td class="cell-actions">
+                        <button type="button" class="dict-row-btn del" title="Borrar">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+                        </button>
+                    </td>
+                `;
+                tr.querySelector('.cell-name').textContent = e.nombre;
+                const def = tr.cells[1];
+                if (e.definicion) def.textContent = e.definicion;
+                else { def.innerHTML = '<span class="muted">—</span>'; }
+                const pres = tr.cells[2];
+                if (e.presentacion) pres.textContent = e.presentacion;
+                else { pres.innerHTML = '<span class="muted">—</span>'; }
+                tr.addEventListener('click', () => this.abrirForm('def', e));
+                tr.querySelector('.del').addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    this.borrarEntrada(e);
+                });
+                tbody.appendChild(tr);
+            });
+        },
+
+        // --- Formularios por tipo ---
+        abrirForm(tipo, entrada) {
+            this.modoForm = entrada ? 'editar' : 'nuevo';
+            this.editandoClave = entrada ? entrada.clave : null;
+            const modal = document.getElementById(tipo + '-modal');
+            const titulo = document.getElementById(tipo + '-modal-title');
+            if (tipo === 'sin') {
+                document.getElementById('sin-alias').value = '';
+                document.getElementById('sin-canonico').value = entrada ? entrada.nombre : '';
+                document.getElementById('sin-msg').textContent = '';
+                titulo.textContent = entrada ? ('Añadir alias a "' + entrada.nombre + '"') : 'Añadir sinónimo';
+            } else if (tipo === 'kpi') {
+                document.getElementById('kpi-nombre').value = entrada ? entrada.nombre : '';
+                document.getElementById('kpi-formula').value = entrada ? (entrada.formula || '') : '';
+                document.getElementById('kpi-explicacion').value = entrada ? (entrada.definicion || '') : '';
+                document.getElementById('kpi-presentacion').value = entrada ? (entrada.presentacion || '') : '';
+                document.getElementById('kpi-formula-msg').textContent = '';
+                document.getElementById('kpi-msg').textContent = '';
+                const info = document.getElementById('kpi-modal-info');
+                if (entrada && this.kpisCalculados[entrada.clave] && this.kpisCalculados[entrada.clave].valor !== null) {
+                    info.textContent = 'Valor actual: ' + fmtValorKpi(this.kpisCalculados[entrada.clave].valor, entrada.presentacion);
+                } else { info.textContent = ''; }
+                titulo.textContent = entrada ? ('Editar KPI · ' + entrada.nombre) : 'Añadir KPI';
+            } else {
+                document.getElementById('def-nombre').value = entrada ? entrada.nombre : '';
+                document.getElementById('def-explicacion').value = entrada ? (entrada.definicion || '') : '';
+                document.getElementById('def-presentacion').value = entrada ? (entrada.presentacion || '') : '';
+                document.getElementById('def-msg').textContent = '';
+                titulo.textContent = entrada ? ('Editar · ' + entrada.nombre) : 'Añadir definición';
+            }
+            modal.setAttribute('open', '');
+            setTimeout(() => {
+                const first = modal.querySelector('input[type="text"], textarea');
+                if (first) first.focus();
+            }, 50);
+        },
+        cerrarForm(tipo) {
+            const modal = document.getElementById(tipo + '-modal');
+            if (modal) modal.removeAttribute('open');
+        },
+
+        async guardarSinonimo() {
+            const alias = (document.getElementById('sin-alias').value || '').trim();
+            const canonico = (document.getElementById('sin-canonico').value || '').trim();
+            const msg = document.getElementById('sin-msg');
+            msg.className = 'hd-dict-fieldmsg';
+            msg.textContent = '';
+            if (!alias) { msg.className = 'hd-dict-fieldmsg error'; msg.textContent = 'El alias es obligatorio.'; return; }
+            if (!canonico) { msg.className = 'hd-dict-fieldmsg error'; msg.textContent = 'El concepto oficial es obligatorio.'; return; }
+            // Comprobar que no colisiona con otra entrada
+            const aliasN = normalizar(alias);
+            const canonicoN = normalizar(canonico);
+            const colision = this.entradas.find(e => e.clave !== canonicoN && (e.sinonimos || []).some(s => normalizar(s) === aliasN));
+            if (colision) {
+                msg.className = 'hd-dict-fieldmsg warn';
+                msg.textContent = 'Aviso: "' + alias + '" ya pertenece a "' + colision.nombre + '". Si guardas, se reasigna.';
+            }
+            // Si ya existe la entrada del canónico, añadir el alias a su lista. Si no, crearla.
+            let entrada = this.entradas.find(e => e.clave === canonicoN);
+            let sinonimos;
+            if (entrada) {
+                const yaTenia = (entrada.sinonimos || []).some(s => normalizar(s) === aliasN);
+                sinonimos = yaTenia ? (entrada.sinonimos || []).slice() : (entrada.sinonimos || []).concat([alias]);
+            } else {
+                entrada = null;
+                sinonimos = [alias];
+            }
+            const body = {
+                nombre: entrada ? entrada.nombre : canonico,
+                clave_original: entrada ? entrada.clave : '',
+                definicion: entrada ? (entrada.definicion || '') : '',
+                sinonimos: sinonimos,
+                formula: entrada ? (entrada.formula || '') : '',
+                presentacion: entrada ? (entrada.presentacion || '') : '',
+                tags: entrada ? (entrada.tags || []) : [],
+            };
             try {
-                const body = {
-                    nombre,
-                    clave_original: this.inp.claveOrig.value || '',
-                    definicion: this.inp.definicion.value || '',
-                    sinonimos: this.sinChips ? this.sinChips.get() : [],
-                    formula: this.inp.formula.value || '',
-                    presentacion: this.inp.presentacion.value || '',
-                    tags: this.tagsChips ? this.tagsChips.get() : [],
-                };
                 const r = await fetch('/habla-con-tus-datos/diccionario/entrada', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(body),
                 });
                 const j = await r.json();
                 if (!j.ok) throw new Error(j.error);
-                this.pintarWarnings(j.warnings || [], true);
-                this.desc.textContent = `${j.n_entradas} entrada${j.n_entradas===1?'':'s'} · guardado ✓`;
+                this.cerrarForm('sin');
                 await this.cargarTodo();
-                // Reposiciona en la nueva entrada
-                const nueva = this.entradas.find(e => e.clave === normalizar(nombre));
-                if (nueva) this.cargarEntrada(nueva);
             } catch (e) {
-                this.pintarWarnings([{tipo: 'error', mensaje: e.message}], true);
-            } finally {
-                this.btnGuardar.disabled = false;
+                msg.className = 'hd-dict-fieldmsg error';
+                msg.textContent = e.message;
             }
         },
 
-        async borrar() {
-            if (!this.seleccionada) return;
-            const nombre = this.inp.nombre.value || this.seleccionada;
-            const ok = await hdConfirm.ask('Borrar entrada', `¿Eliminar "${nombre}" del diccionario?`);
+        async guardarKpi() {
+            const nombre = (document.getElementById('kpi-nombre').value || '').trim();
+            const formula = (document.getElementById('kpi-formula').value || '').trim();
+            const exp = (document.getElementById('kpi-explicacion').value || '').trim();
+            const pres = (document.getElementById('kpi-presentacion').value || '').trim();
+            const msg = document.getElementById('kpi-msg');
+            const msgF = document.getElementById('kpi-formula-msg');
+            msg.className = 'hd-dict-fieldmsg'; msg.textContent = '';
+            msgF.className = 'hd-dict-fieldmsg'; msgF.textContent = '';
+            if (!nombre) { msg.className = 'hd-dict-fieldmsg error'; msg.textContent = 'El nombre del KPI es obligatorio.'; return; }
+            if (!formula) { msgF.className = 'hd-dict-fieldmsg error'; msgF.textContent = 'La fórmula es obligatoria. Usa [Partida] / 2 * 100, por ejemplo.'; return; }
+            // Validación ligera: paréntesis + referencias
+            const balance = (formula.match(/\(/g) || []).length - (formula.match(/\)/g) || []).length;
+            if (balance !== 0) { msgF.className = 'hd-dict-fieldmsg error'; msgF.textContent = 'Paréntesis no balanceados.'; return; }
+            const refs = Array.from(formula.matchAll(/\[([^\]]+)\]/g)).map(m => m[1].trim());
+            if (!refs.length) { msgF.className = 'hd-dict-fieldmsg error'; msgF.textContent = 'La fórmula no contiene referencias [Nombre].'; return; }
+
+            const claveNueva = normalizar(nombre);
+            const claveOrig = this.editandoClave || '';
+            const entradaOrig = claveOrig ? this.entradas.find(e => e.clave === claveOrig) : null;
+            const body = {
+                nombre: nombre,
+                clave_original: claveOrig,
+                definicion: exp,
+                sinonimos: entradaOrig ? (entradaOrig.sinonimos || []) : [],
+                formula: formula,
+                presentacion: pres,
+                tags: entradaOrig ? (entradaOrig.tags || []) : ['kpi'],
+            };
+            try {
+                const r = await fetch('/habla-con-tus-datos/diccionario/entrada', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body),
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                const warns = (j.warnings || []).filter(w => w.tipo === 'formula_error');
+                if (warns.length) {
+                    msgF.className = 'hd-dict-fieldmsg warn';
+                    msgF.textContent = warns.map(w => w.mensaje).join(' · ');
+                    // Aún así se guardó: recargamos
+                }
+                this.cerrarForm('kpi');
+                await this.cargarTodo();
+            } catch (e) {
+                msg.className = 'hd-dict-fieldmsg error';
+                msg.textContent = e.message;
+            }
+        },
+
+        async guardarDef() {
+            const nombre = (document.getElementById('def-nombre').value || '').trim();
+            const exp = (document.getElementById('def-explicacion').value || '').trim();
+            const pres = (document.getElementById('def-presentacion').value || '').trim();
+            const msg = document.getElementById('def-msg');
+            msg.className = 'hd-dict-fieldmsg'; msg.textContent = '';
+            if (!nombre) { msg.className = 'hd-dict-fieldmsg error'; msg.textContent = 'El concepto es obligatorio.'; return; }
+            if (!exp && !pres) { msg.className = 'hd-dict-fieldmsg error'; msg.textContent = 'Rellena al menos la explicación o las instrucciones de presentación.'; return; }
+            const claveOrig = this.editandoClave || '';
+            const entradaOrig = claveOrig ? this.entradas.find(e => e.clave === claveOrig) : null;
+            const body = {
+                nombre: nombre,
+                clave_original: claveOrig,
+                definicion: exp,
+                sinonimos: entradaOrig ? (entradaOrig.sinonimos || []) : [],
+                formula: entradaOrig ? (entradaOrig.formula || '') : '',
+                presentacion: pres,
+                tags: entradaOrig ? (entradaOrig.tags || []) : [],
+            };
+            try {
+                const r = await fetch('/habla-con-tus-datos/diccionario/entrada', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body),
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                this.cerrarForm('def');
+                await this.cargarTodo();
+            } catch (e) {
+                msg.className = 'hd-dict-fieldmsg error';
+                msg.textContent = e.message;
+            }
+        },
+
+        // --- Borrados ---
+        async borrarEntrada(entrada) {
+            const ok = await hdConfirm.ask('Borrar entrada', `¿Eliminar "${entrada.nombre}" del diccionario?`);
             if (!ok) return;
             try {
-                const r = await fetch(`/habla-con-tus-datos/diccionario/entrada/${encodeURIComponent(this.seleccionada)}`, {method: 'DELETE'});
+                const r = await fetch(`/habla-con-tus-datos/diccionario/entrada/${encodeURIComponent(entrada.clave)}`, { method: 'DELETE' });
                 const j = await r.json();
                 if (!j.ok) throw new Error(j.error);
                 await this.cargarTodo();
-                this.mostrarEmpty();
-            } catch (e) {
-                this.pintarWarnings([{tipo: 'error', mensaje: e.message}], true);
-            }
+            } catch (e) { alert('No se pudo borrar: ' + e.message); }
         },
 
-        pintarWarnings(items, scroll) {
-            this.warnings.innerHTML = '';
-            items.forEach(w => {
-                const d = document.createElement('div');
-                d.className = 'warn-box' + (w.tipo === 'error' ? ' err' : '');
-                d.textContent = w.mensaje || w.toString();
-                this.warnings.appendChild(d);
-            });
-            if (items.length && scroll) this.warnings.scrollIntoView({block: 'nearest'});
+        async borrarAlias(clave, alias) {
+            const entrada = this.entradas.find(e => e.clave === clave);
+            if (!entrada) return;
+            const nuevos = (entrada.sinonimos || []).filter(a => normalizar(a) !== normalizar(alias));
+            const body = {
+                nombre: entrada.nombre,
+                clave_original: entrada.clave,
+                definicion: entrada.definicion || '',
+                sinonimos: nuevos,
+                formula: entrada.formula || '',
+                presentacion: entrada.presentacion || '',
+                tags: entrada.tags || [],
+            };
+            try {
+                const r = await fetch('/habla-con-tus-datos/diccionario/entrada', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(body),
+                });
+                const j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                await this.cargarTodo();
+            } catch (e) { alert('No se pudo quitar el alias: ' + e.message); }
         },
 
         async guardarTextoCompleto(texto) {
             try {
                 const r = await fetch('/habla-con-tus-datos/diccionario', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({texto}),
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ texto }),
                 });
                 const j = await r.json();
                 if (!j.ok) throw new Error(j.error);
                 await this.cargarTodo();
-            } catch (e) {
-                this.desc.textContent = 'Error al cargar plantilla: ' + e.message;
-            }
+            } catch (e) { this.desc.textContent = 'Error: ' + e.message; }
         },
     };
 
-    function normalizar(s) {
-        return (s || '').toString().toLowerCase().trim()
-            .normalize('NFKD').replace(/[̀-ͯ]/g, '')
-            .replace(/\s+/g, ' ');
-    }
-
-    document.getElementById('dict-nueva').addEventListener('click', () => hdDict.nueva());
-    hdDict.buscador.addEventListener('input', () => hdDict.renderLista());
-    ['nombre', 'definicion', 'formula', 'presentacion'].forEach(k => {
-        hdDict.inp[k].addEventListener('input', () => hdDict.validarInline());
+    // --- Listeners de tabs, buscadores y botones "Añadir" ---
+    document.querySelectorAll('.dict-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const t = btn.dataset.tab;
+            document.querySelectorAll('.dict-tab').forEach(x => x.classList.toggle('is-active', x === btn));
+            document.querySelectorAll('.dict-panel').forEach(p => p.classList.toggle('is-active', p.dataset.panel === t));
+        });
+    });
+    document.querySelectorAll('.dict-search').forEach(inp => {
+        inp.addEventListener('input', () => hdDict.renderTodo());
+    });
+    document.querySelectorAll('.dict-add').forEach(btn => {
+        btn.addEventListener('click', () => hdDict.abrirForm(btn.dataset.add, null));
+    });
+    // Cerrar mini-modales al click en el backdrop
+    ['sin-modal', 'kpi-modal', 'def-modal'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.addEventListener('click', e => { if (e.target === m) hdDict.cerrarForm(id.split('-')[0]); });
     });
 
     window.hdDict = hdDict;
@@ -1740,6 +2146,11 @@
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             hdConfirm.close(false);
+            // Si hay un mini-modal del diccionario abierto, cerramos solo ese.
+            ['sin', 'kpi', 'def'].forEach(k => {
+                const m = document.getElementById(k + '-modal');
+                if (m && m.hasAttribute('open')) m.removeAttribute('open');
+            });
             if (hdDictAdv && hdDictAdv.el.hasAttribute('open')) hdDictAdv.close();
             else hdDict.close();
         }
