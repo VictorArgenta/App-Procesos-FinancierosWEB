@@ -5,133 +5,153 @@
 {% block content %}
 <style>
     .mk-hero {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        padding: 22px 26px;
-        margin-bottom: 22px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 20px;
-        align-items: center;
-        justify-content: space-between;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 14px; padding: 22px 26px; margin-bottom: 22px;
+        display: flex; flex-wrap: wrap; gap: 20px;
+        align-items: center; justify-content: space-between;
     }
-    .mk-hero h1 {
-        margin: 0 0 6px;
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--fg);
-    }
-    .mk-hero p {
-        margin: 0;
-        color: var(--fg-dim);
-        font-size: 0.95rem;
-    }
-    .mk-hero-right { text-align: right; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+    .mk-hero h1 { margin: 0 0 6px; font-size: 1.5rem; font-weight: 700; color: var(--fg); }
+    .mk-hero p { margin: 0; color: var(--fg-dim); font-size: 0.95rem; max-width: 780px; }
+    .mk-hero-right { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
     .mk-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: var(--surface-muted);
-        border: 1px solid var(--border);
-        color: var(--fg-dim);
-        padding: 5px 11px;
-        border-radius: 999px;
-        font-size: 0.78rem;
-        font-weight: 600;
+        display: inline-flex; align-items: center; gap: 6px;
+        background: var(--surface-muted); border: 1px solid var(--border);
+        color: var(--fg-dim); padding: 5px 11px; border-radius: 999px;
+        font-size: 0.78rem; font-weight: 600;
     }
     .mk-chip.src { background: rgba(16, 185, 129, 0.10); color: #10b981; border-color: rgba(16, 185, 129, 0.30); }
-    .mk-chip.ts { color: var(--fg-dim); }
 
     .mk-kpis {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 14px;
-        margin-bottom: 22px;
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px; margin-bottom: 22px;
     }
     .mk-kpi {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 16px 18px;
-        min-height: 110px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 10px; padding: 16px 18px; min-height: 110px;
+        display: flex; flex-direction: column; gap: 6px;
     }
-    .mk-kpi .lbl {
-        font-size: 0.78rem;
-        color: var(--fg-dim);
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-        font-weight: 600;
-    }
-    .mk-kpi .val {
-        font-size: 1.55rem;
-        font-weight: 700;
-        color: var(--fg);
-        line-height: 1.1;
-    }
-    .mk-kpi .delta {
-        font-size: 0.82rem;
-        font-weight: 600;
-    }
+    .mk-kpi .lbl { font-size: 0.78rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+    .mk-kpi .val { font-size: 1.55rem; font-weight: 700; color: var(--fg); line-height: 1.1; }
+    .mk-kpi .delta { font-size: 0.82rem; font-weight: 600; }
     .mk-kpi .delta.pos { color: #10b981; }
     .mk-kpi .delta.neg { color: #ef4444; }
     .mk-kpi .delta.warn { color: #f59e0b; }
 
     .mk-grid {
-        display: grid;
-        grid-template-columns: 1.4fr 1fr;
-        gap: 18px;
-        margin-bottom: 22px;
+        display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; margin-bottom: 22px;
     }
-    @media (max-width: 900px) { .mk-grid { grid-template-columns: 1fr; } }
+    .mk-grid.inv { grid-template-columns: 1fr 1.4fr; }
+    .mk-grid.wide { grid-template-columns: 1fr; }
+    @media (max-width: 900px) { .mk-grid, .mk-grid.inv { grid-template-columns: 1fr; } }
 
     .mk-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 18px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; padding: 18px;
     }
-    .mk-card h3 {
-        margin: 0 0 12px;
-        font-size: 0.95rem;
-        font-weight: 700;
-        color: var(--fg);
-    }
+    .mk-card h3 { margin: 0 0 12px; font-size: 0.95rem; font-weight: 700; color: var(--fg); }
     .mk-chart { width: 100%; height: 320px; }
-    .mk-chart.small { height: 260px; }
 
     .mk-blocks {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 16px;
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px; margin-bottom: 22px;
     }
-    .mk-block h3 {
-        margin: 0 0 10px;
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: var(--fg);
-    }
-    .mk-block ul {
-        margin: 0;
-        padding: 0 0 0 18px;
-        color: var(--fg);
-        font-size: 0.9rem;
-        line-height: 1.55;
-    }
+    .mk-block h3 { margin: 0 0 10px; font-size: 0.9rem; font-weight: 700; color: var(--fg); }
+    .mk-block ul { margin: 0; padding: 0 0 0 18px; color: var(--fg); font-size: 0.9rem; line-height: 1.55; }
     .mk-block ul li { margin-bottom: 6px; }
 
-    .mk-note {
-        margin-top: 16px;
-        padding: 12px 14px;
-        background: var(--surface-muted);
-        border: 1px dashed var(--border);
-        border-radius: 10px;
-        font-size: 0.82rem;
-        color: var(--fg-dim);
+    /* Botones de acción (simulan cálculo/consulta) */
+    .mk-actions {
+        display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 22px;
     }
+    .mk-act-btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 10px 16px; border-radius: 9px;
+        background: var(--brand); color: var(--brand-on);
+        border: 1px solid transparent; font-weight: 600; font-size: 0.88rem;
+        cursor: pointer; font-family: inherit;
+        transition: all .12s;
+    }
+    .mk-act-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .mk-act-btn.ghost {
+        background: var(--surface); color: var(--fg);
+        border-color: var(--border);
+    }
+    .mk-act-btn.ghost:hover { background: var(--surface-muted); border-color: var(--border-strong); }
+    .mk-act-btn[disabled] { opacity: .65; cursor: progress; transform: none; }
+    .mk-act-btn svg { width: 15px; height: 15px; }
+
+    .mk-run {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; padding: 18px; margin-bottom: 22px;
+        display: none;
+    }
+    .mk-run.on { display: block; }
+    .mk-run h3 { margin: 0 0 12px; font-size: 0.95rem; font-weight: 700; color: var(--fg); }
+    .mk-run .mk-progress {
+        height: 6px; border-radius: 3px; background: var(--surface-muted);
+        overflow: hidden; margin-bottom: 10px;
+    }
+    .mk-run .mk-progress > span {
+        display: block; height: 100%; background: var(--brand);
+        width: 0%; transition: width .35s ease-out;
+    }
+    .mk-run .mk-steps { margin: 0; padding: 0 0 0 18px; color: var(--fg-dim); font-size: 0.86rem; line-height: 1.6; }
+    .mk-run .mk-steps li.done { color: var(--fg); }
+    .mk-run .mk-steps li.done::marker { color: #10b981; }
+    .mk-run .mk-result {
+        margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border);
+        display: none;
+    }
+    .mk-run .mk-result.on { display: block; }
+    .mk-run .mk-result ul { margin: 6px 0 0; padding-left: 18px; color: var(--fg); font-size: 0.88rem; line-height: 1.6; }
+    .mk-run .mk-result .mk-done { color: #10b981; font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* Tabla */
+    .mk-tbl-wrap { overflow-x: auto; }
+    .mk-tbl {
+        width: 100%; border-collapse: collapse; font-size: 0.86rem;
+    }
+    .mk-tbl thead th {
+        text-align: left; padding: 10px 12px;
+        color: var(--fg-dim); font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.4px; font-size: 0.72rem;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-muted);
+    }
+    .mk-tbl tbody td {
+        padding: 10px 12px; color: var(--fg);
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+    }
+    .mk-tbl tbody tr:last-child td { border-bottom: none; }
+    .mk-tbl tbody tr:hover { background: var(--surface-muted); }
+    .mk-sev {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 2px 8px; border-radius: 999px;
+        font-size: 0.72rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .mk-sev.alta  { background: rgba(239, 68, 68, 0.14); color: #ef4444; }
+    .mk-sev.media { background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+    .mk-sev.baja  { background: rgba(16, 185, 129, 0.14); color: #10b981; }
+
+    /* Timeline */
+    .mk-timeline { list-style: none; margin: 0; padding: 0; }
+    .mk-timeline li {
+        position: relative; padding: 10px 0 14px 28px;
+        border-left: 2px solid var(--border);
+        margin-left: 10px;
+    }
+    .mk-timeline li::before {
+        content: ''; position: absolute; left: -8px; top: 14px;
+        width: 14px; height: 14px; border-radius: 50%;
+        background: var(--surface); border: 3px solid var(--brand);
+    }
+    .mk-timeline li.done::before { background: var(--brand); }
+    .mk-timeline li.now::before { background: #f59e0b; border-color: #f59e0b; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.18); }
+    .mk-timeline .mk-tl-when { font-size: 0.78rem; color: var(--fg-dim); font-weight: 600; }
+    .mk-timeline .mk-tl-title { font-size: 0.92rem; color: var(--fg); font-weight: 600; margin: 2px 0; }
+    .mk-timeline .mk-tl-desc { font-size: 0.85rem; color: var(--fg-dim); }
 </style>
 
 <section class="mk-hero">
@@ -141,7 +161,7 @@
     </div>
     <div class="mk-hero-right">
         <span class="mk-chip src">Origen · {{ mod.fuente }}</span>
-        <span class="mk-chip ts">{{ mod.ultima }}</span>
+        <span class="mk-chip">{{ mod.ultima }}</span>
     </div>
 </section>
 
@@ -150,14 +170,31 @@
     <div class="mk-kpi">
         <div class="lbl">{{ k.label }}</div>
         <div class="val">{{ k.valor }}</div>
-        {% if k.delta %}
-        <div class="delta {{ k.tono or '' }}">{{ k.delta }}</div>
-        {% elif k.tono %}
-        <div class="delta {{ k.tono }}">&nbsp;</div>
-        {% endif %}
+        {% if k.delta %}<div class="delta {{ k.tono or '' }}">{{ k.delta }}</div>{% endif %}
     </div>
     {% endfor %}
 </section>
+
+{% if mod.acciones %}
+<section class="mk-actions">
+    {% for a in mod.acciones %}
+    <button type="button" class="mk-act-btn {% if loop.index0 > 0 %}ghost{% endif %}" data-act="{{ loop.index0 }}">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        {{ a.label }}
+    </button>
+    {% endfor %}
+</section>
+
+<section class="mk-run" id="mk-run">
+    <h3 id="mk-run-title">Procesando…</h3>
+    <div class="mk-progress"><span id="mk-run-bar"></span></div>
+    <ol class="mk-steps" id="mk-run-steps"></ol>
+    <div class="mk-result" id="mk-run-result">
+        <span class="mk-done">· Resultado</span>
+        <ul id="mk-run-result-list"></ul>
+    </div>
+</section>
+{% endif %}
 
 <section class="mk-grid">
     <div class="mk-card">
@@ -168,29 +205,80 @@
         {% set bloque = mod.bloques[0] %}
         <h3>{{ bloque.titulo }}</h3>
         <ul>
-            {% for b in bloque.bullets %}
-            <li>{{ b }}</li>
-            {% endfor %}
+            {% for b in bloque.bullets %}<li>{{ b }}</li>{% endfor %}
         </ul>
     </div>
 </section>
+
+{% if mod.tabla %}
+<section class="mk-grid wide">
+    <div class="mk-card">
+        <h3>{{ mod.tabla.titulo }}</h3>
+        <div class="mk-tbl-wrap">
+            <table class="mk-tbl">
+                <thead>
+                    <tr>{% for c in mod.tabla.columnas %}<th>{{ c }}</th>{% endfor %}</tr>
+                </thead>
+                <tbody>
+                    {% for fila in mod.tabla.filas %}
+                    <tr>
+                        {% for celda in fila %}
+                            {% set cs = celda|string %}
+                            {% if loop.first and cs in ['Alta','Media','Baja'] %}
+                                <td><span class="mk-sev {{ cs|lower }}">{{ cs }}</span></td>
+                            {% else %}
+                                <td>{{ celda }}</td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if mod.timeline %}
+<section class="mk-grid {% if mod.grafico_sec %}{% else %}wide{% endif %}">
+    <div class="mk-card">
+        <h3>{{ mod.timeline.titulo }}</h3>
+        <ul class="mk-timeline">
+            {% for ev in mod.timeline.eventos %}
+            <li class="{{ ev.estado or '' }}">
+                <div class="mk-tl-when">{{ ev.cuando }}</div>
+                <div class="mk-tl-title">{{ ev.titulo }}</div>
+                {% if ev.desc %}<div class="mk-tl-desc">{{ ev.desc }}</div>{% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% if mod.grafico_sec %}
+    <div class="mk-card">
+        <h3>{{ mod.grafico_sec.titulo }}</h3>
+        <div id="mk-chart-sec" class="mk-chart"></div>
+    </div>
+    {% endif %}
+</section>
+{% elif mod.grafico_sec %}
+<section class="mk-grid wide">
+    <div class="mk-card">
+        <h3>{{ mod.grafico_sec.titulo }}</h3>
+        <div id="mk-chart-sec" class="mk-chart"></div>
+    </div>
+</section>
+{% endif %}
 
 {% if mod.bloques|length > 1 %}
 <section class="mk-blocks">
     {% for bloque in mod.bloques[1:] %}
     <div class="mk-card mk-block">
         <h3>{{ bloque.titulo }}</h3>
-        <ul>
-            {% for b in bloque.bullets %}
-            <li>{{ b }}</li>
-            {% endfor %}
-        </ul>
+        <ul>{% for b in bloque.bullets %}<li>{{ b }}</li>{% endfor %}</ul>
     </div>
     {% endfor %}
 </section>
 {% endif %}
-
-<div class="mk-note">Maqueta de demostración · los datos provienen del simulador de integración con el stack EPM corporativo y se refrescan al recargar la página.</div>
 {% endblock %}
 
 {% block scripts %}
@@ -198,138 +286,172 @@
 <script>
 (function() {
     var MOD = {{ mod_js | safe }};
-    var el = document.getElementById('mk-chart-main');
-    if (!el || !window.echarts) return;
-    var isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    var axisColor = isLight ? '#475569' : '#94a3b8';
-    var gridColor = isLight ? '#e2e8f0' : '#334155';
-    var brand = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim() || '#10b981';
 
-    var chart = echarts.init(el);
-    var g = MOD.grafico;
-    var option = null;
+    function renderChart(elId, g) {
+        var el = document.getElementById(elId);
+        if (!el || !window.echarts || !g) return;
+        var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        var axisColor = isLight ? '#475569' : '#94a3b8';
+        var gridColor = isLight ? '#e2e8f0' : '#334155';
+        var brand = (getComputedStyle(document.documentElement).getPropertyValue('--brand') || '#10b981').trim();
 
-    if (g.tipo === 'line') {
-        var xs = g.serie.map(function(_, i) { return i + 1; });
-        option = {
-            tooltip: { trigger: 'axis' },
-            grid: { left: 42, right: 18, top: 24, bottom: 36 },
-            xAxis: {
-                type: 'category', data: xs,
-                axisLine: { lineStyle: { color: gridColor } },
-                axisLabel: { color: axisColor }
-            },
-            yAxis: {
-                type: 'value',
-                axisLine: { lineStyle: { color: gridColor } },
-                splitLine: { lineStyle: { color: gridColor } },
-                axisLabel: { color: axisColor }
-            },
-            series: [{
-                type: 'line',
-                smooth: true,
-                symbol: 'circle',
-                symbolSize: 6,
-                lineStyle: { color: brand, width: 2.2 },
-                itemStyle: { color: brand },
-                areaStyle: { color: brand, opacity: 0.12 },
-                data: g.serie
-            }]
-        };
-    } else if (g.tipo === 'bar') {
-        option = {
-            tooltip: { trigger: 'axis' },
-            grid: { left: 60, right: 20, top: 24, bottom: 46 },
-            xAxis: {
-                type: 'category', data: g.categorias,
-                axisLine: { lineStyle: { color: gridColor } },
-                axisLabel: { color: axisColor, interval: 0, rotate: g.categorias.length > 5 ? 20 : 0 }
-            },
-            yAxis: {
-                type: 'value',
-                axisLine: { lineStyle: { color: gridColor } },
-                splitLine: { lineStyle: { color: gridColor } },
-                axisLabel: { color: axisColor }
-            },
-            series: [{
-                type: 'bar',
-                itemStyle: {
-                    color: function(p) {
-                        return p.value < 0 ? '#ef4444' : brand;
-                    },
-                    borderRadius: [5, 5, 0, 0]
-                },
-                data: g.serie
-            }]
-        };
-    } else if (g.tipo === 'donut') {
-        option = {
-            tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-            legend: { bottom: 0, textStyle: { color: axisColor } },
-            series: [{
-                type: 'pie',
-                radius: ['42%', '72%'],
-                center: ['50%', '45%'],
-                label: { color: axisColor },
-                data: g.serie,
-                color: [brand, '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#64748b']
-            }]
-        };
-    } else if (g.tipo === 'waterfall') {
-        // Bridge chart con barras apiladas (invisible helper + delta).
-        var cats = g.etiquetas;
-        var vals = g.serie;
-        var helper = [], up = [], down = [], totals = [];
-        var running = 0;
-        for (var i = 0; i < vals.length; i++) {
-            var v = vals[i];
-            if (i === 0 || i === vals.length - 1) {
-                helper.push('-');
-                up.push('-');
-                down.push('-');
-                totals.push(v);
-                running = v;
-            } else {
-                totals.push('-');
-                if (v >= 0) {
-                    helper.push(running);
-                    up.push(v);
-                    down.push('-');
-                    running += v;
+        var chart = echarts.init(el);
+        var option = null;
+
+        if (g.tipo === 'line') {
+            option = {
+                tooltip: { trigger: 'axis' },
+                grid: { left: 42, right: 18, top: 24, bottom: 36 },
+                xAxis: { type: 'category', data: g.serie.map(function(_, i){ return i+1; }),
+                    axisLine: { lineStyle: { color: gridColor } }, axisLabel: { color: axisColor } },
+                yAxis: { type: 'value',
+                    axisLine: { lineStyle: { color: gridColor } },
+                    splitLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: axisColor } },
+                series: [{ type: 'line', smooth: true, symbol: 'circle', symbolSize: 6,
+                    lineStyle: { color: brand, width: 2.2 }, itemStyle: { color: brand },
+                    areaStyle: { color: brand, opacity: 0.12 }, data: g.serie }]
+            };
+        } else if (g.tipo === 'bar') {
+            option = {
+                tooltip: { trigger: 'axis' },
+                grid: { left: 60, right: 20, top: 24, bottom: 46 },
+                xAxis: { type: 'category', data: g.categorias,
+                    axisLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: axisColor, interval: 0, rotate: g.categorias.length > 5 ? 20 : 0 } },
+                yAxis: { type: 'value',
+                    axisLine: { lineStyle: { color: gridColor } },
+                    splitLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: axisColor } },
+                series: [{ type: 'bar',
+                    itemStyle: {
+                        color: function(p) { return p.value < 0 ? '#ef4444' : brand; },
+                        borderRadius: [5, 5, 0, 0]
+                    }, data: g.serie }]
+            };
+        } else if (g.tipo === 'donut') {
+            option = {
+                tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+                legend: { bottom: 0, textStyle: { color: axisColor } },
+                series: [{ type: 'pie', radius: ['42%', '72%'], center: ['50%', '45%'],
+                    label: { color: axisColor }, data: g.serie,
+                    color: [brand, '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#64748b'] }]
+            };
+        } else if (g.tipo === 'waterfall') {
+            var cats = g.etiquetas, vals = g.serie;
+            var helper=[], up=[], down=[], totals=[], running=0;
+            for (var i = 0; i < vals.length; i++) {
+                var v = vals[i];
+                if (i === 0 || i === vals.length - 1) {
+                    helper.push('-'); up.push('-'); down.push('-'); totals.push(v); running = v;
                 } else {
-                    running += v;
-                    helper.push(running);
-                    up.push('-');
-                    down.push(-v);
+                    totals.push('-');
+                    if (v >= 0) { helper.push(running); up.push(v); down.push('-'); running += v; }
+                    else { running += v; helper.push(running); up.push('-'); down.push(-v); }
                 }
             }
+            option = {
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { data: ['Subida', 'Bajada', 'Total'], textStyle: { color: axisColor }, bottom: 0 },
+                grid: { left: 50, right: 18, top: 24, bottom: 56 },
+                xAxis: { type: 'category', data: cats,
+                    axisLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: axisColor, interval: 0, rotate: cats.length > 5 ? 20 : 0 } },
+                yAxis: { type: 'value',
+                    axisLine: { lineStyle: { color: gridColor } },
+                    splitLine: { lineStyle: { color: gridColor } },
+                    axisLabel: { color: axisColor } },
+                series: [
+                    { name: '', type: 'bar', stack: 'wf', itemStyle: { color: 'transparent' }, data: helper },
+                    { name: 'Subida', type: 'bar', stack: 'wf', itemStyle: { color: brand, borderRadius: [4, 4, 0, 0] }, data: up },
+                    { name: 'Bajada', type: 'bar', stack: 'wf', itemStyle: { color: '#ef4444', borderRadius: [0, 0, 4, 4] }, data: down },
+                    { name: 'Total', type: 'bar', stack: 'wf', itemStyle: { color: '#2563eb', borderRadius: [4, 4, 4, 4] }, data: totals }
+                ]
+            };
+        } else if (g.tipo === 'mixed') {
+            // bar + line
+            option = {
+                tooltip: { trigger: 'axis' },
+                legend: { data: g.series.map(function(s){return s.name;}), bottom: 0, textStyle: { color: axisColor } },
+                grid: { left: 60, right: 20, top: 24, bottom: 56 },
+                xAxis: { type: 'category', data: g.categorias,
+                    axisLine: { lineStyle: { color: gridColor } }, axisLabel: { color: axisColor } },
+                yAxis: [
+                    { type: 'value', axisLine: { lineStyle: { color: gridColor } }, splitLine: { lineStyle: { color: gridColor } }, axisLabel: { color: axisColor } },
+                    { type: 'value', axisLine: { lineStyle: { color: gridColor } }, splitLine: { show: false }, axisLabel: { color: axisColor } }
+                ],
+                series: g.series.map(function(s, i) {
+                    return Object.assign({
+                        type: s.type || (i === 0 ? 'bar' : 'line'),
+                        yAxisIndex: s.yAxisIndex || 0,
+                        itemStyle: { color: s.color || (i === 0 ? brand : '#f59e0b'), borderRadius: s.type === 'bar' ? [4, 4, 0, 0] : undefined },
+                        lineStyle: s.type === 'line' ? { width: 2.4 } : undefined,
+                        smooth: true
+                    }, s);
+                })
+            };
         }
-        option = {
-            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-            legend: { data: ['Subida', 'Bajada', 'Total'], textStyle: { color: axisColor }, bottom: 0 },
-            grid: { left: 50, right: 18, top: 24, bottom: 56 },
-            xAxis: {
-                type: 'category', data: cats,
-                axisLine: { lineStyle: { color: gridColor } },
-                axisLabel: { color: axisColor, interval: 0, rotate: cats.length > 5 ? 20 : 0 }
-            },
-            yAxis: {
-                type: 'value',
-                axisLine: { lineStyle: { color: gridColor } },
-                splitLine: { lineStyle: { color: gridColor } },
-                axisLabel: { color: axisColor }
-            },
-            series: [
-                { name: '', type: 'bar', stack: 'wf', itemStyle: { color: 'transparent' }, data: helper },
-                { name: 'Subida', type: 'bar', stack: 'wf', itemStyle: { color: brand, borderRadius: [4, 4, 0, 0] }, data: up },
-                { name: 'Bajada', type: 'bar', stack: 'wf', itemStyle: { color: '#ef4444', borderRadius: [0, 0, 4, 4] }, data: down },
-                { name: 'Total', type: 'bar', stack: 'wf', itemStyle: { color: '#2563eb', borderRadius: [4, 4, 4, 4] }, data: totals }
-            ]
-        };
+        if (option) chart.setOption(option);
+        window.addEventListener('resize', function() { chart.resize(); });
     }
 
-    if (option) chart.setOption(option);
-    window.addEventListener('resize', function() { chart.resize(); });
+    renderChart('mk-chart-main', MOD.grafico);
+    renderChart('mk-chart-sec',  MOD.grafico_sec);
+
+    // Simulación de cálculo / consulta en botones
+    var acciones = MOD.acciones || [];
+    var runBox   = document.getElementById('mk-run');
+    var runTitle = document.getElementById('mk-run-title');
+    var runBar   = document.getElementById('mk-run-bar');
+    var runSteps = document.getElementById('mk-run-steps');
+    var runResult = document.getElementById('mk-run-result');
+    var runResultList = document.getElementById('mk-run-result-list');
+    var running = false;
+
+    document.querySelectorAll('.mk-act-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            if (running) return;
+            var idx = parseInt(btn.getAttribute('data-act'), 10) || 0;
+            var acc = acciones[idx];
+            if (!acc || !runBox) return;
+            running = true;
+            document.querySelectorAll('.mk-act-btn').forEach(function(b){ b.setAttribute('disabled', ''); });
+            runBox.classList.add('on');
+            runTitle.textContent = acc.titulo || 'Procesando…';
+            runBar.style.width = '0%';
+            runSteps.innerHTML = '';
+            runResult.classList.remove('on');
+            runResultList.innerHTML = '';
+            runBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            var pasos = acc.pasos || [];
+            var i = 0;
+            function nextStep() {
+                if (i >= pasos.length) {
+                    runBar.style.width = '100%';
+                    runResult.classList.add('on');
+                    (acc.resultado || []).forEach(function(r) {
+                        var li = document.createElement('li');
+                        li.textContent = r;
+                        runResultList.appendChild(li);
+                    });
+                    running = false;
+                    document.querySelectorAll('.mk-act-btn').forEach(function(b){ b.removeAttribute('disabled'); });
+                    return;
+                }
+                var li = document.createElement('li');
+                li.textContent = pasos[i];
+                runSteps.appendChild(li);
+                runBar.style.width = Math.round(((i + 1) / (pasos.length + 1)) * 100) + '%';
+                setTimeout(function() {
+                    li.classList.add('done');
+                    i++;
+                    nextStep();
+                }, 650 + Math.random() * 600);
+            }
+            nextStep();
+        });
+    });
 })();
 </script>
 {% endblock %}

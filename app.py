@@ -671,6 +671,7 @@ def _inyectar_branding():
         "MOCK_NAV_CEO":    _mocks.MOCK_NAV.get("ceo", []),
         "MOCK_NAV_CFO":    _mocks.MOCK_NAV.get("cfo", []),
         "MOCK_NAV_EQUIPO": _mocks.MOCK_NAV.get("equipo", []),
+        "HOME_BLOCKS":     _mocks.home_blocks_para((TICKER_FIJO or "").upper() == "META"),
     }
 
 
