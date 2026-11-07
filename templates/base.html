@@ -1236,11 +1236,6 @@
             </div>
 
             <div class="ds-topbar-right">
-                {% if EMPRESA_LOGO_DISPONIBLE %}
-                <div class="ds-empresa-logo" title="{{ EMPRESA_NOMBRE }}">
-                    <img src="{{ EMPRESA_LOGO_URL }}" alt="{{ EMPRESA_NOMBRE }}">
-                </div>
-                {% endif %}
                 {% if TICKER_FIJO %}
                 <span class="ds-tenant-chip">{{ EMPRESA_NOMBRE or 'Empresa' }} · {{ TICKER_FIJO }}</span>
                 {% else %}

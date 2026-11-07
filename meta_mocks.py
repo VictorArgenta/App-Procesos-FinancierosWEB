@@ -1260,67 +1260,6 @@ _CFO = {
         ],
     },
 
-    "economia-unitaria": {
-        "titulo": "Economía unitaria",
-        "subtitulo": "ARPU, CAC, LTV, pay-back",
-        "vision": "cfo",
-        "fuente": "Oracle EPM · Snowflake",
-        "ultima": "Último recálculo · hoy",
-        "kpis": [
-            _kpi("ARPU global", "USD 42,1", "+6,8 % YoY", "pos"),
-            _kpi("ARPU EEUU/Canadá", "USD 72,4"),
-            _kpi("CAC publicitario (USD)", "USD 1,42"),
-            _kpi("LTV/CAC", "18x"),
-        ],
-        "grafico": {
-            "tipo": "bar",
-            "titulo": "ARPU por región (USD)",
-            "categorias": ["US/CA", "Europa", "Asia-Pacífico",
-                           "Resto del mundo"],
-            "serie": [72.4, 25.8, 7.9, 4.4],
-        },
-        "bloques": [
-            {
-                "titulo": "Lectura",
-                "bullets": [
-                    "La diferencia US/CA vs RoW sigue siendo el principal gap de monetización.",
-                    "Modelo WhatsApp Business paga CAC en 7 meses (vs 11 FY2025).",
-                ],
-            },
-        ],
-    },
-
-    "analitica-adhoc": {
-        "titulo": "Analítica ad-hoc sobre el DWH",
-        "subtitulo": "Consulta libre sobre Snowflake y catálogo",
-        "vision": "cfo",
-        "fuente": "Snowflake · dbt · Alation",
-        "ultima": "Última consulta · hace 2 min",
-        "kpis": [
-            _kpi("Datasets certificados", "648"),
-            _kpi("Consultas / día (dpto Finanzas)", "1.420"),
-            _kpi("Tiempo medio respuesta", "3,4 s"),
-            _kpi("% consultas con glosario", "87 %", "+9 pts", "pos"),
-        ],
-        "grafico": {
-            "tipo": "bar",
-            "titulo": "Consultas por tipología (últimos 30 días)",
-            "categorias": ["Ingresos", "Costes", "Capex", "Tesorería",
-                           "Impuestos", "Personas"],
-            "serie": [2140, 1680, 940, 820, 410, 320],
-        },
-        "bloques": [
-            {
-                "titulo": "Casos de uso frecuentes",
-                "bullets": [
-                    "Análisis cohortes publicitarias por geografía.",
-                    "Simulación de impacto de cambios de pricing.",
-                    "Auditoría de márgenes por partner publicitario.",
-                ],
-            },
-        ],
-    },
-
     "reparto-costes-abc": {
         "titulo": "Reparto de costes ABC",
         "subtitulo": "Activity-based costing por actividad y producto",
@@ -1463,37 +1402,6 @@ _CFO = {
         ],
     },
 
-    "aprobacion-pagos": {
-        "titulo": "Aprobación de pagos",
-        "subtitulo": "Workflow y SLA",
-        "vision": "cfo",
-        "fuente": "SAP S/4HANA · Kyriba",
-        "ultima": "Hoy 08:12",
-        "kpis": [
-            _kpi("Pagos del día", "4.218"),
-            _kpi("Importe del día", "USD 1,74 B"),
-            _kpi("Pendientes CFO", "9", None, "warn"),
-            _kpi("SLA aprobación", "99,2 %", "+0,3 pts", "pos"),
-        ],
-        "grafico": {
-            "tipo": "bar",
-            "titulo": "Pagos por tipología (USD M, YTD)",
-            "categorias": ["Infra & GPU", "Content partners",
-                           "Nómina", "Impuestos", "Marketing",
-                           "Legal & professional"],
-            "serie": [41800, 9200, 22800, 11400, 6800, 3100],
-        },
-        "bloques": [
-            {
-                "titulo": "Reglas activas",
-                "bullets": [
-                    "Pagos > USD 100 M requieren aprobación CFO + Tesorero.",
-                    "Pagos a terceros no listados requieren KYC renovado.",
-                ],
-            },
-        ],
-    },
-
     "deuda": {
         "titulo": "Instrumentos de deuda",
         "subtitulo": "Perfil y vencimientos",
@@ -1533,64 +1441,6 @@ _CFO = {
                 "bullets": [
                     "Emisión senior USD 5 B · 10y · cupón 4,55 %.",
                     "Programa EMTN · tramo EUR 1,5 B · 7y · cupón 3,65 %.",
-                ],
-            },
-        ],
-    },
-
-    "borrador-nota": {
-        "titulo": "Borrador de nota de resultados",
-        "subtitulo": "Q3 2026 · pre-publicación",
-        "vision": "cfo",
-        "fuente": "Oracle EPM · Workiva",
-        "ultima": "Último borrador · hoy",
-        "kpis": [
-            _kpi("Páginas revisadas", "28 / 36"),
-            _kpi("Comentarios Legal", "14", "6 abiertos", "warn"),
-            _kpi("Comentarios Auditor", "8", "2 abiertos", "warn"),
-            _kpi("Fecha publicación", "2026-11-19"),
-        ],
-        "grafico": {
-            "tipo": "line",
-            "titulo": "Sentimiento media sobre borrador (0-1)",
-            "serie": [0.58, 0.62, 0.65, 0.66, 0.68, 0.71, 0.73, 0.75],
-        },
-        "timeline": {
-            "titulo": "Hoja de ruta hasta publicación",
-            "eventos": [
-                {"cuando": "D-14", "titulo": "Primer borrador CFO", "desc": "Versión v1 enviada a Legal.", "estado": "done"},
-                {"cuando": "D-10", "titulo": "Round 1 comentarios Legal", "desc": "14 comentarios · 8 cerrados.", "estado": "done"},
-                {"cuando": "D-7",  "titulo": "Revisión auditor", "desc": "8 comentarios · 6 cerrados.", "estado": "done"},
-                {"cuando": "D-3",  "titulo": "Simulacro call analistas", "desc": "Hoy 16:00 CET.", "estado": "now"},
-                {"cuando": "D-1",  "titulo": "Firma CFO y CEO"},
-                {"cuando": "D-0",  "titulo": "Publicación · 2026-11-19 22:00 CET"},
-            ],
-        },
-        "acciones": [
-            {
-                "label": "Generar nueva versión de borrador",
-                "icono": "file",
-                "titulo": "Generando borrador v4",
-                "pasos": [
-                    "Recuperando el cierre consolidado Q3 2026…",
-                    "Aplicando plantilla de nota de resultados…",
-                    "Importando comentarios abiertos de Legal y auditor…",
-                    "Dando formato Workiva y revisando enlaces XBRL…",
-                ],
-                "resultado": [
-                    "Borrador v4 disponible en Workiva.",
-                    "6 comentarios abiertos resueltos automáticamente.",
-                    "Diferencias vs v3 resaltadas en rojo y verde.",
-                ],
-            },
-        ],
-        "bloques": [
-            {
-                "titulo": "Secciones críticas",
-                "bullets": [
-                    "Discusión capex y márgenes FY25 vs FY26E.",
-                    "Riesgos regulatorios AI y menores.",
-                    "Nota de recompras y política dividendos.",
                 ],
             },
         ],
@@ -1660,37 +1510,6 @@ _CFO = {
                     "¿Cómo justificáis la aceleración del capex frente al FCF a 2 años?",
                     "¿Momento en que Reality Labs reduce pérdidas de forma material?",
                     "¿Pricing de WhatsApp Business en los próximos 12 meses?",
-                ],
-            },
-        ],
-    },
-
-    "registro-accionistas": {
-        "titulo": "Registro de accionistas",
-        "subtitulo": "Composición accionarial y movimientos",
-        "vision": "cfo",
-        "fuente": "Broadridge · Nasdaq IR Insight",
-        "ultima": "Actualizado · ayer",
-        "kpis": [
-            _kpi("Institucional", "62 %"),
-            _kpi("Insiders", "13 %"),
-            _kpi("Retail", "20 %"),
-            _kpi("Índices", "5 %"),
-        ],
-        "grafico": {
-            "tipo": "bar",
-            "titulo": "Top 10 inversores institucionales (% capital)",
-            "categorias": ["Vanguard", "BlackRock", "State Street",
-                           "Fidelity", "T. Rowe Price", "Capital Research",
-                           "Geode", "Morgan Stanley AM", "Invesco", "BNY"],
-            "serie": [8.4, 7.1, 4.6, 3.8, 2.9, 2.4, 2.1, 1.7, 1.4, 1.1],
-        },
-        "bloques": [
-            {
-                "titulo": "Movimientos recientes",
-                "bullets": [
-                    "Entrada nueva por un fondo soberano de Oriente Medio · 0,8 %.",
-                    "Salida parcial de hedge fund activista top-50.",
                 ],
             },
         ],
@@ -2242,16 +2061,11 @@ MOCK_NAV = {
         ("presupuesto-vs-real",    "Presupuesto vs real"),
         ("prevision-drivers",      "Previsión por drivers"),
         ("cascada-margen",         "Cascada de margen"),
-        ("economia-unitaria",      "Economía unitaria"),
-        ("analitica-adhoc",        "Analítica ad-hoc"),
         ("reparto-costes-abc",     "Reparto costes ABC"),
         ("posicion-tesoreria",     "Posición tesorería"),
         ("exposicion-divisa",      "Exposición divisa"),
-        ("aprobacion-pagos",       "Aprobación pagos"),
         ("deuda",                  "Instrumentos de deuda"),
-        ("borrador-nota",          "Borrador nota resultados"),
         ("qa-analistas",           "Q&A analistas"),
-        ("registro-accionistas",   "Registro accionistas"),
         ("calendario-regulatorio", "Calendario regulatorio"),
     ],
     "equipo": [
@@ -2331,8 +2145,6 @@ HOME_BLOCKS_BASE = [
         "items": [
             _it("/habla-con-tus-datos", "Habla con tus datos",
                 "Pregunta a tu base de datos en lenguaje natural."),
-            _it("/parametros", "Diccionario funcional",
-                "Define sinónimos, KPIs y conceptos para que el asistente te entienda."),
         ],
     },
 ]
@@ -2401,12 +2213,8 @@ HOME_BLOCKS_META = [
                "Margen por negocio, canal, segmento y cliente."),
             _m("cascada-margen",         "Cascada de margen",
                "De ingresos a margen de contribución."),
-            _m("economia-unitaria",      "Economía unitaria",
-               "ARPU, CAC, LTV y pay-back."),
             _m("reparto-costes-abc",     "Reparto de costes ABC",
                "Activity-based costing por actividad y producto."),
-            _m("analitica-adhoc",        "Analítica ad-hoc",
-               "Consulta libre sobre el DWH certificado."),
         ],
     },
     {
@@ -2423,8 +2231,6 @@ HOME_BLOCKS_META = [
                "Posición neta y cobertura vigente."),
             _m("impacto-fx",             "Impacto FX",
                "Efecto de tipo de cambio en resultados."),
-            _m("aprobacion-pagos",       "Aprobación de pagos",
-               "Workflow y SLA de aprobación de pagos."),
             _m("covenants",              "Covenants",
                "Umbrales contractuales y holgura actual."),
             _m("deuda",                  "Instrumentos de deuda",
@@ -2439,12 +2245,8 @@ HOME_BLOCKS_META = [
         "color":  "amber",
         "visiones": ["cfo"],
         "items": [
-            _m("borrador-nota",          "Borrador de nota de resultados",
-               "Pre-publicación trimestral con hoja de ruta."),
             _m("qa-analistas",           "Q&A de analistas",
                "Preguntas previsibles y respuestas tipo."),
-            _m("registro-accionistas",   "Registro de accionistas",
-               "Composición accionarial y movimientos."),
             _m("calendario-regulatorio", "Calendario regulatorio",
                "Hitos SEC, UE, mercados y estados."),
         ],
