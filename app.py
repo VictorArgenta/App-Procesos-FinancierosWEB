@@ -3485,10 +3485,112 @@ def _api_home_stakeholders():
     return jsonify({"ok": True, "pendientes": pendientes, "prefijo": _prefijo_asunto_actual()})
 
 
-def _resumen_dashboard_home(datos):
-    """Franja compacta para la home: ingresos, beneficio neto, EBITDA y
-    flujo de caja operativo con serie histórica (hasta 5 ejercicios) y
-    variación interanual del último año.
+# Catálogo de KPIs seleccionables en el home. `clave` es el nombre del campo
+# en datos.periodos (o 'flujo_caja_operativo' para el OCF, caso especial).
+_HOME_KPI_CATALOGO = [
+    {"id": "ingresos",                   "titulo": "Ingresos",                      "color": "#1976D2", "fuente": "periodos", "campo": "ingresos",                   "familia": "Rentabilidad"},
+    {"id": "beneficio_neto",             "titulo": "Beneficio neto",                "color": "#43B02A", "fuente": "periodos", "campo": "beneficio_neto",             "familia": "Rentabilidad"},
+    {"id": "ebitda",                     "titulo": "EBITDA",                        "color": "#8E24AA", "fuente": "periodos", "campo": "ebitda",                     "familia": "Rentabilidad"},
+    {"id": "ebit",                       "titulo": "EBIT",                          "color": "#5E35B1", "fuente": "periodos", "campo": "ebit",                       "familia": "Rentabilidad"},
+    {"id": "margen_bruto",               "titulo": "Margen bruto",                  "color": "#00ACC1", "fuente": "periodos", "campo": "margen_bruto",               "familia": "Rentabilidad"},
+    {"id": "flujo_caja_operativo",       "titulo": "Flujo de caja operativo",       "color": "#F57C00", "fuente": "cashflow", "campo": "Flujo de caja operativo",     "familia": "Caja"},
+    {"id": "da",                         "titulo": "Amortizaciones (D&A)",          "color": "#78909C", "fuente": "periodos", "campo": "da",                         "familia": "Caja"},
+    {"id": "sga",                        "titulo": "Gastos G&A",                    "color": "#D81B60", "fuente": "periodos", "campo": "sga",                        "familia": "Costes"},
+    {"id": "rd",                         "titulo": "I+D",                           "color": "#3949AB", "fuente": "periodos", "campo": "rd",                         "familia": "Costes"},
+    {"id": "gastos_operativos",          "titulo": "Gastos operativos",             "color": "#6D4C41", "fuente": "periodos", "campo": "gastos_operativos",          "familia": "Costes"},
+    {"id": "impuestos",                  "titulo": "Impuestos",                     "color": "#546E7A", "fuente": "periodos", "campo": "impuestos",                  "familia": "Resultado"},
+    {"id": "resultado_antes_impuestos",  "titulo": "Beneficio antes de impuestos",  "color": "#00897B", "fuente": "periodos", "campo": "resultado_antes_impuestos",  "familia": "Resultado"},
+    {"id": "bpa_basico",                 "titulo": "BPA básico",                    "color": "#7B1FA2", "fuente": "periodos", "campo": "bpa_basico",                 "familia": "Acción"},
+    {"id": "bpa_diluido",                "titulo": "BPA diluido",                   "color": "#AB47BC", "fuente": "periodos", "campo": "bpa_diluido",                "familia": "Acción"},
+]
+_HOME_KPI_DEFAULT = ["ingresos", "beneficio_neto", "ebitda", "flujo_caja_operativo"]
+_HOME_KPI_MAX = 6
+
+
+def _cargar_home_kpis_empresa():
+    """Lee Empresas/{TICKER}/home_kpis.txt (un id por línea). Si no existe,
+    lo materializa vacío con cabecera; si está vacío devuelve el default."""
+    if not TICKER_FIJO:
+        return list(_HOME_KPI_DEFAULT)
+    ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "home_kpis.txt"
+    cabecera = (
+        "# KPIs mostrados en el dashboard del Inicio.\n"
+        "# Un identificador por línea (ver Personalizar en el Inicio para el catálogo).\n"
+        f"# Máximo {_HOME_KPI_MAX} seleccionados.\n\n"
+    )
+    _asegurar_fichero_vacio(ruta, cabecera)
+    if not ruta.exists():
+        return list(_HOME_KPI_DEFAULT)
+    try:
+        texto = ruta.read_text(encoding="utf-8")
+    except OSError:
+        return list(_HOME_KPI_DEFAULT)
+    ids_validos = {k["id"] for k in _HOME_KPI_CATALOGO}
+    out, visto = [], set()
+    for linea in texto.splitlines():
+        s = linea.strip()
+        if not s or s.startswith("#"):
+            continue
+        if s in ids_validos and s not in visto:
+            visto.add(s)
+            out.append(s)
+        if len(out) >= _HOME_KPI_MAX:
+            break
+    return out or list(_HOME_KPI_DEFAULT)
+
+
+def _guardar_home_kpis_empresa(ids):
+    if not TICKER_FIJO:
+        raise RuntimeError("No hay empresa activa")
+    ids_validos = {k["id"] for k in _HOME_KPI_CATALOGO}
+    limpios, visto = [], set()
+    for i in (ids or []):
+        s = str(i).strip()
+        if s in ids_validos and s not in visto:
+            visto.add(s)
+            limpios.append(s)
+        if len(limpios) >= _HOME_KPI_MAX:
+            break
+    if not limpios:
+        limpios = list(_HOME_KPI_DEFAULT)
+    carpeta = _ROOT_DIR / "Empresas" / TICKER_FIJO
+    carpeta.mkdir(parents=True, exist_ok=True)
+    ruta = carpeta / "home_kpis.txt"
+    cabecera = (
+        "# KPIs mostrados en el dashboard del Inicio.\n"
+        "# Un identificador por línea (ver Personalizar en el Inicio para el catálogo).\n"
+        f"# Máximo {_HOME_KPI_MAX} seleccionados.\n\n"
+    )
+    ruta.write_text(cabecera + "\n".join(limpios) + "\n", encoding="utf-8")
+    return limpios
+
+
+def _serie_para_kpi(kpi_def, periodos, labels, datos):
+    """Devuelve la serie cronológica (antiguo → reciente) para un KPI del
+    catálogo. Devuelve None si la fuente no tiene datos."""
+    if kpi_def["fuente"] == "periodos":
+        return [p.get(kpi_def["campo"]) for p in periodos]
+    if kpi_def["fuente"] == "cashflow":
+        cf_block = (datos.get("estados") or {}).get("cashflow") or {}
+        cf_filas = cf_block.get("filas") or []
+        fila = next(
+            (f for f in cf_filas if (f.get("concepto") or "").startswith(kpi_def["campo"])),
+            None,
+        )
+        if not fila:
+            return [None] * len(labels)
+        valores = fila.get("valores") or []
+        serie = list(reversed(valores))[-len(labels):]
+        if len(serie) < len(labels):
+            serie = [None] * (len(labels) - len(serie)) + serie
+        return serie
+    return [None] * len(labels)
+
+
+def _resumen_dashboard_home(datos, kpis_ids=None):
+    """Franja compacta para la home. Las tarjetas KPI son configurables
+    (hasta _HOME_KPI_MAX elementos del catálogo). El resto de secciones
+    (evolución, composición, labels) es fijo.
 
     Devuelve None si no hay datos suficientes.
     """
@@ -3511,53 +3613,32 @@ def _resumen_dashboard_home(datos):
             return None
         return round((v - prev) / abs(prev) * 100, 1)
 
-    def _serie(clave):
-        return [p.get(clave) for p in periodos]
+    # Resuelve la selección de KPIs: si no se pasa, se lee del fichero.
+    if kpis_ids is None:
+        kpis_ids = _cargar_home_kpis_empresa()
+    catalogo_by_id = {k["id"]: k for k in _HOME_KPI_CATALOGO}
 
-    def _tarjeta(titulo, clave, color):
-        serie = _serie(clave)
+    tarjetas = []
+    for kid in kpis_ids:
+        kdef = catalogo_by_id.get(kid)
+        if not kdef:
+            continue
+        serie = _serie_para_kpi(kdef, periodos, labels, datos)
         actual = serie[-1] if serie else None
         anterior = serie[-2] if len(serie) >= 2 else None
-        return {
-            "titulo": titulo,
+        tarjetas.append({
+            "id": kdef["id"],
+            "titulo": kdef["titulo"],
             "serie": serie,
             "actual": actual,
             "anterior": anterior,
             "delta": _delta_yoy(serie),
-            "color": color,
-        }
-
-    # Flujo de caja operativo desde datos.estados.cashflow (si existe).
-    serie_ocf = [None] * len(labels)
-    cf_block = (datos.get("estados") or {}).get("cashflow") or {}
-    cf_periodos = cf_block.get("periodos") or []
-    cf_filas = cf_block.get("filas") or []
-    if cf_periodos and cf_filas:
-        fila_ocf = next(
-            (f for f in cf_filas if (f.get("concepto") or "").startswith("Flujo de caja operativo")),
-            None,
-        )
-        if fila_ocf:
-            valores = fila_ocf.get("valores") or []
-            # Mapeamos los valores de CF (más reciente → antiguo) a nuestras labels
-            # (antiguo → reciente). Como el nº de columnas y su orden coincide con
-            # los periodos de datos.periodos (ambos vienen de Yahoo con mismo límite),
-            # basta con invertir y recortar.
-            serie_ocf_crudo = list(reversed(valores))[-len(labels):]
-            if len(serie_ocf_crudo) < len(labels):
-                serie_ocf_crudo = [None] * (len(labels) - len(serie_ocf_crudo)) + serie_ocf_crudo
-            serie_ocf = serie_ocf_crudo
-
-    delta_ocf = None
-    if len(serie_ocf) >= 2 and serie_ocf[-1] is not None and serie_ocf[-2] not in (None, 0):
-        delta_ocf = round((serie_ocf[-1] - serie_ocf[-2]) / abs(serie_ocf[-2]) * 100, 1)
+            "color": kdef["color"],
+        })
 
     ultimo = periodos[-1] if periodos else {}
 
     # Composición de un € de ingresos del último ejercicio (para el pie).
-    # Yahoo reporta coste_ventas/gastos_operativos como positivos (son
-    # cuantías); el beneficio neto es lo que queda. Normalizamos a abs
-    # para evitar sorpresas con balances negativos y filtramos nulos.
     composicion = []
     ing_u = ultimo.get("ingresos") or 0
     if ing_u > 0:
@@ -3577,19 +3658,9 @@ def _resumen_dashboard_home(datos):
         "moneda": datos.get("moneda") or "",
         "periodo_ultimo": labels[-1] if labels else "",
         "periodo_anterior": labels[-2] if len(labels) >= 2 else "",
-        "tarjetas": [
-            _tarjeta("Ingresos", "ingresos", "#1976D2"),
-            _tarjeta("Beneficio neto", "beneficio_neto", "#43B02A"),
-            _tarjeta("EBITDA", "ebitda", "#8E24AA"),
-            {
-                "titulo": "Flujo de caja operativo",
-                "serie": serie_ocf,
-                "actual": serie_ocf[-1] if serie_ocf else None,
-                "anterior": serie_ocf[-2] if len(serie_ocf) >= 2 else None,
-                "delta": delta_ocf,
-                "color": "#F57C00",
-            },
-        ],
+        "tarjetas": tarjetas,
+        "kpis_disponibles": _HOME_KPI_CATALOGO,
+        "kpis_seleccionados": kpis_ids,
         "margenes_ultimo": {
             "Bruto": ultimo.get("pct_margen_bruto"),
             "EBITDA": ultimo.get("pct_ebitda"),
@@ -3598,12 +3669,43 @@ def _resumen_dashboard_home(datos):
         # Datos para el chart grande (evolución 5 años).
         "evolucion": {
             "labels": labels,
-            "ingresos": _serie("ingresos"),
-            "beneficio_neto": _serie("beneficio_neto"),
+            "ingresos": [p.get("ingresos") for p in periodos],
+            "beneficio_neto": [p.get("beneficio_neto") for p in periodos],
         },
         # Datos para el pie de composición P&L último año.
         "composicion_pyg": composicion,
     }
+
+
+@app.route("/_api/home/kpis-catalogo", methods=["GET"])
+def _api_home_kpis_catalogo():
+    """Devuelve el catálogo de KPIs seleccionables + la selección actual."""
+    from flask import jsonify
+    return jsonify({
+        "ok": True,
+        "catalogo": _HOME_KPI_CATALOGO,
+        "seleccionados": _cargar_home_kpis_empresa() if TICKER_FIJO else list(_HOME_KPI_DEFAULT),
+        "max": _HOME_KPI_MAX,
+    })
+
+
+@app.route("/_api/home/kpis", methods=["POST"])
+def _api_home_kpis_guardar():
+    """Guarda la selección de KPIs del home para la empresa activa."""
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids")
+    if not isinstance(ids, list):
+        return jsonify({"ok": False, "error": "'ids' debe ser un array."}), 400
+    if len(ids) > _HOME_KPI_MAX:
+        return jsonify({"ok": False, "error": f"Máximo {_HOME_KPI_MAX} KPIs seleccionados."}), 400
+    try:
+        limpios = _guardar_home_kpis_empresa(ids)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True, "seleccionados": limpios})
 
 
 def _render_secciones_para_resultado(nota):
