@@ -249,6 +249,10 @@
         <div class="acciones">
             <a href="/" class="btn-accion">&larr; Volver</a>
             <a href="/panel-ejecutivo" class="btn-accion">{{ icon("clipboard", size=14) }} Panel Ejecutivo</a>
+            <button type="button" class="btn-accion" onclick="window.__benchmarkEditarCompetidores()" title="Añadir o quitar competidores de la comparativa">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>
+                Editar competidores
+            </button>
             <button type="button" class="btn-accion primary" onclick="window.print()">
                 {{ icon("folder", size=14) }} Descargar PDF
             </button>
@@ -614,6 +618,39 @@
         });
     });
 })();
+
+// --- Abrir modal de tickers y recargar la pantalla al cerrarlo
+// para que la nueva lista de competidores entre en el Benchmark ---
+window.__benchmarkEditarCompetidores = function() {
+    if (!window.tkModal) { alert('El selector no está disponible en esta pantalla.'); return; }
+    var modal = document.getElementById('tk-modal');
+    if (!modal) return;
+    // Reemplazamos el cierre para disparar un reload si hubo cambios.
+    var yaRecargo = false;
+    var origComps = null;
+    tkModal.abrir().catch(function() {});
+    // Capturamos el estado inicial de competidores tras cargar
+    setTimeout(function() {
+        fetch('/_api/tickers').then(function(r) { return r.json(); }).then(function(j) {
+            if (j && j.ok) origComps = (j.competidores || []).slice().sort().join(',');
+        });
+    }, 300);
+    function cerrarYRecargar() {
+        if (yaRecargo) return; yaRecargo = true;
+        fetch('/_api/tickers').then(function(r) { return r.json(); }).then(function(j) {
+            var nuevo = (j && j.ok && j.competidores) ? j.competidores.slice().sort().join(',') : null;
+            if (nuevo !== null && origComps !== null && nuevo !== origComps) location.reload();
+        }).catch(function() {});
+    }
+    modal.addEventListener('click', function(e) { if (e.target === modal) setTimeout(cerrarYRecargar, 50); }, { once: true });
+    // Hook en el botón "Hecho" del pie para recargar al cerrar
+    var btns = modal.querySelectorAll('button');
+    btns.forEach(function(b) {
+        if ((b.textContent || '').trim() === 'Hecho') {
+            b.addEventListener('click', function() { setTimeout(cerrarYRecargar, 50); }, { once: true });
+        }
+    });
+};
 </script>
 {% endif %}
 {% endblock %}
