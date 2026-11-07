@@ -1360,6 +1360,375 @@
     })();
     {% endif %}
 </script>
+<!-- ==================== Asistente IA flotante ==================== -->
+<button type="button" class="ds-asistente-fab" id="asistente-fab" title="Asistente DFin" aria-label="Abrir asistente IA">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span class="ds-asistente-fab-pulse"></span>
+</button>
+
+<aside class="ds-asistente-drawer" id="asistente-drawer" aria-hidden="true">
+    <header class="ds-asistente-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span class="ds-asistente-brand">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </span>
+            <div>
+                <div style="font-size: 14px; font-weight: 600; color: var(--fg); font-family: 'IBM Plex Sans', sans-serif;">Asistente DFin</div>
+                <div style="font-size: 11px; color: var(--fg-mute);" id="asistente-modo-sub">Modo ayuda de la aplicación</div>
+            </div>
+        </div>
+        <button type="button" class="ds-icon-btn" onclick="asistenteCerrar()" aria-label="Cerrar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+    </header>
+
+    <div class="ds-asistente-tabs">
+        <button type="button" class="ds-asistente-tab is-active" data-modo="ayuda">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Ayuda de la app
+        </button>
+        <button type="button" class="ds-asistente-tab" data-modo="libre">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M22 2 12 12"/></svg>
+            Preguntar al modelo
+        </button>
+    </div>
+
+    <div class="ds-asistente-messages" id="asistente-messages">
+        <div class="ds-asistente-welcome">
+            <strong>Hola, soy el asistente de DFin AI.</strong><br>
+            Puedo ayudarte a moverte por la aplicación y explicarte qué hace cada módulo. Cambia a <em>Preguntar al modelo</em> para consultas abiertas al LLM.
+        </div>
+    </div>
+
+    <div class="ds-asistente-input">
+        <select id="asistente-modelo" class="ds-asistente-modelo" aria-label="Modelo IA">
+            {% for id, label in MODELOS_ORDENADOS %}
+            <option value="{{ id }}" {% if id == MODELO_POR_DEFECTO %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <div class="ds-asistente-composer">
+            <textarea id="asistente-textarea" rows="1" placeholder="Pregunta algo…"></textarea>
+            <button type="button" id="asistente-enviar" class="ds-asistente-send" title="Enviar (Enter)" aria-label="Enviar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 21.7a.5.5 0 0 0 .9 0l6.5-19a.5.5 0 0 0-.6-.6l-19 6.5a.5.5 0 0 0 0 .9l7.9 3.2a2 2 0 0 1 1.1 1.1z"/><path d="m21.9 2.1-11 11"/></svg>
+            </button>
+        </div>
+    </div>
+</aside>
+
+<style>
+.ds-asistente-fab {
+    position: fixed;
+    right: 22px; bottom: 22px;
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--brand);
+    color: var(--brand-on);
+    border: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 10px 28px rgba(134, 188, 37, 0.45), 0 4px 10px rgba(15, 23, 42, 0.22);
+    z-index: 90;
+    transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+    font-family: inherit;
+}
+.ds-asistente-fab:hover {
+    background: var(--brand-dark); color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 14px 34px rgba(67, 176, 42, 0.5), 0 6px 14px rgba(15, 23, 42, 0.28);
+}
+.ds-asistente-fab svg { width: 22px; height: 22px; }
+.ds-asistente-fab-pulse {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    animation: fab-ripple 2.8s ease-in-out infinite;
+    pointer-events: none;
+    box-shadow: 0 0 0 0 rgba(134, 188, 37, 0.5);
+}
+@keyframes fab-ripple {
+    0%   { box-shadow: 0 0 0 0 rgba(134, 188, 37, 0.55); }
+    70%  { box-shadow: 0 0 0 18px rgba(134, 188, 37, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(134, 188, 37, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ds-asistente-fab-pulse { animation: none !important; }
+}
+
+.ds-asistente-drawer {
+    position: fixed;
+    right: 0; top: 0; bottom: 0;
+    width: min(440px, 100vw);
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    box-shadow: -8px 0 32px rgba(15, 23, 42, 0.12);
+    display: flex; flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 95;
+}
+.ds-asistente-drawer.is-open { transform: translateX(0); }
+.ds-asistente-head {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+}
+.ds-asistente-brand {
+    width: 34px; height: 34px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--brand); color: var(--brand-on);
+    border-radius: 8px;
+}
+.ds-asistente-tabs {
+    display: grid; grid-template-columns: 1fr 1fr;
+    padding: 10px 16px 0; gap: 6px;
+    border-bottom: 1px solid var(--border);
+}
+.ds-asistente-tab {
+    background: transparent; border: 0;
+    padding: 9px 10px 11px;
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--fg-mute); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    transition: color 0.12s, border-color 0.12s;
+}
+.ds-asistente-tab:hover { color: var(--fg); }
+.ds-asistente-tab.is-active { color: var(--brand-dark); border-bottom-color: var(--brand); }
+
+.ds-asistente-messages {
+    flex: 1; overflow-y: auto; min-height: 0;
+    padding: 16px 16px 10px;
+    display: flex; flex-direction: column; gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+}
+.ds-asistente-welcome {
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px; color: var(--fg-dim);
+    line-height: 1.55;
+}
+.ds-asistente-welcome strong { color: var(--fg); }
+.as-msg {
+    max-width: 92%;
+    padding: 10px 13px; border-radius: 11px;
+    font-size: 13px; line-height: 1.55;
+    word-wrap: break-word;
+}
+.as-msg.user {
+    align-self: flex-end;
+    background: var(--brand-soft); color: var(--fg);
+    border: 1px solid var(--brand);
+    border-top-right-radius: 3px;
+}
+.as-msg.ai {
+    align-self: flex-start;
+    background: var(--surface-muted); color: var(--fg);
+    border: 1px solid var(--border);
+    border-top-left-radius: 3px;
+}
+.as-msg.ai p { margin: 0 0 8px; }
+.as-msg.ai p:last-child { margin-bottom: 0; }
+.as-msg.loading {
+    color: var(--fg-mute); font-style: italic;
+    display: inline-flex; align-items: center; gap: 8px;
+}
+.as-msg.loading::before {
+    content: ""; width: 12px; height: 12px;
+    border: 2px solid var(--border-strong); border-top-color: var(--brand);
+    border-radius: 50%;
+    animation: hd-spin 0.7s linear infinite;
+}
+.as-msg.error {
+    align-self: stretch;
+    background: var(--bad-bg); color: #991B1B;
+    border: 1px solid var(--bad);
+    font-size: 12.5px;
+}
+
+.ds-asistente-input {
+    border-top: 1px solid var(--border);
+    padding: 10px 14px 12px;
+    background: var(--surface-muted);
+    display: flex; flex-direction: column; gap: 6px;
+}
+.ds-asistente-modelo {
+    font-family: inherit; font-size: 11.5px;
+    padding: 4px 8px;
+    border: 1px solid var(--border); border-radius: 5px;
+    background: var(--surface); color: var(--fg);
+    max-width: 100%;
+}
+.ds-asistente-modelo:focus { outline: none; border-color: var(--brand); }
+.ds-asistente-composer {
+    display: flex; align-items: flex-end; gap: 6px;
+}
+.ds-asistente-composer textarea {
+    flex: 1; min-height: 40px; max-height: 120px;
+    font-family: inherit; font-size: 13.5px; line-height: 1.5;
+    padding: 9px 11px; border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--surface); color: var(--fg);
+    resize: none;
+}
+.ds-asistente-composer textarea:focus { outline: none; border-color: var(--brand); }
+.ds-asistente-send {
+    width: 40px; height: 40px;
+    background: var(--brand); color: var(--brand-on);
+    border: 0; border-radius: 7px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.ds-asistente-send:hover { background: var(--brand-dark); color: #fff; }
+.ds-asistente-send:disabled { opacity: 0.55; cursor: wait; }
+
+@media print { .ds-asistente-fab, .ds-asistente-drawer { display: none !important; } }
+</style>
+
+<script>
+(function() {
+    var fab = document.getElementById('asistente-fab');
+    var drawer = document.getElementById('asistente-drawer');
+    var messages = document.getElementById('asistente-messages');
+    var textarea = document.getElementById('asistente-textarea');
+    var btnSend = document.getElementById('asistente-enviar');
+    var selModelo = document.getElementById('asistente-modelo');
+    var tabs = document.querySelectorAll('.ds-asistente-tab');
+    var subModo = document.getElementById('asistente-modo-sub');
+    if (!fab || !drawer) return;
+
+    var modoActual = 'ayuda';
+    var enviando = false;
+    var historial = { ayuda: [], libre: [] };  // mensajes por modo, para repintar al cambiar tab
+
+    function abrir() {
+        drawer.classList.add('is-open');
+        drawer.setAttribute('aria-hidden', 'false');
+        setTimeout(function() { textarea.focus(); }, 180);
+    }
+    window.asistenteCerrar = function() {
+        drawer.classList.remove('is-open');
+        drawer.setAttribute('aria-hidden', 'true');
+    };
+
+    fab.addEventListener('click', function() {
+        if (drawer.classList.contains('is-open')) window.asistenteCerrar();
+        else abrir();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && drawer.classList.contains('is-open')) window.asistenteCerrar();
+    });
+
+    function setModo(m) {
+        if (m !== 'ayuda' && m !== 'libre') return;
+        modoActual = m;
+        tabs.forEach(function(t) { t.classList.toggle('is-active', t.dataset.modo === m); });
+        subModo.textContent = m === 'ayuda' ? 'Modo ayuda de la aplicación' : 'Modo consulta libre al modelo';
+        textarea.placeholder = m === 'ayuda' ? 'Pregunta cómo moverte por la aplicación…' : 'Pregunta cualquier cosa al modelo IA…';
+        repintarMensajes();
+    }
+    tabs.forEach(function(t) { t.addEventListener('click', function() { setModo(t.dataset.modo); }); });
+
+    function nodoWelcome() {
+        var w = document.createElement('div');
+        w.className = 'ds-asistente-welcome';
+        if (modoActual === 'ayuda') {
+            w.innerHTML = '<strong>Hola, soy el asistente de DFin AI.</strong><br>Puedo ayudarte a moverte por la aplicación y explicarte qué hace cada módulo. Prueba: <em>"¿Dónde veo los correos pendientes?"</em>, <em>"¿Cómo descargo los datos en Excel?"</em>, <em>"¿Qué es Habla con tus datos?"</em>.';
+        } else {
+            w.innerHTML = '<strong>Modo consulta libre.</strong><br>Pregunta al modelo IA cualquier cosa (conceptos financieros, metodología, análisis general…). Para datos de tu empresa concretos, usa <em>Habla con tus datos</em>, que trabaja sobre la base de datos y el repositorio documental.';
+        }
+        return w;
+    }
+
+    function escapeHtml(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function parrafos(txt) {
+        return (txt || '').trim().split(/\n{2,}/).map(function(p) {
+            return '<p>' + escapeHtml(p).replace(/\n/g, '<br>') + '</p>';
+        }).join('');
+    }
+
+    function repintarMensajes() {
+        messages.innerHTML = '';
+        var hist = historial[modoActual];
+        if (!hist.length) { messages.appendChild(nodoWelcome()); return; }
+        hist.forEach(function(m) {
+            var d = document.createElement('div');
+            d.className = 'as-msg ' + m.rol;
+            if (m.rol === 'ai') d.innerHTML = parrafos(m.texto);
+            else d.textContent = m.texto;
+            messages.appendChild(d);
+        });
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function autoResize() {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+    textarea.addEventListener('input', autoResize);
+
+    textarea.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); }
+    });
+    btnSend.addEventListener('click', enviar);
+
+    function enviar() {
+        if (enviando) return;
+        var pregunta = textarea.value.trim();
+        if (!pregunta) return;
+        enviando = true;
+        btnSend.disabled = true;
+
+        historial[modoActual].push({ rol: 'user', texto: pregunta });
+        repintarMensajes();
+        textarea.value = '';
+        autoResize();
+
+        var loading = document.createElement('div');
+        loading.className = 'as-msg ai loading';
+        loading.textContent = 'Pensando…';
+        messages.appendChild(loading);
+        messages.scrollTop = messages.scrollHeight;
+
+        fetch('/_api/asistente/preguntar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pregunta: pregunta, modo: modoActual, modelo: selModelo.value }),
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(j) {
+                loading.remove();
+                if (!j.ok) {
+                    var err = document.createElement('div');
+                    err.className = 'as-msg error';
+                    err.textContent = j.error || 'No se pudo generar la respuesta.';
+                    messages.appendChild(err);
+                    return;
+                }
+                historial[modoActual].push({ rol: 'ai', texto: j.texto });
+                repintarMensajes();
+            })
+            .catch(function(e) {
+                loading.remove();
+                var err = document.createElement('div');
+                err.className = 'as-msg error';
+                err.textContent = 'Error de conexión: ' + e.message;
+                messages.appendChild(err);
+            })
+            .finally(function() {
+                enviando = false;
+                btnSend.disabled = false;
+            });
+    }
+})();
+</script>
+
 {% block scripts %}{% endblock %}
 </body>
 </html>

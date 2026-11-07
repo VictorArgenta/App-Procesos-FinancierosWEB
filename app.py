@@ -6330,6 +6330,130 @@ def admin():
 
 
 # =====================================================================
+# Asistente IA flotante — ayuda de uso + consultas libres
+# =====================================================================
+
+_ASISTENTE_GUIA = """La aplicación se llama DFin AI y es una plataforma corporativa
+de inteligencia financiera. Su navegación principal está en una sidebar
+oscura permanente a la izquierda, organizada en secciones:
+
+Workspace:
+- Inicio (/): panel de bienvenida con KPIs del último FY, dos gráficos
+  (evolución y composición P&L) y un acceso rápido a los módulos.
+- Habla con tus datos (/habla-con-tus-datos): chat con IA sobre los
+  indicadores financieros y la documentación corporativa; resuelve
+  primero con la base de datos (KPIs del diccionario incluidos) y
+  complementa con el repositorio documental. Cada afirmación es
+  trazable a su fuente ([EST] para datos, [N] para documentación).
+- Panel ejecutivo (/panel-ejecutivo): one-pager A4 con KPIs,
+  evolución 5 años, composición P&L y lectura narrativa IA.
+  Exportable a PDF.
+- Benchmark sectorial (/benchmark): posicionamiento de la compañía
+  frente a competidores en múltiplos, márgenes y crecimiento.
+  Con narrativa IA y descarga PDF.
+
+Operar:
+- Informe narrativo (/analisis): elabora con IA memoria, informe del
+  consejo o carta al accionista a partir de los estados financieros.
+  Export Word/PDF. También permite descargar los datos en 3 TXT.
+- Relación con Stakeholders (/relacion-inversores): bandeja de
+  correos de IR con IA que clasifica (minorista/institucional) y
+  propone borradores de respuesta trazables.
+- Noticias del sector (/noticias): vigilancia continua del sector
+  y de la compañía, con envío por correo a interlocutores.
+- Informes generados (/informes-generados): histórico de Word/PDF
+  exportados.
+
+Preview (en construcción):
+- Presupuesto ML, Radar normativo.
+
+Administrar:
+- Administración (/admin), Coste de tokens (/coste).
+
+Características transversales:
+- Modo noche con toggle en la topbar (icono luna/sol).
+- Command Palette con Ctrl+K: salta a cualquier módulo por teclado.
+- Ticker Bloomberg bajo la topbar con cotizaciones en vivo
+  (empresa + competidores) si la empresa cotiza.
+- Diccionario funcional por empresa (Empresas/{TICKER}/diccionario.txt)
+  donde se definen sinónimos, explicaciones de partidas y KPIs
+  calculados con fórmulas. Se edita desde Habla con tus datos →
+  Editar diccionario, con ficha estructurada y vista avanzada.
+
+Preguntas típicas de ayuda: cómo encontrar X, cómo exportar Y,
+dónde se cambia el modelo, qué significa un pill-badge, qué hace
+tal botón, cómo añadir un KPI al diccionario, etc."""
+
+
+_PROMPT_ASISTENTE_AYUDA = """Eres el asistente de uso de DFin AI. Ayudas al
+usuario a navegar la aplicación, encontrar funcionalidades, interpretar
+elementos de la interfaz y entender qué hace cada módulo. Responde en
+español, de forma breve y directa. Si te preguntan algo que no tiene que
+ver con la aplicación, aclara que para eso es mejor la pestaña
+"Preguntar al modelo". Contexto de la aplicación:
+
+{guia}
+
+Pregunta del usuario:
+{pregunta}
+
+Respuesta:"""
+
+
+_PROMPT_ASISTENTE_LIBRE = """Eres un asistente financiero corporativo
+operando dentro de DFin AI (plataforma de inteligencia financiera para
+Deloitte). Responde en español, con tono profesional, conciso y directo.
+Si la pregunta requiere datos específicos de la empresa activa o
+documentación corporativa, recomienda al usuario abrir "Habla con tus
+datos" para obtener una respuesta trazada y con evidencias. Para
+preguntas generales (conceptos financieros, marco contable, metodología),
+responde con lo que sepas.
+
+Pregunta: {pregunta}
+
+Respuesta:"""
+
+
+@app.route("/_api/asistente/preguntar", methods=["POST"])
+def asistente_preguntar():
+    """Endpoint del asistente IA flotante. Dos modos: 'ayuda' (contexto
+    de la aplicación) o 'libre' (pregunta neutra al modelo)."""
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    pregunta = (data.get("pregunta") or "").strip()
+    modo = data.get("modo") or "ayuda"
+    if modo not in ("ayuda", "libre"):
+        modo = "ayuda"
+    if not pregunta:
+        return jsonify({"ok": False, "error": "La pregunta no puede estar vacía."}), 400
+    if len(pregunta) > 2000:
+        return jsonify({"ok": False, "error": "Pregunta demasiado larga (máx. 2000)."}), 400
+
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
+    if modo == "ayuda":
+        prompt = _PROMPT_ASISTENTE_AYUDA.format(guia=_ASISTENTE_GUIA, pregunta=pregunta)
+        max_tokens = 600
+    else:
+        prompt = _PROMPT_ASISTENTE_LIBRE.format(pregunta=pregunta)
+        max_tokens = 900
+
+    try:
+        texto, _citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=max_tokens, modelo=modelo,
+            permitir_busqueda=False, modulo=f"asistente-{modo}",
+        )
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    return jsonify({
+        "ok": True,
+        "texto": (texto or "").strip(),
+        "modelo": modelo,
+        "modo": modo,
+    })
+
+
+# =====================================================================
 # Habla con tus datos — chat mixto (estructurado + RAG) con diccionario
 # =====================================================================
 
