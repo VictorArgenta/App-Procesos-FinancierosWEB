@@ -5,7 +5,7 @@ import re
 import time
 import uuid
 import markdown
-from flask import Flask, render_template, request, send_file, redirect, url_for
+from flask import Flask, render_template, request, send_file, redirect, url_for, abort
 from dotenv import load_dotenv
 import yfinance as yf
 import anthropic
@@ -36,6 +36,7 @@ import threading as _threading
 from pathlib import Path as _Path
 import rag as _rag
 import diccionario as _dicc
+import meta_mocks as _mocks
 
 # Ticker activo durante la sesión de la app. Se arranca sin ticker
 # (`python app.py`) y el usuario selecciona la empresa al entrar en la
@@ -666,6 +667,10 @@ def _inyectar_branding():
         "COSTE_ACUMULADO_USD": _COSTE_ACUMULADO.get("usd", 0.0),
         "COSTE_LLAMADAS": _COSTE_ACUMULADO.get("llamadas", 0),
         "fecha_hoy": _dt_now().strftime("%d/%m/%Y"),
+        "MOCK_META": (TICKER_FIJO or "").upper() == "META",
+        "MOCK_NAV_CEO":    _mocks.MOCK_NAV.get("ceo", []),
+        "MOCK_NAV_CFO":    _mocks.MOCK_NAV.get("cfo", []),
+        "MOCK_NAV_EQUIPO": _mocks.MOCK_NAV.get("equipo", []),
     }
 
 
@@ -3287,6 +3292,26 @@ def parametros():
         kpis_seleccionados=_cargar_home_kpis_empresa(),
         kpi_max=_HOME_KPI_MAX,
         sector=_cargar_sector_empresa(),
+    )
+
+
+@app.route("/modulo/<slug>")
+def modulo_mock(slug):
+    """Módulo de maqueta (sólo disponible cuando la entidad activa es META).
+
+    Renderiza una vista estática construida desde ``meta_mocks.MOCK_MODULOS``
+    para ofrecer una visión completa del ecosistema DFin AI (CEO / CFO /
+    equipo) con datos realistas y argumentos preparados.
+    """
+    if (TICKER_FIJO or "").upper() != "META":
+        abort(404)
+    mod = _mocks.get_modulo(slug)
+    if not mod:
+        abort(404)
+    return render_template(
+        "mock_modulo.html",
+        mod=mod,
+        mod_js=json.dumps(mod, ensure_ascii=False),
     )
 
 

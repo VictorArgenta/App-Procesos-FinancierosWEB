@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+{% block title %}{{ mod.titulo }} — DFin AI{% endblock %}
+{% block breadcrumb_actual %}{{ mod.titulo }}{% endblock %}
+
+{% block content %}
+<style>
+    .mk-hero {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 22px 26px;
+        margin-bottom: 22px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .mk-hero h1 {
+        margin: 0 0 6px;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--fg);
+    }
+    .mk-hero p {
+        margin: 0;
+        color: var(--fg-dim);
+        font-size: 0.95rem;
+    }
+    .mk-hero-right { text-align: right; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+    .mk-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--surface-muted);
+        border: 1px solid var(--border);
+        color: var(--fg-dim);
+        padding: 5px 11px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+    .mk-chip.src { background: rgba(16, 185, 129, 0.10); color: #10b981; border-color: rgba(16, 185, 129, 0.30); }
+    .mk-chip.ts { color: var(--fg-dim); }
+
+    .mk-kpis {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+    .mk-kpi {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px 18px;
+        min-height: 110px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .mk-kpi .lbl {
+        font-size: 0.78rem;
+        color: var(--fg-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        font-weight: 600;
+    }
+    .mk-kpi .val {
+        font-size: 1.55rem;
+        font-weight: 700;
+        color: var(--fg);
+        line-height: 1.1;
+    }
+    .mk-kpi .delta {
+        font-size: 0.82rem;
+        font-weight: 600;
+    }
+    .mk-kpi .delta.pos { color: #10b981; }
+    .mk-kpi .delta.neg { color: #ef4444; }
+    .mk-kpi .delta.warn { color: #f59e0b; }
+
+    .mk-grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 18px;
+        margin-bottom: 22px;
+    }
+    @media (max-width: 900px) { .mk-grid { grid-template-columns: 1fr; } }
+
+    .mk-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 18px;
+    }
+    .mk-card h3 {
+        margin: 0 0 12px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--fg);
+    }
+    .mk-chart { width: 100%; height: 320px; }
+    .mk-chart.small { height: 260px; }
+
+    .mk-blocks {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 16px;
+    }
+    .mk-block h3 {
+        margin: 0 0 10px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--fg);
+    }
+    .mk-block ul {
+        margin: 0;
+        padding: 0 0 0 18px;
+        color: var(--fg);
+        font-size: 0.9rem;
+        line-height: 1.55;
+    }
+    .mk-block ul li { margin-bottom: 6px; }
+
+    .mk-note {
+        margin-top: 16px;
+        padding: 12px 14px;
+        background: var(--surface-muted);
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        font-size: 0.82rem;
+        color: var(--fg-dim);
+    }
+</style>
+
+<section class="mk-hero">
+    <div>
+        <h1>{{ mod.titulo }}</h1>
+        <p>{{ mod.subtitulo }}</p>
+    </div>
+    <div class="mk-hero-right">
+        <span class="mk-chip src">Origen · {{ mod.fuente }}</span>
+        <span class="mk-chip ts">{{ mod.ultima }}</span>
+    </div>
+</section>
+
+<section class="mk-kpis">
+    {% for k in mod.kpis %}
+    <div class="mk-kpi">
+        <div class="lbl">{{ k.label }}</div>
+        <div class="val">{{ k.valor }}</div>
+        {% if k.delta %}
+        <div class="delta {{ k.tono or '' }}">{{ k.delta }}</div>
+        {% elif k.tono %}
+        <div class="delta {{ k.tono }}">&nbsp;</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</section>
+
+<section class="mk-grid">
+    <div class="mk-card">
+        <h3>{{ mod.grafico.titulo }}</h3>
+        <div id="mk-chart-main" class="mk-chart"></div>
+    </div>
+    <div class="mk-card">
+        {% set bloque = mod.bloques[0] %}
+        <h3>{{ bloque.titulo }}</h3>
+        <ul>
+            {% for b in bloque.bullets %}
+            <li>{{ b }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</section>
+
+{% if mod.bloques|length > 1 %}
+<section class="mk-blocks">
+    {% for bloque in mod.bloques[1:] %}
+    <div class="mk-card mk-block">
+        <h3>{{ bloque.titulo }}</h3>
+        <ul>
+            {% for b in bloque.bullets %}
+            <li>{{ b }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+<div class="mk-note">Maqueta de demostración · los datos provienen del simulador de integración con el stack EPM corporativo y se refrescan al recargar la página.</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/echarts-5.5.1.min.js') }}"></script>
+<script>
+(function() {
+    var MOD = {{ mod_js | safe }};
+    var el = document.getElementById('mk-chart-main');
+    if (!el || !window.echarts) return;
+    var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    var axisColor = isLight ? '#475569' : '#94a3b8';
+    var gridColor = isLight ? '#e2e8f0' : '#334155';
+    var brand = getComputedStyle(document.documentElement).getPropertyValue('--brand').trim() || '#10b981';
+
+    var chart = echarts.init(el);
+    var g = MOD.grafico;
+    var option = null;
+
+    if (g.tipo === 'line') {
+        var xs = g.serie.map(function(_, i) { return i + 1; });
+        option = {
+            tooltip: { trigger: 'axis' },
+            grid: { left: 42, right: 18, top: 24, bottom: 36 },
+            xAxis: {
+                type: 'category', data: xs,
+                axisLine: { lineStyle: { color: gridColor } },
+                axisLabel: { color: axisColor }
+            },
+            yAxis: {
+                type: 'value',
+                axisLine: { lineStyle: { color: gridColor } },
+                splitLine: { lineStyle: { color: gridColor } },
+                axisLabel: { color: axisColor }
+            },
+            series: [{
+                type: 'line',
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 6,
+                lineStyle: { color: brand, width: 2.2 },
+                itemStyle: { color: brand },
+                areaStyle: { color: brand, opacity: 0.12 },
+                data: g.serie
+            }]
+        };
+    } else if (g.tipo === 'bar') {
+        option = {
+            tooltip: { trigger: 'axis' },
+            grid: { left: 60, right: 20, top: 24, bottom: 46 },
+            xAxis: {
+                type: 'category', data: g.categorias,
+                axisLine: { lineStyle: { color: gridColor } },
+                axisLabel: { color: axisColor, interval: 0, rotate: g.categorias.length > 5 ? 20 : 0 }
+            },
+            yAxis: {
+                type: 'value',
+                axisLine: { lineStyle: { color: gridColor } },
+                splitLine: { lineStyle: { color: gridColor } },
+                axisLabel: { color: axisColor }
+            },
+            series: [{
+                type: 'bar',
+                itemStyle: {
+                    color: function(p) {
+                        return p.value < 0 ? '#ef4444' : brand;
+                    },
+                    borderRadius: [5, 5, 0, 0]
+                },
+                data: g.serie
+            }]
+        };
+    } else if (g.tipo === 'donut') {
+        option = {
+            tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+            legend: { bottom: 0, textStyle: { color: axisColor } },
+            series: [{
+                type: 'pie',
+                radius: ['42%', '72%'],
+                center: ['50%', '45%'],
+                label: { color: axisColor },
+                data: g.serie,
+                color: [brand, '#2563eb', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#64748b']
+            }]
+        };
+    } else if (g.tipo === 'waterfall') {
+        // Bridge chart con barras apiladas (invisible helper + delta).
+        var cats = g.etiquetas;
+        var vals = g.serie;
+        var helper = [], up = [], down = [], totals = [];
+        var running = 0;
+        for (var i = 0; i < vals.length; i++) {
+            var v = vals[i];
+            if (i === 0 || i === vals.length - 1) {
+                helper.push('-');
+                up.push('-');
+                down.push('-');
+                totals.push(v);
+                running = v;
+            } else {
+                totals.push('-');
+                if (v >= 0) {
+                    helper.push(running);
+                    up.push(v);
+                    down.push('-');
+                    running += v;
+                } else {
+                    running += v;
+                    helper.push(running);
+                    up.push('-');
+                    down.push(-v);
+                }
+            }
+        }
+        option = {
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+            legend: { data: ['Subida', 'Bajada', 'Total'], textStyle: { color: axisColor }, bottom: 0 },
+            grid: { left: 50, right: 18, top: 24, bottom: 56 },
+            xAxis: {
+                type: 'category', data: cats,
+                axisLine: { lineStyle: { color: gridColor } },
+                axisLabel: { color: axisColor, interval: 0, rotate: cats.length > 5 ? 20 : 0 }
+            },
+            yAxis: {
+                type: 'value',
+                axisLine: { lineStyle: { color: gridColor } },
+                splitLine: { lineStyle: { color: gridColor } },
+                axisLabel: { color: axisColor }
+            },
+            series: [
+                { name: '', type: 'bar', stack: 'wf', itemStyle: { color: 'transparent' }, data: helper },
+                { name: 'Subida', type: 'bar', stack: 'wf', itemStyle: { color: brand, borderRadius: [4, 4, 0, 0] }, data: up },
+                { name: 'Bajada', type: 'bar', stack: 'wf', itemStyle: { color: '#ef4444', borderRadius: [0, 0, 4, 4] }, data: down },
+                { name: 'Total', type: 'bar', stack: 'wf', itemStyle: { color: '#2563eb', borderRadius: [4, 4, 4, 4] }, data: totals }
+            ]
+        };
+    }
+
+    if (option) chart.setOption(option);
+    window.addEventListener('resize', function() { chart.resize(); });
+})();
+</script>
+{% endblock %}
