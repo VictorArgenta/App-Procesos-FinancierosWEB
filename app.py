@@ -3504,7 +3504,7 @@ _HOME_KPI_CATALOGO = [
     {"id": "bpa_diluido",                "titulo": "BPA diluido",                   "color": "#AB47BC", "fuente": "periodos", "campo": "bpa_diluido",                "familia": "Acción"},
 ]
 _HOME_KPI_DEFAULT = ["ingresos", "beneficio_neto", "ebitda", "flujo_caja_operativo"]
-_HOME_KPI_MAX = 6
+_HOME_KPI_MAX = 10
 
 
 def _cargar_home_kpis_empresa():
