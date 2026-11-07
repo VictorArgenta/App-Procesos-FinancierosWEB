@@ -366,6 +366,15 @@
             font-weight: 700; font-size: 12.5px;
             flex-shrink: 0;
         }
+        .ds-deloitte-logo {
+            background: #FFFFFF;
+            border-radius: 6px;
+            padding: 4px 8px;
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            height: 34px;
+        }
+        .ds-deloitte-logo img { max-height: 24px; max-width: 80px; width: auto; height: auto; object-fit: contain; }
         .ds-avatar-txt { font-size: 13px; font-weight: 600; color: #FFFFFF; line-height: 1.1; min-width: 0; }
         .ds-avatar-txt small { display: block; font-size: 11px; font-weight: 400; color: var(--nav-fg-dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -423,7 +432,21 @@
             padding: 2px 6px;
             color: var(--fg-dim);
         }
-        .ds-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+        .ds-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .ds-empresa-logo {
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 3px 8px;
+            height: 32px;
+            display: inline-flex; align-items: center;
+            flex-shrink: 0;
+        }
+        .ds-empresa-logo img {
+            max-height: 22px; max-width: 110px;
+            width: auto; height: auto;
+            object-fit: contain; display: block;
+        }
         .ds-icon-btn {
             width: 34px; height: 34px;
             display: inline-flex; align-items: center; justify-content: center;
@@ -917,16 +940,10 @@
     <!-- ============== SIDEBAR ============== -->
     <aside class="ds-sidebar">
         <div class="ds-side-head">
-            {% if EMPRESA_LOGO_DISPONIBLE %}
-            <a href="/" class="ds-logo-mark" title="Inicio · {{ EMPRESA_NOMBRE }}" style="background: #FFFFFF; padding: 4px;">
-                <img src="{{ EMPRESA_LOGO_URL }}" alt="{{ EMPRESA_NOMBRE }}">
-            </a>
-            {% else %}
             <a href="/" class="ds-logo-mark" title="Inicio · DFin AI">D</a>
-            {% endif %}
             <div class="ds-brand" style="flex: 1; min-width: 0;">
                 DFin AI
-                <small>{% if EMPRESA_NOMBRE %}{{ EMPRESA_NOMBRE }}{% else %}Financial Intelligence{% endif %}</small>
+                <small>Financial Intelligence</small>
             </div>
         </div>
 
@@ -997,14 +1014,14 @@
 
         <div class="ds-side-foot">
             {% if DELOITTE_LOGO_DISPONIBLE %}
-            <div class="ds-avatar" style="background: #FFFFFF; padding: 4px;">
-                <img src="{{ DELOITTE_LOGO_URL }}" alt="Deloitte" style="width: 100%; height: 100%; object-fit: contain;">
+            <div class="ds-deloitte-logo">
+                <img src="{{ DELOITTE_LOGO_URL }}" alt="Deloitte">
             </div>
             {% else %}
-            <span class="ds-avatar">{{ (TENANT_NOMBRE or 'DF')[:2]|upper }}</span>
+            <span class="ds-avatar">Dx</span>
             {% endif %}
             <div class="ds-avatar-txt" style="flex: 1; min-width: 0;">
-                {{ TENANT_NOMBRE or 'DFin AI' }}
+                Powered by Deloitte
                 <small>{% if TICKER_FIJO %}Ticker · {{ TICKER_FIJO }}{% else %}Workspace activo{% endif %}</small>
             </div>
         </div>
@@ -1026,6 +1043,11 @@
             </div>
 
             <div class="ds-topbar-right">
+                {% if EMPRESA_LOGO_DISPONIBLE %}
+                <div class="ds-empresa-logo" title="{{ EMPRESA_NOMBRE }}">
+                    <img src="{{ EMPRESA_LOGO_URL }}" alt="{{ EMPRESA_NOMBRE }}">
+                </div>
+                {% endif %}
                 {% if TICKER_FIJO %}
                 <span class="ds-tenant-chip">{{ EMPRESA_NOMBRE or 'Empresa' }} · {{ TICKER_FIJO }}</span>
                 {% else %}

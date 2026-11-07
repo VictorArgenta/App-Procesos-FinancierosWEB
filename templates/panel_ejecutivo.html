@@ -448,7 +448,7 @@
 </div>
 
 {% if dashboard %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js"></script>
+<script src="{{ url_for('static', filename='vendor/echarts-5.5.1.min.js') }}"></script>
 <script>
 (function() {
     if (typeof echarts === 'undefined') return;

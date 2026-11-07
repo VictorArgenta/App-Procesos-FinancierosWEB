@@ -5,19 +5,11 @@
 
 {% block content %}
 <style>
-    /* ================= Home — página de inicio ================= */
     .home-head {
-        display: flex;
-        align-items: flex-end;
-        justify-content: space-between;
-        gap: 20px;
-        margin-bottom: 22px;
-        flex-wrap: wrap;
+        display: flex; align-items: flex-end; justify-content: space-between;
+        gap: 20px; margin-bottom: 22px; flex-wrap: wrap;
     }
-    .home-head h1 {
-        font-size: 1.55rem; font-weight: 700;
-        margin: 0 0 4px; color: var(--fg);
-    }
+    .home-head h1 { font-size: 1.55rem; font-weight: 700; margin: 0 0 4px; color: var(--fg); }
     .home-head p { margin: 0; color: var(--fg-dim); font-size: 0.92rem; }
     .home-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .home-btn {
@@ -28,33 +20,22 @@
         transition: all 0.12s; border: 1px solid transparent;
         text-decoration: none;
     }
-    .home-btn.ghost {
-        background: var(--surface); color: var(--fg-dim); border-color: var(--border);
-    }
+    .home-btn.ghost { background: var(--surface); color: var(--fg-dim); border-color: var(--border); }
     .home-btn.ghost:hover { background: var(--surface-muted); color: var(--fg); border-color: var(--border-strong); }
-    .home-btn.brand {
-        background: var(--brand); color: var(--brand-on);
-    }
+    .home-btn.brand { background: var(--brand); color: var(--brand-on); }
     .home-btn.brand:hover { background: var(--brand-dark); color: #fff; }
     .home-btn svg { width: 14px; height: 14px; }
 
-    /* ================= KPIs ================= */
-    {% if dashboard_home %}
     .kpis-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 14px;
-        margin-bottom: 20px;
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px;
     }
     @media (max-width: 1100px) { .kpis-row { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 560px) { .kpis-row { grid-template-columns: 1fr; } }
     .home-kpi {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 15px 17px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 10px; padding: 15px 17px;
         display: flex; flex-direction: column; gap: 5px;
-        position: relative; overflow: hidden;
+        position: relative; overflow: hidden; min-height: 112px;
     }
     .home-kpi .k-label {
         font-size: 11px; font-weight: 600; letter-spacing: 0.4px;
@@ -66,11 +47,8 @@
         letter-spacing: -0.02em; color: var(--fg);
         font-variant-numeric: tabular-nums;
     }
-    .home-kpi .k-row {
-        display: flex; align-items: center; gap: 10px;
-        font-size: 11.5px; color: var(--fg-mute);
-        margin-top: 1px;
-    }
+    .home-kpi .k-row { display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--fg-mute); margin-top: 1px; }
+    .home-kpi .k-spark { height: 36px; margin: 4px -4px -8px; }
     .delta-chip {
         display: inline-flex; align-items: center; gap: 3px;
         font-size: 11.5px; font-weight: 600;
@@ -79,134 +57,94 @@
     .delta-chip.up { background: var(--good-bg); color: var(--good); }
     .delta-chip.down { background: var(--bad-bg); color: var(--bad); }
     .delta-chip.flat { background: var(--surface-muted); color: var(--fg-dim); }
-    .home-kpi .k-spark {
-        height: 36px; margin: 4px -4px -8px;
-    }
 
-    /* ================= Charts grid ================= */
     .charts-grid {
-        display: grid;
-        grid-template-columns: 1.5fr 1fr;
-        gap: 14px;
-        margin-bottom: 22px;
+        display: grid; grid-template-columns: 1.5fr 1fr;
+        gap: 14px; margin-bottom: 22px;
     }
     @media (max-width: 1100px) { .charts-grid { grid-template-columns: 1fr; } }
     .chart-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 16px 18px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 10px; padding: 16px 18px;
     }
-    .chart-card h3 {
-        margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--fg);
-    }
-    .chart-card p.sub {
-        margin: 2px 0 10px; font-size: 12px; color: var(--fg-mute);
-    }
-    .chart-wrap { height: 260px; }
+    .chart-card h3 { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--fg); }
+    .chart-card p.sub { margin: 2px 0 10px; font-size: 12px; color: var(--fg-mute); }
+    .chart-wrap { height: 260px; position: relative; }
     .chart-wrap.sm { height: 220px; }
-    {% endif %}
 
-    /* ================= Módulos ================= */
-    .modules-head {
-        display: flex; align-items: baseline;
-        justify-content: space-between;
-        margin: 6px 0 12px;
+    /* Skeleton loading */
+    .skel { background: linear-gradient(90deg, var(--surface-muted) 0%, var(--border) 50%, var(--surface-muted) 100%); background-size: 200% 100%; animation: skel-pulse 1.6s ease-in-out infinite; border-radius: 6px; }
+    @keyframes skel-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .skel-line { height: 14px; margin: 4px 0; }
+    .skel-value { height: 28px; width: 70%; }
+    .skel-chart { position: absolute; inset: 0; border-radius: 8px; }
+
+    .chart-msg {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--fg-mute); font-size: 0.85rem; text-align: center;
+        padding: 20px; line-height: 1.5;
     }
+
+    .modules-head { display: flex; align-items: baseline; justify-content: space-between; margin: 6px 0 12px; }
     .modules-head h3 { margin: 0; font-size: 0.95rem; font-weight: 600; color: var(--fg); }
 
-    .mods-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 14px;
-        margin-bottom: 22px;
-    }
+    .mods-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 22px; }
     @media (max-width: 1100px) { .mods-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 640px) { .mods-grid { grid-template-columns: 1fr; } }
     .mod-card {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 16px 18px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 10px; padding: 16px 18px;
         display: flex; flex-direction: column; gap: 10px;
         transition: border-color 0.12s, box-shadow 0.12s, transform 0.12s;
-        text-decoration: none; color: inherit;
-        position: relative;
+        text-decoration: none; color: inherit; position: relative;
     }
     .mod-card:hover {
         border-color: var(--border-strong);
         box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06), 0 2px 4px rgba(15, 23, 42, 0.04);
         transform: translateY(-1px);
     }
-    .mod-card.featured {
-        border-color: var(--brand);
-        background: linear-gradient(135deg, var(--surface) 0%, var(--brand-soft) 100%);
-    }
+    .mod-card.featured { border-color: var(--brand); background: linear-gradient(135deg, var(--surface) 0%, var(--brand-soft) 100%); }
     .mod-card.preview { opacity: 0.85; }
-    .mod-head {
-        display: flex; align-items: center; gap: 10px;
-    }
+    .mod-head { display: flex; align-items: center; gap: 10px; }
     .mod-icon {
-        width: 38px; height: 38px;
-        display: inline-flex; align-items: center; justify-content: center;
+        width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center;
         background: var(--brand-soft); color: var(--brand-dark);
         border-radius: 9px; flex-shrink: 0;
     }
     .mod-card.featured .mod-icon { background: var(--brand); color: var(--brand-on); }
     .mod-icon svg { width: 18px; height: 18px; }
-    .mod-title {
-        font-size: 0.95rem; font-weight: 600;
-        color: var(--fg); line-height: 1.3;
-    }
-    .mod-tags {
-        display: flex; gap: 5px; margin-top: 2px; flex-wrap: wrap;
-    }
+    .mod-title { font-size: 0.95rem; font-weight: 600; color: var(--fg); line-height: 1.3; }
+    .mod-tags { display: flex; gap: 5px; margin-top: 2px; flex-wrap: wrap; }
     .mod-tag {
-        font-size: 10.5px; font-weight: 600;
-        padding: 1px 7px; border-radius: 999px;
-        letter-spacing: 0.2px; text-transform: uppercase;
-        background: var(--surface-muted); color: var(--fg-dim);
-        border: 1px solid var(--border);
+        font-size: 10.5px; font-weight: 600; padding: 1px 7px;
+        border-radius: 999px; letter-spacing: 0.2px; text-transform: uppercase;
+        background: var(--surface-muted); color: var(--fg-dim); border: 1px solid var(--border);
     }
     .mod-tag.ok { background: var(--good-bg); color: var(--good); border-color: transparent; }
     .mod-tag.warn { background: var(--warn-bg); color: var(--warn); border-color: transparent; }
     .mod-tag.preview { background: var(--info-bg); color: var(--info); border-color: transparent; }
-    .mod-desc {
-        font-size: 0.86rem; color: var(--fg-dim);
-        line-height: 1.55; flex: 1;
-    }
+    .mod-desc { font-size: 0.86rem; color: var(--fg-dim); line-height: 1.55; flex: 1; }
     .mod-meta {
         display: flex; align-items: center; gap: 10px;
         font-size: 11.5px; color: var(--fg-mute);
         border-top: 1px solid var(--border); padding-top: 10px;
     }
     .mod-meta .sep { color: var(--border-strong); }
-
-    /* ================= Selector empresa (si no hay TICKER_FIJO) ================= */
-    .selector-wrap {
-        max-width: 760px; margin: 0 auto;
-        padding: 40px 20px;
-    }
-    .selector-wrap h1 { font-size: 1.6rem; font-weight: 700; margin: 0 0 6px; }
-    .selector-wrap p { color: var(--fg-dim); margin: 0 0 24px; }
 </style>
 
 {% if not TICKER_FIJO %}
-    {# Pantalla de selección de empresa inicial — se mantiene minimalista #}
-    <div class="selector-wrap">
-        <h1>Selecciona una empresa</h1>
-        <p>Elige la entidad con la que quieres trabajar en esta sesión.</p>
+    <div style="max-width: 760px; margin: 0 auto; padding: 40px 20px;">
+        <h1 style="font-size: 1.6rem; font-weight: 700; margin: 0 0 6px;">Selecciona una empresa</h1>
+        <p style="color: var(--fg-dim); margin: 0 0 24px;">Elige la entidad con la que quieres trabajar en esta sesión.</p>
         {% include "seleccionar_empresa.html" ignore missing %}
     </div>
 {% else %}
-    <!-- Hero -->
     <div class="home-head">
         <div>
-            <h1>Buenos días{% if TENANT_NOMBRE %}{% endif %}</h1>
-            <p>
+            <h1>Buenos días</h1>
+            <p id="home-subtitle">
                 Resumen de {{ EMPRESA_NOMBRE }}{% if TICKER_FIJO %} · <strong>{{ TICKER_FIJO }}</strong>{% endif %}
-                {% if dashboard_home and dashboard_home.periodo_ultimo %} · ejercicio FY{{ dashboard_home.periodo_ultimo }} cerrado{% endif %}
-                {% if dashboard_home and dashboard_home.moneda %} · <span class="num">{{ dashboard_home.moneda }}</span>{% endif %}
             </p>
         </div>
         <div class="home-actions">
@@ -223,51 +161,39 @@
         </div>
     </div>
 
-    {% if dashboard_home %}
-    <!-- KPIs -->
-    <section class="kpis-row app-stagger">
-        {% for t in dashboard_home.tarjetas %}
+    {% if EMPRESA_COTIZA %}
+    <!-- KPIs placeholder; se rellenan con AJAX -->
+    <section class="kpis-row" id="kpis-row">
+        {% for titulo in ['Ingresos', 'Beneficio neto', 'EBITDA', 'Flujo caja operativo'] %}
         <div class="home-kpi">
-            <span class="k-label">{{ t.titulo }}</span>
-            <span class="k-value">{% if t.actual is not none %}{{ t.actual|fmt_corto }}{% else %}—{% endif %}</span>
-            <div class="k-row">
-                {% if t.delta is not none %}
-                <span class="delta-chip {% if t.delta > 0 %}up{% elif t.delta < 0 %}down{% else %}flat{% endif %}">
-                    {% if t.delta > 0 %}▲{% elif t.delta < 0 %}▼{% else %}·{% endif %}
-                    {{ "%+.1f"|format(t.delta) }}%
-                </span>
-                {% endif %}
-                <span>
-                    {% if t.anterior is not none %}vs FY {{ dashboard_home.periodo_anterior }}: {{ t.anterior|fmt_corto }}{% else %}—{% endif %}
-                </span>
-            </div>
-            <div class="k-spark"
-                 data-spark='{{ t.serie|tojson }}'
-                 data-color='{{ t.color }}'></div>
+            <span class="k-label">{{ titulo }}</span>
+            <div class="skel skel-value"></div>
+            <div class="skel skel-line" style="width: 55%;"></div>
+            <div class="k-spark"></div>
         </div>
         {% endfor %}
     </section>
 
-    <!-- Charts -->
     <section class="charts-grid">
         <div class="chart-card">
             <h3>Evolución de resultados</h3>
-            <p class="sub">Últimos {{ dashboard_home.labels|length }} ejercicios · ingresos vs beneficio neto</p>
-            <div class="chart-wrap" id="chart-evo"
-                 data-labels='{{ dashboard_home.evolucion.labels|tojson }}'
-                 data-ingresos='{{ dashboard_home.evolucion.ingresos|tojson }}'
-                 data-beneficio='{{ dashboard_home.evolucion.beneficio_neto|tojson }}'></div>
+            <p class="sub">Últimos ejercicios · ingresos vs beneficio neto</p>
+            <div class="chart-wrap">
+                <div id="chart-evo" style="position: absolute; inset: 0;"></div>
+                <div class="skel skel-chart" id="chart-evo-skel"></div>
+            </div>
         </div>
         <div class="chart-card">
             <h3>Composición P&amp;L</h3>
-            <p class="sub">Ejercicio FY{{ dashboard_home.periodo_ultimo }}</p>
-            <div class="chart-wrap sm" id="chart-pl"
-                 data-slices='{{ dashboard_home.composicion_pyg|tojson }}'></div>
+            <p class="sub">Reparto del último ejercicio</p>
+            <div class="chart-wrap sm">
+                <div id="chart-pl" style="position: absolute; inset: 0;"></div>
+                <div class="skel skel-chart" id="chart-pl-skel"></div>
+            </div>
         </div>
     </section>
     {% endif %}
 
-    <!-- Módulos -->
     <div class="modules-head">
         <h3>Módulos disponibles</h3>
     </div>
@@ -277,20 +203,12 @@
                 <span class="mod-icon">{{ icon("chat", size=18) }}</span>
                 <div>
                     <div class="mod-title">Habla con tus datos</div>
-                    <div class="mod-tags">
-                        <span class="mod-tag ok">AI</span>
-                        <span class="mod-tag">Chat mixto</span>
-                    </div>
+                    <div class="mod-tags"><span class="mod-tag ok">AI</span><span class="mod-tag">Chat mixto</span></div>
                 </div>
             </div>
-            <p class="mod-desc">Pregunta en lenguaje natural sobre indicadores financieros y documentación corporativa. Prioriza la información de la base de datos y complementa con el repositorio documental; cada afirmación es trazable.</p>
-            <div class="mod-meta">
-                <span>KPIs del diccionario</span>
-                <span class="sep">·</span>
-                <span>Citas documentales</span>
-            </div>
+            <p class="mod-desc">Pregunta en lenguaje natural sobre indicadores financieros y documentación corporativa. Prioriza la base de datos y complementa con el repositorio documental; cada afirmación es trazable.</p>
+            <div class="mod-meta"><span>KPIs del diccionario</span><span class="sep">·</span><span>Citas documentales</span></div>
         </a>
-
         {% if EMPRESA_COTIZA %}
         <a class="mod-card" href="/analisis">
             <div class="mod-head">
@@ -304,84 +222,55 @@
             <div class="mod-meta"><span>Exportación directa</span></div>
         </a>
         {% endif %}
-
         <a class="mod-card" href="/relacion-inversores">
             <div class="mod-head">
                 <span class="mod-icon">{{ icon("mail", size=18) }}</span>
                 <div>
                     <div class="mod-title">Relación con Stakeholders</div>
-                    <div class="mod-tags">
-                        {% if ir_pendientes is none %}
-                        <span class="mod-tag warn">Gmail no conectado</span>
-                        {% elif ir_pendientes == 0 %}
-                        <span class="mod-tag">Sin pendientes</span>
-                        {% else %}
-                        <span class="mod-tag ok">{{ ir_pendientes }} pendiente{% if ir_pendientes != 1 %}s{% endif %}</span>
-                        {% endif %}
-                    </div>
+                    <div class="mod-tags" id="ir-tag"><span class="mod-tag">Cargando…</span></div>
                 </div>
             </div>
             <p class="mod-desc">Centraliza consultas de inversores, analistas, auditores y reguladores. Clasifica cada mensaje y propone un borrador de respuesta trazable sobre la documentación corporativa aprobada.</p>
             <div class="mod-meta"><span>Filtro: {{ ir_prefijo }}</span></div>
         </a>
-
         {% if EMPRESA_COTIZA %}
         <a class="mod-card" href="/panel-ejecutivo">
             <div class="mod-head">
                 <span class="mod-icon">{{ icon("clipboard", size=18) }}</span>
-                <div>
-                    <div class="mod-title">Panel ejecutivo</div>
-                    <div class="mod-tags"><span class="mod-tag">A4 · PDF</span></div>
-                </div>
+                <div><div class="mod-title">Panel ejecutivo</div><div class="mod-tags"><span class="mod-tag">A4 · PDF</span></div></div>
             </div>
             <p class="mod-desc">Resumen en una página con KPIs, evolución, composición P&amp;L y una lectura narrativa elaborada por IA. Listo para presentar a dirección.</p>
             <div class="mod-meta"><span>One-pager imprimible</span></div>
         </a>
-
         <a class="mod-card" href="/benchmark">
             <div class="mod-head">
                 <span class="mod-icon">{{ icon("trend-up", size=18) }}</span>
-                <div>
-                    <div class="mod-title">Benchmark sectorial</div>
-                    <div class="mod-tags"><span class="mod-tag">vs peers</span></div>
-                </div>
+                <div><div class="mod-title">Benchmark sectorial</div><div class="mod-tags"><span class="mod-tag">vs peers</span></div></div>
             </div>
             <p class="mod-desc">Posicionamiento de la compañía frente a su grupo de referencia en múltiplos de valoración, estructura de márgenes y crecimiento interanual, con lectura narrativa IA.</p>
             <div class="mod-meta"><span>Exportable a PDF</span></div>
         </a>
         {% endif %}
-
         <a class="mod-card" href="/noticias">
             <div class="mod-head">
                 <span class="mod-icon">{{ icon("newspaper", size=18) }}</span>
-                <div>
-                    <div class="mod-title">Noticias del sector</div>
-                    <div class="mod-tags"><span class="mod-tag">Vigilancia</span></div>
-                </div>
+                <div><div class="mod-title">Noticias del sector</div><div class="mod-tags"><span class="mod-tag">Vigilancia</span></div></div>
             </div>
             <p class="mod-desc">Vigilancia continua de la actualidad del sector de referencia y de la propia compañía, con envío programado a los interlocutores corporativos designados.</p>
             <div class="mod-meta"><span>Sector + empresa</span></div>
         </a>
-
         <a class="mod-card preview" href="/presupuesto">
             <div class="mod-head">
                 <span class="mod-icon">{{ icon("ruler", size=18) }}</span>
-                <div>
-                    <div class="mod-title">Elaboración Presupuesto (ML)</div>
-                    <div class="mod-tags"><span class="mod-tag preview">Preview</span></div>
-                </div>
+                <div><div class="mod-title">Elaboración Presupuesto (ML)</div><div class="mod-tags"><span class="mod-tag preview">Preview</span></div></div>
             </div>
             <p class="mod-desc">Elaboración asistida del presupuesto plurianual con proyecciones a 12, 24 y 36 meses sobre el histórico corporativo, con simulación de escenarios base, optimista y pesimista.</p>
             <div class="mod-meta"><span>Lanzamiento Q3 2026</span></div>
         </a>
-
         <a class="mod-card preview" href="/radar-normativo">
             <div class="mod-head">
                 <span class="mod-icon">{{ icon("radar", size=18) }}</span>
-                <div>
-                    <div class="mod-title">Radar normativo</div>
-                    <div class="mod-tags"><span class="mod-tag preview">Preview</span></div>
-                </div>
+                <div><div class="mod-title">Radar normativo</div><div class="mod-tags"><span class="mod-tag preview">Preview</span></div></div>
             </div>
             <p class="mod-desc">Supervisión automatizada de novedades regulatorias, contables y fiscales relevantes para la compañía, con alertas priorizadas por materialidad y jurisdicción.</p>
             <div class="mod-meta"><span>Lanzamiento Q4 2026</span></div>
@@ -389,14 +278,11 @@
     </section>
 {% endif %}
 
-{% if dashboard_home %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.1/echarts.min.js"></script>
+{% if TICKER_FIJO and EMPRESA_COTIZA %}
+<script src="{{ url_for('static', filename='vendor/echarts-5.5.1.min.js') }}"></script>
 <script>
 (function() {
-    if (typeof echarts === 'undefined') return;
-    function cssVar(name) {
-        return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    }
+    function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
     function fmtCorto(v) {
         if (v === null || v === undefined || isNaN(v)) return '—';
         var a = Math.abs(v);
@@ -406,50 +292,74 @@
         return String(Math.round(v));
     }
 
-    // Sparklines de KPIs
-    document.querySelectorAll('.k-spark').forEach(function(el) {
+    function mostrarErrorChart(id, msg) {
+        var wrap = document.getElementById(id);
+        if (!wrap) return;
+        wrap.innerHTML = '<div class="chart-msg">' + msg + '</div>';
+        var sk = document.getElementById(id + '-skel'); if (sk) sk.remove();
+    }
+
+    function pintarKpis(dash) {
+        var row = document.getElementById('kpis-row');
+        if (!row || !dash || !dash.tarjetas) {
+            if (row) row.innerHTML = '<div class="home-kpi"><span class="k-label">Sin datos</span><div style="color: var(--fg-mute); font-size: 13px; margin-top: 6px;">No se pudieron cargar los KPIs.</div></div>';
+            return;
+        }
+        row.innerHTML = '';
+        dash.tarjetas.forEach(function(t) {
+            var cls = t.delta > 0 ? 'up' : (t.delta < 0 ? 'down' : 'flat');
+            var arrow = t.delta > 0 ? '▲' : (t.delta < 0 ? '▼' : '·');
+            var cell = document.createElement('div');
+            cell.className = 'home-kpi';
+            cell.innerHTML =
+                '<span class="k-label">' + t.titulo + '</span>' +
+                '<span class="k-value">' + fmtCorto(t.actual) + '</span>' +
+                '<div class="k-row">' +
+                (t.delta !== null && t.delta !== undefined
+                    ? '<span class="delta-chip ' + cls + '">' + arrow + ' ' + (t.delta > 0 ? '+' : '') + t.delta.toFixed(1) + '%</span>'
+                    : '') +
+                '<span>' + (t.anterior !== null && t.anterior !== undefined ? 'vs FY ' + (dash.periodo_anterior || '') + ': ' + fmtCorto(t.anterior) : '—') + '</span>' +
+                '</div>' +
+                '<div class="k-spark" data-sk="1"></div>';
+            row.appendChild(cell);
+            var skEl = cell.querySelector('.k-spark');
+            var serie = (t.serie || []).filter(function(v) { return v !== null; });
+            if (serie.length >= 2 && window.echarts) {
+                try {
+                    var c = echarts.init(skEl);
+                    c.setOption({
+                        grid: { left: 0, right: 0, top: 4, bottom: 0 },
+                        xAxis: { type: 'category', show: false, boundaryGap: false, data: serie.map(function(_, i) { return i; }) },
+                        yAxis: { type: 'value', show: false, scale: true },
+                        tooltip: { show: false },
+                        series: [{
+                            type: 'line', data: serie, smooth: true, symbol: 'none',
+                            lineStyle: { color: t.color || '#86BC25', width: 2 },
+                            areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [
+                                { offset: 0, color: (t.color || '#86BC25') + '55' },
+                                { offset: 1, color: (t.color || '#86BC25') + '00' },
+                            ]}},
+                        }],
+                    });
+                    window.addEventListener('resize', function() { c.resize(); });
+                } catch (e) { console.error('spark', e); }
+            }
+        });
+    }
+
+    function pintarEvo(dash) {
+        var sk = document.getElementById('chart-evo-skel'); if (sk) sk.remove();
+        var el = document.getElementById('chart-evo');
+        if (!el || !dash || !dash.evolucion) return;
+        if (typeof echarts === 'undefined') { mostrarErrorChart('chart-evo', 'No se pudo cargar la librería de gráficos.'); return; }
         try {
-            var data = JSON.parse(el.dataset.spark || '[]').filter(function(v) { return v !== null; });
-            if (data.length < 2) return;
-            var color = el.dataset.color || '#86BC25';
+            var axis = cssVar('--chart-axis') || '#94A3B8';
+            var grid = cssVar('--chart-grid') || '#E5E7EB';
+            var fg = cssVar('--fg') || '#0F172A';
+            var surface = cssVar('--surface') || '#FFFFFF';
+            var brand = '#86BC25', blue = '#2563EB';
             var c = echarts.init(el);
             c.setOption({
-                grid: { left: 0, right: 0, top: 4, bottom: 0 },
-                xAxis: { type: 'category', show: false, boundaryGap: false, data: data.map(function(_, i) { return i; }) },
-                yAxis: { type: 'value', show: false, scale: true },
-                tooltip: { show: false },
-                series: [{
-                    type: 'line', data: data, smooth: true, symbol: 'none',
-                    lineStyle: { color: color, width: 2 },
-                    areaStyle: {
-                        color: {
-                            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-                            colorStops: [
-                                { offset: 0, color: color + '55' },
-                                { offset: 1, color: color + '00' },
-                            ],
-                        },
-                    },
-                }],
-            });
-            window.addEventListener('resize', function() { c.resize(); });
-        } catch (e) { console.error('spark', e); }
-    });
-
-    // Chart evolución
-    var elEvo = document.getElementById('chart-evo');
-    if (elEvo) {
-        try {
-            var labels = JSON.parse(elEvo.dataset.labels);
-            var ingresos = JSON.parse(elEvo.dataset.ingresos);
-            var benef = JSON.parse(elEvo.dataset.beneficio);
-            var axis = cssVar('--chart-axis');
-            var grid = cssVar('--chart-grid');
-            var fg = cssVar('--fg');
-            var surface = cssVar('--surface');
-            var brand = '#86BC25', blue = '#2563EB';
-            var cEvo = echarts.init(elEvo);
-            cEvo.setOption({
                 color: [blue, brand],
                 grid: { left: 54, right: 12, top: 14, bottom: 30 },
                 tooltip: {
@@ -461,62 +371,104 @@
                     valueFormatter: function(v) { return fmtCorto(v); },
                 },
                 legend: { show: false },
-                xAxis: {
-                    type: 'category', data: labels,
-                    axisLine: { lineStyle: { color: grid } },
-                    axisTick: { show: false },
-                    axisLabel: { color: axis, fontSize: 11, fontFamily: 'Inter' },
-                },
-                yAxis: {
-                    type: 'value',
-                    splitLine: { lineStyle: { color: grid, type: 'dashed' } },
-                    axisLabel: { color: axis, fontSize: 11, fontFamily: 'Inter', formatter: function(v) { return fmtCorto(v); } },
-                    axisLine: { show: false }, axisTick: { show: false },
-                },
+                xAxis: { type: 'category', data: dash.evolucion.labels, axisLine: { lineStyle: { color: grid } }, axisTick: { show: false }, axisLabel: { color: axis, fontSize: 11, fontFamily: 'Inter' } },
+                yAxis: { type: 'value', splitLine: { lineStyle: { color: grid, type: 'dashed' } }, axisLabel: { color: axis, fontSize: 11, fontFamily: 'Inter', formatter: function(v) { return fmtCorto(v); } }, axisLine: { show: false }, axisTick: { show: false } },
                 series: [
-                    { name: 'Ingresos', type: 'bar', data: ingresos, barWidth: 20, itemStyle: { color: blue, borderRadius: [4, 4, 0, 0] } },
-                    { name: 'Beneficio neto', type: 'line', data: benef, smooth: true, symbol: 'circle', symbolSize: 7, itemStyle: { color: brand, borderColor: surface, borderWidth: 2 }, lineStyle: { color: brand, width: 2.5 } },
+                    { name: 'Ingresos', type: 'bar', data: dash.evolucion.ingresos, barWidth: 20, itemStyle: { color: blue, borderRadius: [4, 4, 0, 0] } },
+                    { name: 'Beneficio neto', type: 'line', data: dash.evolucion.beneficio_neto, smooth: true, symbol: 'circle', symbolSize: 7, itemStyle: { color: brand, borderColor: surface, borderWidth: 2 }, lineStyle: { color: brand, width: 2.5 } },
                 ],
             });
-            window.addEventListener('resize', function() { cEvo.resize(); });
-        } catch (e) { console.error('chart-evo', e); }
+            window.addEventListener('resize', function() { c.resize(); });
+        } catch (e) {
+            console.error('chart-evo', e);
+            mostrarErrorChart('chart-evo', 'Error al pintar el gráfico: ' + e.message);
+        }
     }
 
-    // Chart composición P&L
-    var elPl = document.getElementById('chart-pl');
-    if (elPl) {
+    function pintarPl(dash) {
+        var sk = document.getElementById('chart-pl-skel'); if (sk) sk.remove();
+        var el = document.getElementById('chart-pl');
+        if (!el) return;
+        if (typeof echarts === 'undefined') { mostrarErrorChart('chart-pl', 'No se pudo cargar la librería de gráficos.'); return; }
+        var slices = (dash && dash.composicion_pyg) || [];
+        if (!slices.length) { mostrarErrorChart('chart-pl', 'Sin datos de composición para el último FY.'); return; }
         try {
-            var slices = JSON.parse(elPl.dataset.slices || '[]');
-            if (!slices.length) { elPl.innerHTML = '<p style="color: var(--fg-mute); font-size: 12px; text-align: center; margin-top: 60px;">Sin datos de composición.</p>'; }
-            else {
-                var fg = cssVar('--fg'); var fgDim = cssVar('--fg-dim'); var surface = cssVar('--surface');
-                var cPl = echarts.init(elPl);
-                cPl.setOption({
-                    tooltip: {
-                        trigger: 'item',
-                        backgroundColor: fg, borderColor: fg,
-                        textStyle: { color: surface, fontFamily: 'Inter', fontSize: 12 },
-                        padding: [8, 12],
-                        valueFormatter: function(v) { return fmtCorto(v); },
-                    },
-                    legend: {
-                        orient: 'vertical', right: 0, top: 'middle', itemGap: 10,
-                        textStyle: { color: fgDim, fontSize: 12, fontFamily: 'Inter' },
-                        icon: 'roundRect',
-                    },
-                    series: [{
-                        type: 'pie', radius: ['55%', '78%'], center: ['38%', '50%'],
-                        avoidLabelOverlap: true, padAngle: 2,
-                        itemStyle: { borderRadius: 4, borderColor: surface, borderWidth: 2 },
-                        label: { show: false }, labelLine: { show: false },
-                        data: slices.map(function(s) { return { value: s.valor, name: s.label, itemStyle: { color: s.color } }; }),
-                    }],
-                });
-                window.addEventListener('resize', function() { cPl.resize(); });
-            }
-        } catch (e) { console.error('chart-pl', e); }
+            var fg = cssVar('--fg') || '#0F172A';
+            var fgDim = cssVar('--fg-dim') || '#475569';
+            var surface = cssVar('--surface') || '#FFFFFF';
+            var c = echarts.init(el);
+            c.setOption({
+                tooltip: {
+                    trigger: 'item',
+                    backgroundColor: fg, borderColor: fg,
+                    textStyle: { color: surface, fontFamily: 'Inter', fontSize: 12 },
+                    padding: [8, 12],
+                    valueFormatter: function(v) { return fmtCorto(v); },
+                },
+                legend: { orient: 'vertical', right: 0, top: 'middle', itemGap: 10, textStyle: { color: fgDim, fontSize: 12, fontFamily: 'Inter' }, icon: 'roundRect' },
+                series: [{
+                    type: 'pie', radius: ['55%', '78%'], center: ['38%', '50%'],
+                    avoidLabelOverlap: true, padAngle: 2,
+                    itemStyle: { borderRadius: 4, borderColor: surface, borderWidth: 2 },
+                    label: { show: false }, labelLine: { show: false },
+                    data: slices.map(function(s) { return { value: s.valor, name: s.label, itemStyle: { color: s.color } }; }),
+                }],
+            });
+            window.addEventListener('resize', function() { c.resize(); });
+        } catch (e) {
+            console.error('chart-pl', e);
+            mostrarErrorChart('chart-pl', 'Error al pintar el gráfico: ' + e.message);
+        }
     }
+
+    // --- Carga lazy: fetch del dashboard tras el primer paint ---
+    function cargarDashboard() {
+        fetch('/_api/home/dashboard', { cache: 'no-store' })
+            .then(function(r) { return r.json(); })
+            .then(function(j) {
+                var dash = (j && j.ok) ? j.dashboard : null;
+                if (!dash) {
+                    document.getElementById('kpis-row').innerHTML = '<div style="color: var(--fg-mute); font-size: 13px; padding: 12px;">No hay datos financieros disponibles para esta empresa.</div>';
+                    mostrarErrorChart('chart-evo', 'Sin datos financieros.');
+                    mostrarErrorChart('chart-pl', 'Sin datos financieros.');
+                    return;
+                }
+                // Actualizar subtitle con moneda/periodo
+                var sub = document.getElementById('home-subtitle');
+                if (sub && dash.periodo_ultimo) {
+                    sub.innerHTML = 'Resumen de {{ EMPRESA_NOMBRE }} · <strong>{{ TICKER_FIJO }}</strong> · ejercicio FY' + dash.periodo_ultimo + ' cerrado' + (dash.moneda ? ' · <span class="num">' + dash.moneda + '</span>' : '');
+                }
+                pintarKpis(dash);
+                pintarEvo(dash);
+                pintarPl(dash);
+            })
+            .catch(function(e) {
+                console.error('home dashboard', e);
+                mostrarErrorChart('chart-evo', 'Error al cargar datos: ' + e.message);
+                mostrarErrorChart('chart-pl', 'Error al cargar datos.');
+            });
+    }
+    if (window.requestIdleCallback) requestIdleCallback(cargarDashboard, { timeout: 200 });
+    else setTimeout(cargarDashboard, 0);
 })();
 </script>
 {% endif %}
+
+<script>
+// Contador Stakeholders lazy (no bloquea el render del home)
+(function() {
+    var tag = document.getElementById('ir-tag');
+    if (!tag) return;
+    fetch('/_api/home/stakeholders', { cache: 'no-store' })
+        .then(function(r) { return r.json(); })
+        .then(function(j) {
+            if (!j.ok) { tag.innerHTML = '<span class="mod-tag">—</span>'; return; }
+            var n = j.pendientes;
+            if (n === null || n === undefined) tag.innerHTML = '<span class="mod-tag warn">Gmail no conectado</span>';
+            else if (n === 0) tag.innerHTML = '<span class="mod-tag">Sin pendientes</span>';
+            else tag.innerHTML = '<span class="mod-tag ok">' + n + ' pendiente' + (n !== 1 ? 's' : '') + '</span>';
+        })
+        .catch(function() { tag.innerHTML = '<span class="mod-tag">—</span>'; });
+})();
+</script>
 {% endblock %}

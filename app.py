@@ -3281,23 +3281,37 @@ def index():
             "seleccionar_empresa.html",
             empresas=_empresas_disponibles(),
         )
-    # Si la empresa cotiza, montamos el resumen con los datos de Yahoo ya
-    # precargados en memoria (cache en _TICKER_FIJO_DATOS). No bloquea.
-    dashboard_home = None
-    if _empresa_cotiza():
-        try:
-            datos_cache = _cargar_datos_ticker_fijo()
-            dashboard_home = _resumen_dashboard_home(datos_cache)
-        except Exception as _e:
-            _logging.getLogger("dfin.home").warning(
-                "No se pudo preparar el dashboard de la home: %s", _e,
-            )
+    # Render inmediato: el dashboard y el contador de stakeholders se cargan
+    # vía AJAX tras pintar la página (ver /_api/home/dashboard y
+    # /_api/home/stakeholders), de modo que el TTFB sea sub-100 ms incluso
+    # cuando Yahoo o Gmail tarden en responder.
     return render_template(
         "index.html",
-        ir_pendientes=_contar_pendientes_ir(),
         ir_prefijo=_prefijo_asunto_actual(),
-        dashboard_home=dashboard_home,
     )
+
+
+@app.route("/_api/home/dashboard")
+def _api_home_dashboard():
+    """Endpoint ligero para rellenar KPIs y charts del home vía AJAX."""
+    from flask import jsonify
+    if not TICKER_FIJO or not _empresa_cotiza():
+        return jsonify({"ok": True, "dashboard": None})
+    try:
+        datos = _cargar_datos_ticker_fijo()
+        dash = _resumen_dashboard_home(datos)
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.home").warning("Dashboard home: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True, "dashboard": dash})
+
+
+@app.route("/_api/home/stakeholders")
+def _api_home_stakeholders():
+    """Contador de correos pendientes de IR (lazy, no bloquea el render)."""
+    from flask import jsonify
+    pendientes = _contar_pendientes_ir()
+    return jsonify({"ok": True, "pendientes": pendientes, "prefijo": _prefijo_asunto_actual()})
 
 
 def _resumen_dashboard_home(datos):
