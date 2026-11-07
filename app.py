@@ -7190,6 +7190,11 @@ def _api_escenarios_simular_ia():
     base = periodos[0]
     periodo_base_lbl = str(base.get("periodo", ""))[:4]
     moneda = datos.get("moneda") or "n/d"
+    # Año siguiente al último FY disponible — es lo que proyectamos
+    try:
+        anio_siguiente = str(int(periodo_base_lbl) + 1)
+    except (TypeError, ValueError):
+        anio_siguiente = ""
 
     # Partidas clave del último FY
     def _n(x):
@@ -7264,14 +7269,15 @@ def _api_escenarios_simular_ia():
         ctx.append(f"- {d['nombre']} ({d['id']}): {signo}{d['valor']} {unidad_txt}  —  {d['descripcion']}")
 
     prompt = (
-        "Eres analista financiero senior en una firma Big Four. Tu tarea es "
-        "**proyectar la cuenta de resultados y el flujo de caja del próximo "
-        "ejercicio** aplicando los drivers que te indica el usuario. Puedes "
-        "ejercer tu criterio para efectos de segundo orden: apalancamiento "
-        "operativo, elasticidad precio-coste (si suben ingresos ¿el coste "
-        "variable escala proporcional?), estructura fija vs variable de los "
-        "gastos operativos, impacto en working capital sobre el OCF, etc. "
-        "Explica brevemente qué supuestos estás tomando.\n\n"
+        f"Eres el motor de cálculo del sistema EPM corporativo. Debes "
+        f"**proyectar el cierre del ejercicio FY{anio_siguiente or 'próximo'}** "
+        f"partiendo del último FY cerrado real (FY{periodo_base_lbl}) y aplicando "
+        "los drivers que te indica el usuario. Puedes ejercer criterio para "
+        "efectos de segundo orden: apalancamiento operativo, elasticidad "
+        "precio-coste (si suben ingresos ¿el coste variable escala proporcional?), "
+        "estructura fija vs variable de los gastos operativos, impacto en "
+        "working capital sobre el OCF, etc. Explica brevemente las hipótesis "
+        "que has tomado en el modelo.\n\n"
         "RESPONDE EXCLUSIVAMENTE con un objeto JSON válido con este schema, "
         "SIN texto antes o después, SIN markdown, SIN bloques de código. Las "
         "cifras numéricas van como números (no strings). Cuando una línea no "
@@ -7339,9 +7345,9 @@ def _api_escenarios_simular_ia():
     for seccion in ("pyg", "cashflow"):
         obj[seccion] = [_delta(f) for f in (obj.get(seccion) or [])]
     obj["periodo_base"] = periodo_base_lbl
+    obj["periodo_proyectado"] = anio_siguiente
     obj["moneda"] = moneda
-    obj["modelo"] = modelo
-
+    # No exponemos el modelo IA — el usuario debe percibir el motor como EPM
     return jsonify({"ok": True, "resultado": obj})
 
 

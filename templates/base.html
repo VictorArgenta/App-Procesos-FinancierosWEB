@@ -212,6 +212,9 @@
             position: relative;
             z-index: 1;
         }
+        .app-shell.no-sidebar {
+            grid-template-columns: 1fr;  /* pantalla selector de empresa */
+        }
         .ds-main {
             display: flex;
             flex-direction: column;
@@ -274,10 +277,46 @@
             .ds-sidebar::after { animation: none !important; display: none; }
         }
         .ds-side-head {
-            padding: 16px 20px;
-            display: flex; align-items: center; gap: 10px;
+            padding: 16px 20px 12px;
+            display: flex; flex-direction: column; gap: 10px;
             border-bottom: 1px solid var(--nav-divider);
         }
+        .ds-vision {
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        .ds-vision-lbl {
+            font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.7px;
+            color: var(--nav-fg-dim);
+        }
+        .ds-vision select {
+            width: 100%;
+            background: var(--nav-bg-elevated);
+            border: 1px solid rgba(203, 213, 225, 0.12);
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-family: inherit; font-size: 0.82rem;
+            color: #FFFFFF;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%23CBD5E1' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            padding-right: 28px;
+        }
+        .ds-vision select:focus { outline: none; border-color: var(--brand); }
+        .ds-nav-item[data-vision]:not([data-vision*="todas"]) { display: none; }
+        .ds-side-nav[data-vision="ceo"]     .ds-nav-item[data-vision*="ceo"],
+        .ds-side-nav[data-vision="cfo"]     .ds-nav-item[data-vision*="cfo"],
+        .ds-side-nav[data-vision="equipo"]  .ds-nav-item[data-vision*="equipo"],
+        .ds-nav-item[data-vision*="todas"] { display: flex; }
+        /* Ocultar también las secciones vacías por visión */
+        .ds-side-section[data-vision]:not([data-vision*="todas"]) { display: none; }
+        .ds-side-nav[data-vision="ceo"]     .ds-side-section[data-vision*="ceo"],
+        .ds-side-nav[data-vision="cfo"]     .ds-side-section[data-vision*="cfo"],
+        .ds-side-nav[data-vision="equipo"]  .ds-side-section[data-vision*="equipo"],
+        .ds-side-section[data-vision*="todas"] { display: block; }
         .ds-logo-full {
             display: inline-flex; align-items: center;
             justify-content: center;
@@ -1060,60 +1099,69 @@
 </head>
 
 <body>
-<div class="app-shell">
+<div class="app-shell {% if not TICKER_FIJO %}no-sidebar{% endif %}">
+    {% if TICKER_FIJO %}
     <!-- ============== SIDEBAR ============== -->
     <aside class="ds-sidebar">
         <div class="ds-side-head">
             <a href="/" class="ds-logo-full" title="Inicio · DFin AI" aria-label="DFin AI">
                 <img src="{{ url_for('static', filename='logo.svg') }}" alt="DFin AI">
             </a>
+            <div class="ds-vision">
+                <span class="ds-vision-lbl">Visión</span>
+                <select id="ds-vision-sel" aria-label="Elegir visión">
+                    <option value="ceo">CEO · dirección general</option>
+                    <option value="cfo" selected>CFO y directores financieros</option>
+                    <option value="equipo">Equipo operativo</option>
+                </select>
+            </div>
         </div>
 
-        <nav class="ds-side-nav">
-            <div class="ds-side-section">Workspace</div>
-            <a class="ds-nav-item {% if request.path == '/' %}active{% endif %}" href="/">
+        <nav class="ds-side-nav" data-vision="cfo">
+            <div class="ds-side-section" data-vision="todas">Workspace</div>
+            <a class="ds-nav-item {% if request.path == '/' %}active{% endif %}" href="/" data-vision="todas">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
                 Inicio
             </a>
-            <a class="ds-nav-item {% if '/habla-con-tus-datos' in request.path %}active{% endif %}" href="/habla-con-tus-datos">
+            <a class="ds-nav-item {% if '/habla-con-tus-datos' in request.path %}active{% endif %}" href="/habla-con-tus-datos" data-vision="todas">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 Habla con tus datos
                 <span class="ds-pill">AI</span>
             </a>
             {% if EMPRESA_COTIZA %}
-            <a class="ds-nav-item {% if '/panel-ejecutivo' in request.path %}active{% endif %}" href="/panel-ejecutivo">
+            <a class="ds-nav-item {% if '/panel-ejecutivo' in request.path %}active{% endif %}" href="/panel-ejecutivo" data-vision="ceo cfo">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/></svg>
                 Panel ejecutivo
             </a>
-            <a class="ds-nav-item {% if '/benchmark' in request.path %}active{% endif %}" href="/benchmark">
+            <a class="ds-nav-item {% if '/benchmark' in request.path %}active{% endif %}" href="/benchmark" data-vision="ceo cfo">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
                 Benchmark sectorial
             </a>
             {% endif %}
 
-            <div class="ds-side-section">Operar</div>
+            <div class="ds-side-section" data-vision="cfo equipo">Operar</div>
             {% if EMPRESA_COTIZA %}
-            <a class="ds-nav-item {% if request.path.startswith('/analisis') or '/generar_informe' in request.path %}active{% endif %}" href="/analisis">
+            <a class="ds-nav-item {% if request.path.startswith('/analisis') or '/generar_informe' in request.path %}active{% endif %}" href="/analisis" data-vision="cfo">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg>
                 Informe narrativo
             </a>
             {% endif %}
-            <a class="ds-nav-item {% if '/relacion-inversores' in request.path %}active{% endif %}" href="/relacion-inversores">
+            <a class="ds-nav-item {% if '/relacion-inversores' in request.path %}active{% endif %}" href="/relacion-inversores" data-vision="ceo cfo equipo">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
                 Relación con Stakeholders
                 <span class="ds-pill" id="side-ir-count" hidden></span>
             </a>
-            <a class="ds-nav-item {% if '/noticias' in request.path %}active{% endif %}" href="/noticias">
+            <a class="ds-nav-item {% if '/noticias' in request.path %}active{% endif %}" href="/noticias" data-vision="todas">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
                 Noticias del sector
             </a>
-            <a class="ds-nav-item {% if '/informes-generados' in request.path %}active{% endif %}" href="/informes-generados">
+            <a class="ds-nav-item {% if '/informes-generados' in request.path %}active{% endif %}" href="/informes-generados" data-vision="cfo equipo">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
                 Informes generados
             </a>
 
             {% if EMPRESA_COTIZA %}
-            <a class="ds-nav-item {% if '/escenarios' in request.path %}active{% endif %}" href="/escenarios">
+            <a class="ds-nav-item {% if '/escenarios' in request.path %}active{% endif %}" href="/escenarios" data-vision="cfo">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/><circle cx="8" cy="13" r="1.5"/><circle cx="13" cy="8" r="1.5"/><circle cx="18" cy="10" r="1.5"/></svg>
                 Simulación de escenarios
             </a>
@@ -1144,6 +1192,7 @@
             </div>
         </div>
     </aside>
+    {% endif %}
 
     <!-- ============== MAIN ============== -->
     <div class="ds-main">
@@ -1491,6 +1540,28 @@
     }
 
     {% if TICKER_FIJO %}
+    // Selector de visión (CEO / CFO / Equipo). Persiste en localStorage y
+    // filtra en caliente los ítems del sidebar vía CSS data-vision.
+    (function() {
+        var sel = document.getElementById('ds-vision-sel');
+        var nav = document.querySelector('.ds-side-nav');
+        if (!sel || !nav) return;
+        var VISIONES = { ceo: 1, cfo: 1, equipo: 1 };
+        var guardada;
+        try { guardada = localStorage.getItem('dfin-vision'); } catch (e) { guardada = null; }
+        if (!guardada || !VISIONES[guardada]) guardada = 'cfo';
+        sel.value = guardada;
+        nav.setAttribute('data-vision', guardada);
+        document.body.setAttribute('data-vision', guardada);
+        sel.addEventListener('change', function() {
+            var v = sel.value;
+            if (!VISIONES[v]) return;
+            nav.setAttribute('data-vision', v);
+            document.body.setAttribute('data-vision', v);
+            try { localStorage.setItem('dfin-vision', v); } catch (e) {}
+        });
+    })();
+
     // Contador de correos pendientes en Stakeholders (sidebar).
     // Usa el endpoint lazy /_api/home/stakeholders, que ya está cacheado
     // 30 s server-side. Se re-consulta cada 90 s mientras la pestaña esté
