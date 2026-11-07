@@ -418,17 +418,47 @@ def _ticker_yahoo():
 _SECTOR_CLAVES = {"sector", "subsectores", "competidores"}
 
 
+_CAB_COMPETIDORES = (
+    "# Competidores de la empresa activa.\n"
+    "# Un ticker por línea (tal como lo entiende Yahoo Finance).\n"
+    "# Las líneas que empiezan por '#' son comentarios.\n"
+    "# Aparecen en la banda de cotizaciones y en el Benchmark Sectorial.\n\n"
+)
+_CAB_INTERES = (
+    "# Tickers de interés (no competidores) para la banda de cotizaciones.\n"
+    "# Índices, divisas, materias primas, otras empresas a seguir.\n"
+    "# Un ticker por línea (Yahoo Finance). NO aparecen en el Benchmark.\n\n"
+)
+
+
+def _asegurar_fichero_vacio(ruta, cabecera):
+    """Crea el fichero con solo la cabecera de comentarios si no existe.
+    Útil para materializar los ficheros editables en disco la primera vez
+    que se necesita, sin esperar a que el usuario los cree a mano.
+    """
+    try:
+        if ruta.exists():
+            return
+        ruta.parent.mkdir(parents=True, exist_ok=True)
+        ruta.write_text(cabecera, encoding="utf-8")
+    except OSError:
+        # Silencioso: si falla la creación (permisos, etc.), seguimos.
+        pass
+
+
 def _cargar_competidores_empresa():
     """Lee la lista de tickers competidores desde `Empresas/{TICKER}/competidores.txt`.
 
+    Si el fichero no existe, se crea vacío con cabecera para que el usuario lo
+    vea en la carpeta y pueda editarlo externamente. Devuelve [] si está vacío.
     Formato libre: un ticker por línea (p.ej. `GOOGL`), o varios en una línea
     separados por comas, o incluso líneas tipo `GOOGL  # Alphabet` donde el
-    comentario queda ignorado. Las líneas que empiezan por `#` se ignoran.
-    Devuelve [] si el fichero no existe. Sin límite estricto (hasta 50).
+    comentario queda ignorado. Sin límite estricto (hasta 50).
     """
     if not TICKER_FIJO:
         return []
     ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "competidores.txt"
+    _asegurar_fichero_vacio(ruta, _CAB_COMPETIDORES)
     if not ruta.exists():
         return []
     try:
@@ -474,23 +504,19 @@ def _guardar_competidores_empresa(tickers):
             continue
         visto.add(s)
         limpios.append(s)
-    cabecera = (
-        "# Competidores de la empresa activa.\n"
-        "# Un ticker por línea (tal como lo entiende Yahoo Finance).\n"
-        "# Las líneas que empiezan por '#' son comentarios.\n"
-        "# Aparecen en la banda de cotizaciones y en el Benchmark Sectorial.\n\n"
-    )
-    ruta.write_text(cabecera + "\n".join(limpios) + ("\n" if limpios else ""), encoding="utf-8")
+    ruta.write_text(_CAB_COMPETIDORES + "\n".join(limpios) + ("\n" if limpios else ""), encoding="utf-8")
     return limpios
 
 
 def _cargar_tickers_interes_empresa():
     """Lee tickers adicionales que NO son competidores (índices, divisas,
     materias primas, otras empresas…) desde Empresas/{TICKER}/tickers_interes.txt.
-    Mismo formato que competidores.txt. Devuelve [] si no existe."""
+    Si el fichero no existe, se crea vacío con cabecera para que el usuario
+    lo vea en la carpeta. Mismo formato que competidores.txt."""
     if not TICKER_FIJO:
         return []
     ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "tickers_interes.txt"
+    _asegurar_fichero_vacio(ruta, _CAB_INTERES)
     if not ruta.exists():
         return []
     try:
@@ -532,12 +558,7 @@ def _guardar_tickers_interes_empresa(tickers):
             continue
         visto.add(s)
         limpios.append(s)
-    cabecera = (
-        "# Tickers de interés (no competidores) para la banda de cotizaciones.\n"
-        "# Índices, divisas, materias primas, otras empresas a seguir.\n"
-        "# Un ticker por línea (Yahoo Finance). NO aparecen en el Benchmark.\n\n"
-    )
-    ruta.write_text(cabecera + "\n".join(limpios) + ("\n" if limpios else ""), encoding="utf-8")
+    ruta.write_text(_CAB_INTERES + "\n".join(limpios) + ("\n" if limpios else ""), encoding="utf-8")
     return limpios
 
 
