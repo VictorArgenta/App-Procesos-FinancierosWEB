@@ -456,6 +456,91 @@ def _cargar_competidores_empresa():
     return out
 
 
+def _guardar_competidores_empresa(tickers):
+    """Reescribe Empresas/{TICKER}/competidores.txt con la lista de tickers
+    dada (uno por línea, en mayúsculas, sin duplicados)."""
+    if not TICKER_FIJO:
+        raise RuntimeError("No hay empresa activa")
+    carpeta = _ROOT_DIR / "Empresas" / TICKER_FIJO
+    carpeta.mkdir(parents=True, exist_ok=True)
+    ruta = carpeta / "competidores.txt"
+    limpios = []
+    visto = set()
+    for t in (tickers or []):
+        if not t:
+            continue
+        s = str(t).strip().upper()
+        if not s or s in visto or len(s) > 20:
+            continue
+        visto.add(s)
+        limpios.append(s)
+    cabecera = (
+        "# Competidores de la empresa activa.\n"
+        "# Un ticker por línea (tal como lo entiende Yahoo Finance).\n"
+        "# Las líneas que empiezan por '#' son comentarios.\n"
+        "# Aparecen en la banda de cotizaciones y en el Benchmark Sectorial.\n\n"
+    )
+    ruta.write_text(cabecera + "\n".join(limpios) + ("\n" if limpios else ""), encoding="utf-8")
+    return limpios
+
+
+def _cargar_tickers_interes_empresa():
+    """Lee tickers adicionales que NO son competidores (índices, divisas,
+    materias primas, otras empresas…) desde Empresas/{TICKER}/tickers_interes.txt.
+    Mismo formato que competidores.txt. Devuelve [] si no existe."""
+    if not TICKER_FIJO:
+        return []
+    ruta = _ROOT_DIR / "Empresas" / TICKER_FIJO / "tickers_interes.txt"
+    if not ruta.exists():
+        return []
+    try:
+        texto = ruta.read_text(encoding="utf-8")
+    except OSError:
+        return []
+    out = []
+    seen = set()
+    for linea in texto.splitlines():
+        s = linea.strip()
+        if not s or s.startswith("#"):
+            continue
+        if "#" in s:
+            s = s.split("#", 1)[0].strip()
+        for parte in s.split(","):
+            tk = parte.strip().upper()
+            if not tk or tk in seen:
+                continue
+            seen.add(tk)
+            out.append(tk)
+            if len(out) >= 50:
+                return out
+    return out
+
+
+def _guardar_tickers_interes_empresa(tickers):
+    if not TICKER_FIJO:
+        raise RuntimeError("No hay empresa activa")
+    carpeta = _ROOT_DIR / "Empresas" / TICKER_FIJO
+    carpeta.mkdir(parents=True, exist_ok=True)
+    ruta = carpeta / "tickers_interes.txt"
+    limpios = []
+    visto = set()
+    for t in (tickers or []):
+        if not t:
+            continue
+        s = str(t).strip().upper()
+        if not s or s in visto or len(s) > 20:
+            continue
+        visto.add(s)
+        limpios.append(s)
+    cabecera = (
+        "# Tickers de interés (no competidores) para la banda de cotizaciones.\n"
+        "# Índices, divisas, materias primas, otras empresas a seguir.\n"
+        "# Un ticker por línea (Yahoo Finance). NO aparecen en el Benchmark.\n\n"
+    )
+    ruta.write_text(cabecera + "\n".join(limpios) + ("\n" if limpios else ""), encoding="utf-8")
+    return limpios
+
+
 def _cargar_sector_empresa():
     """Lee Empresas/{TICKER}/sector.txt si existe.
 
@@ -3138,10 +3223,12 @@ def cotizaciones():
     principal = _ticker_yahoo() or TICKER_FIJO
     sector = _cargar_sector_empresa()
     competidores = [c for c in (sector.get("competidores") or []) if c != principal]
-    todos = [principal] + competidores
-    # Tope defensivo alto para no abusar de Yahoo si alguien pone 100 tickers
-    # (el loader ya limita a 50).
+    interes = [t for t in _cargar_tickers_interes_empresa() if t != principal and t not in competidores]
+    todos = [principal] + competidores + interes
     todos = todos[:50]
+    tipos = {principal: "principal"}
+    for c in competidores: tipos.setdefault(c, "competidor")
+    for i in interes: tipos.setdefault(i, "interes")
 
     import concurrent.futures as _cf
     resultados = []
@@ -3149,8 +3236,8 @@ def cotizaciones():
         with _cf.ThreadPoolExecutor(max_workers=max(1, min(10, len(todos)))) as ex:
             for res in ex.map(_obtener_cotizacion_rapida, todos):
                 if res:
-                    # Marcamos cuál es el principal para que la UI lo destaque.
                     res["principal"] = (res["ticker"] == principal)
+                    res["tipo"] = tipos.get(res["ticker"], "")
                     resultados.append(res)
     except Exception as e:
         _logging.getLogger("dfin.cotizaciones").warning("Fallo en cotizaciones batch: %s", e)
@@ -3162,6 +3249,69 @@ def cotizaciones():
     }
     _COTIZACIONES_CACHE.update(ts=ahora, data=data, ticker=TICKER_FIJO)
     return jsonify({"ok": True, "cacheado": False, **data})
+
+
+@app.route("/_api/tickers", methods=["GET"])
+def _api_tickers_listar():
+    """Devuelve el estado actual: principal + competidores + tickers de interés."""
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    principal = _ticker_yahoo() or TICKER_FIJO
+    return jsonify({
+        "ok": True,
+        "principal": principal,
+        "competidores": _cargar_competidores_empresa(),
+        "interes": _cargar_tickers_interes_empresa(),
+    })
+
+
+@app.route("/_api/tickers/validar", methods=["POST"])
+def _api_tickers_validar():
+    """Comprueba que un ticker existe en Yahoo Finance antes de añadirlo.
+    Devuelve {ok, valido, nombre, price, currency}."""
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    ticker = (data.get("ticker") or "").strip().upper()
+    if not ticker or len(ticker) > 20:
+        return jsonify({"ok": False, "error": "Ticker inválido."}), 400
+    res = _obtener_cotizacion_rapida(ticker)
+    if not res or res.get("price") is None:
+        return jsonify({"ok": True, "valido": False, "ticker": ticker,
+                         "mensaje": "Yahoo Finance no devuelve cotización para este ticker."})
+    # Intento obtener el nombre
+    nombre = ticker
+    try:
+        info = yf.Ticker(ticker).info or {}
+        nombre = info.get("shortName") or info.get("longName") or ticker
+    except Exception:  # noqa: BLE001
+        pass
+    return jsonify({"ok": True, "valido": True, "ticker": ticker,
+                     "nombre": nombre, "price": res.get("price"), "currency": res.get("currency")})
+
+
+@app.route("/_api/tickers", methods=["POST"])
+def _api_tickers_guardar():
+    """Guarda las dos listas (competidores + interés). Body:
+    {competidores: [...], interes: [...]}."""
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    comps_in = data.get("competidores")
+    inter_in = data.get("interes")
+    if comps_in is not None and not isinstance(comps_in, list):
+        return jsonify({"ok": False, "error": "'competidores' debe ser un array."}), 400
+    if inter_in is not None and not isinstance(inter_in, list):
+        return jsonify({"ok": False, "error": "'interes' debe ser un array."}), 400
+    try:
+        comps = _guardar_competidores_empresa(comps_in or [])
+        inter = _guardar_tickers_interes_empresa(inter_in or [])
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"No se pudo guardar: {e}"}), 500
+    # Invalidar caché de cotizaciones para que la próxima lectura refresque
+    _COTIZACIONES_CACHE.update(ts=0.0, data=None, ticker=None)
+    return jsonify({"ok": True, "competidores": comps, "interes": inter})
 
 
 @app.route("/rag/status")
