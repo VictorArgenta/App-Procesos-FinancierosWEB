@@ -6771,6 +6771,427 @@ def asistente_preguntar():
 
 
 # =====================================================================
+# Simulación de escenarios What-If (PyG + Cash Flow proyectados)
+# =====================================================================
+
+_DRIVERS_DEFAULT = [
+    {"id": "var_ingresos",       "nombre": "Variación de ingresos",            "unidad": "pct", "min": -30, "max": 30, "default": 0,
+     "descripcion": "Sube o baja los ingresos totales un % respecto al último FY cerrado."},
+    {"id": "var_coste_ventas",   "nombre": "Variación del coste de ventas",    "unidad": "pct", "min": -20, "max": 20, "default": 0,
+     "descripcion": "Variación proporcional del coste de ventas (con la misma estructura de margen)."},
+    {"id": "var_gastos_op",      "nombre": "Variación de gastos operativos",   "unidad": "pct", "min": -20, "max": 20, "default": 0,
+     "descripcion": "Variación de gastos operativos (G&A, I+D, ventas, marketing)."},
+    {"id": "var_tipo_impositivo","nombre": "Variación del tipo impositivo",    "unidad": "pp",  "min": -10, "max": 10, "default": 0,
+     "descripcion": "Cambio en puntos porcentuales sobre la tasa impositiva efectiva actual."},
+    {"id": "var_capex",          "nombre": "Variación del CAPEX",              "unidad": "pct", "min": -40, "max": 40, "default": 0,
+     "descripcion": "Variación de la inversión en inmovilizado (CAPEX)."},
+]
+_DRIVERS_PERMITIDOS_UNIDAD = {"pct", "pp"}
+
+
+def _ruta_drivers_empresa():
+    if not TICKER_FIJO:
+        return None
+    return _ROOT_DIR / "Empresas" / TICKER_FIJO / "escenarios_drivers.json"
+
+
+def _ruta_escenarios_empresa():
+    if not TICKER_FIJO:
+        return None
+    return _ROOT_DIR / "Empresas" / TICKER_FIJO / "escenarios.json"
+
+
+def _cargar_drivers_empresa():
+    """Devuelve la lista de drivers activos. Si no existe el fichero,
+    inicializa con los defaults y lo materializa en disco."""
+    ruta = _ruta_drivers_empresa()
+    if not ruta:
+        return list(_DRIVERS_DEFAULT)
+    if not ruta.exists():
+        try:
+            ruta.parent.mkdir(parents=True, exist_ok=True)
+            _escribir_json_atomico(ruta, {"drivers": _DRIVERS_DEFAULT})
+        except Exception:  # noqa: BLE001
+            pass
+        return list(_DRIVERS_DEFAULT)
+    try:
+        data = json.loads(ruta.read_text(encoding="utf-8"))
+        drivers = data.get("drivers")
+        if isinstance(drivers, list) and drivers:
+            return drivers
+    except Exception:  # noqa: BLE001
+        pass
+    return list(_DRIVERS_DEFAULT)
+
+
+def _guardar_drivers_empresa(lista):
+    ruta = _ruta_drivers_empresa()
+    if not ruta:
+        raise RuntimeError("No hay empresa activa")
+    # Saneamos: cada driver debe tener id, nombre, unidad válida, min/max/default numéricos
+    limpios = []
+    ids_vistos = set()
+    for d in (lista or []):
+        if not isinstance(d, dict):
+            continue
+        did = (d.get("id") or "").strip()
+        nombre = (d.get("nombre") or "").strip()
+        unidad = (d.get("unidad") or "pct").strip().lower()
+        if not did or not nombre or unidad not in _DRIVERS_PERMITIDOS_UNIDAD:
+            continue
+        if did in ids_vistos:
+            continue
+        ids_vistos.add(did)
+        try:
+            mn = float(d.get("min", -20))
+            mx = float(d.get("max", 20))
+            df = float(d.get("default", 0))
+        except (TypeError, ValueError):
+            continue
+        if mn >= mx:
+            continue
+        limpios.append({
+            "id": did, "nombre": nombre, "unidad": unidad,
+            "min": mn, "max": mx, "default": df,
+            "descripcion": (d.get("descripcion") or "").strip(),
+        })
+        if len(limpios) >= 20:
+            break
+    if not limpios:
+        limpios = list(_DRIVERS_DEFAULT)
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    _escribir_json_atomico(ruta, {"drivers": limpios})
+    return limpios
+
+
+def _cargar_escenarios_empresa():
+    ruta = _ruta_escenarios_empresa()
+    if not ruta or not ruta.exists():
+        return []
+    try:
+        data = json.loads(ruta.read_text(encoding="utf-8"))
+        return data.get("escenarios") or []
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _guardar_escenarios_empresa(lista):
+    ruta = _ruta_escenarios_empresa()
+    if not ruta:
+        raise RuntimeError("No hay empresa activa")
+    ruta.parent.mkdir(parents=True, exist_ok=True)
+    _escribir_json_atomico(ruta, {"escenarios": lista})
+
+
+def _localizar_cashflow(datos, prefijo):
+    """Busca la primera fila del cashflow cuyo concepto comience por 'prefijo'.
+    Devuelve el valor del último FY cerrado (primera columna no-TTM)."""
+    bloque = (datos.get("estados") or {}).get("cashflow") or {}
+    periodos = bloque.get("periodos") or []
+    filas = bloque.get("filas") or []
+    if not periodos or not filas:
+        return None
+    idx = 0
+    for i, p in enumerate(periodos):
+        if str(p).strip().upper().startswith("TTM"):
+            continue
+        idx = i
+        break
+    for f in filas:
+        if (f.get("concepto") or "").startswith(prefijo):
+            vals = f.get("valores") or []
+            if idx < len(vals):
+                return vals[idx]
+    return None
+
+
+def _simular_escenario(datos, valores):
+    """Aplica los deltas de cada driver sobre el último FY y devuelve
+    PyG + Cash Flow proyectados (base vs escenario) y los márgenes clave."""
+    if not datos:
+        return None
+    periodos = datos.get("periodos") or []
+    if not periodos:
+        return None
+    base = periodos[0]  # último FY cerrado (Yahoo ordena reciente → antiguo)
+
+    def _n(x):
+        try:
+            return float(x) if x is not None else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    ingresos_b = _n(base.get("ingresos"))
+    cv_b       = _n(base.get("coste_ventas"))
+    go_b       = _n(base.get("gastos_operativos"))
+    da_b       = _n(base.get("da"))
+    rf_b       = _n(base.get("resultado_financiero_neto"))
+    rai_b      = _n(base.get("resultado_antes_impuestos"))
+    imp_b      = _n(base.get("impuestos"))
+    bn_b       = _n(base.get("beneficio_neto"))
+    tax_rate_b = (imp_b / rai_b * 100.0) if rai_b else 0.0
+    bruto_b    = ingresos_b - cv_b
+    ebitda_b   = bruto_b - go_b
+    ebit_b     = ebitda_b - da_b
+
+    capex_b = _localizar_cashflow(datos, "Inversiones en inmovilizado") or 0.0
+    capex_b = abs(_n(capex_b))
+    ocf_b   = _n(_localizar_cashflow(datos, "Flujo de caja operativo"))
+    fcf_b   = ocf_b - capex_b
+
+    v_ing = valores.get("var_ingresos", 0) / 100.0
+    v_cv  = valores.get("var_coste_ventas", 0) / 100.0
+    v_go  = valores.get("var_gastos_op", 0) / 100.0
+    v_tax = valores.get("var_tipo_impositivo", 0)  # en puntos porcentuales directos
+    v_cx  = valores.get("var_capex", 0) / 100.0
+
+    ingresos_e = ingresos_b * (1 + v_ing)
+    cv_e       = cv_b * (1 + v_cv)
+    bruto_e    = ingresos_e - cv_e
+    go_e       = go_b * (1 + v_go)
+    ebitda_e   = bruto_e - go_e
+    ebit_e     = ebitda_e - da_b
+    rf_e       = rf_b
+    rai_e      = ebit_e + rf_e
+    tax_rate_e = max(0.0, tax_rate_b + v_tax)
+    imp_e      = rai_e * (tax_rate_e / 100.0) if rai_e > 0 else 0.0
+    bn_e       = rai_e - imp_e
+
+    capex_e = capex_b * (1 + v_cx)
+    ocf_e   = bn_e + da_b  # aproximación: WC constante
+    fcf_e   = ocf_e - capex_e
+
+    def _fila(concepto, b, e, subtotal=False):
+        delta = e - b
+        delta_pct = (delta / abs(b) * 100.0) if b else None
+        return {"concepto": concepto, "base": b, "escenario": e,
+                "delta": delta, "delta_pct": delta_pct, "subtotal": subtotal}
+
+    pyg = [
+        _fila("Ingresos", ingresos_b, ingresos_e),
+        _fila("Coste de ventas", cv_b, cv_e),
+        _fila("Beneficio bruto", bruto_b, bruto_e, subtotal=True),
+        _fila("Gastos operativos", go_b, go_e),
+        _fila("EBITDA", ebitda_b, ebitda_e, subtotal=True),
+        _fila("Amortizaciones (D&A)", da_b, da_b),
+        _fila("EBIT", ebit_b, ebit_e, subtotal=True),
+        _fila("Resultado financiero neto", rf_b, rf_e),
+        _fila("Beneficio antes de impuestos", rai_b, rai_e, subtotal=True),
+        _fila("Impuestos", imp_b, imp_e),
+        _fila("Beneficio neto", bn_b, bn_e, subtotal=True),
+    ]
+    cashflow = [
+        _fila("Flujo de caja operativo", ocf_b, ocf_e),
+        _fila("CAPEX", -capex_b, -capex_e),
+        _fila("Flujo de caja libre", fcf_b, fcf_e, subtotal=True),
+    ]
+
+    margenes = {
+        "margen_ebitda_base": (ebitda_b / ingresos_b * 100.0) if ingresos_b else None,
+        "margen_ebitda_esc":  (ebitda_e / ingresos_e * 100.0) if ingresos_e else None,
+        "margen_neto_base":   (bn_b / ingresos_b * 100.0) if ingresos_b else None,
+        "margen_neto_esc":    (bn_e / ingresos_e * 100.0) if ingresos_e else None,
+        "tax_rate_base":      tax_rate_b,
+        "tax_rate_esc":       tax_rate_e,
+    }
+
+    return {
+        "moneda": datos.get("moneda") or "",
+        "periodo_base": str(base.get("periodo", ""))[:4],
+        "pyg": pyg,
+        "cashflow": cashflow,
+        "margenes": margenes,
+    }
+
+
+@app.route("/escenarios")
+def escenarios():
+    if not TICKER_FIJO:
+        return redirect(url_for("index"))
+    if not _empresa_cotiza():
+        return redirect(url_for("index"))
+    return render_template(
+        "escenarios.html",
+        drivers=_cargar_drivers_empresa(),
+        escenarios_guardados=_cargar_escenarios_empresa(),
+    )
+
+
+@app.route("/_api/escenarios/drivers", methods=["GET"])
+def _api_escenarios_drivers_get():
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    return jsonify({"ok": True, "drivers": _cargar_drivers_empresa(), "default": _DRIVERS_DEFAULT})
+
+
+@app.route("/_api/escenarios/drivers", methods=["POST"])
+def _api_escenarios_drivers_post():
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    lista = data.get("drivers")
+    if not isinstance(lista, list):
+        return jsonify({"ok": False, "error": "'drivers' debe ser un array."}), 400
+    try:
+        limpios = _guardar_drivers_empresa(lista)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True, "drivers": limpios})
+
+
+@app.route("/_api/escenarios", methods=["GET"])
+def _api_escenarios_list():
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    return jsonify({"ok": True, "escenarios": _cargar_escenarios_empresa()})
+
+
+@app.route("/_api/escenarios", methods=["POST"])
+def _api_escenarios_save():
+    """Guarda (o actualiza) un escenario con nombre + valores de drivers."""
+    from flask import jsonify
+    from datetime import datetime as _dt, timezone as _tz
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    nombre = (data.get("nombre") or "").strip()
+    valores = data.get("valores") or {}
+    eid = (data.get("id") or "").strip()
+    if not nombre:
+        return jsonify({"ok": False, "error": "El nombre es obligatorio."}), 400
+    if not isinstance(valores, dict):
+        return jsonify({"ok": False, "error": "'valores' debe ser un objeto."}), 400
+    actuales = _cargar_escenarios_empresa()
+    if eid:
+        # Update
+        for i, e in enumerate(actuales):
+            if e.get("id") == eid:
+                actuales[i] = {**e, "nombre": nombre[:80], "valores": valores,
+                                "actualizado": _dt.now(_tz.utc).isoformat()}
+                break
+        else:
+            eid = ""
+    if not eid:
+        eid = str(uuid.uuid4())
+        actuales.append({
+            "id": eid, "nombre": nombre[:80], "valores": valores,
+            "creado": _dt.now(_tz.utc).isoformat(),
+            "actualizado": _dt.now(_tz.utc).isoformat(),
+        })
+    try:
+        _guardar_escenarios_empresa(actuales)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True, "id": eid, "escenarios": actuales})
+
+
+@app.route("/_api/escenarios/<eid>", methods=["DELETE"])
+def _api_escenarios_delete(eid):
+    from flask import jsonify
+    if not TICKER_FIJO:
+        return jsonify({"ok": False, "error": "No hay empresa activa."}), 400
+    actuales = _cargar_escenarios_empresa()
+    nuevos = [e for e in actuales if e.get("id") != eid]
+    if len(nuevos) == len(actuales):
+        return jsonify({"ok": False, "error": "Escenario no encontrado."}), 404
+    try:
+        _guardar_escenarios_empresa(nuevos)
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True})
+
+
+@app.route("/_api/escenarios/simular", methods=["POST"])
+def _api_escenarios_simular():
+    from flask import jsonify
+    if not TICKER_FIJO or not _empresa_cotiza():
+        return jsonify({"ok": False, "error": "Empresa no cotiza o no hay empresa activa."}), 400
+    try:
+        datos = _cargar_datos_ticker_fijo()
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"No se pudieron cargar datos: {e}"}), 500
+    data = request.get_json(silent=True) or {}
+    valores = data.get("valores") or {}
+    if not isinstance(valores, dict):
+        return jsonify({"ok": False, "error": "'valores' debe ser un objeto."}), 400
+    res = _simular_escenario(datos, valores)
+    if not res:
+        return jsonify({"ok": False, "error": "Sin datos suficientes para simular."}), 400
+    return jsonify({"ok": True, "resultado": res})
+
+
+@app.route("/_api/escenarios/narrativa", methods=["POST"])
+def _api_escenarios_narrativa():
+    from flask import jsonify
+    if not TICKER_FIJO or not _empresa_cotiza():
+        return jsonify({"ok": False, "error": "Empresa no cotiza o no hay empresa activa."}), 400
+    try:
+        datos = _cargar_datos_ticker_fijo()
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": f"No se pudieron cargar datos: {e}"}), 500
+    data = request.get_json(silent=True) or {}
+    valores = data.get("valores") or {}
+    nombre_esc = (data.get("nombre") or "Escenario sin nombre").strip()
+    res = _simular_escenario(datos, valores)
+    if not res:
+        return jsonify({"ok": False, "error": "Sin datos para generar lectura."}), 400
+
+    # Construimos un contexto compacto
+    lineas = [
+        f"Empresa: {_BRANDING.get('empresa','')} ({TICKER_FIJO})",
+        f"Escenario: {nombre_esc}",
+        f"Periodo base: FY{res.get('periodo_base','')}",
+        f"Moneda: {res.get('moneda') or 'n/d'}",
+        "",
+        "Drivers aplicados:",
+    ]
+    drivers_cfg = { d["id"]: d for d in _cargar_drivers_empresa() }
+    for did, val in valores.items():
+        d = drivers_cfg.get(did) or {}
+        unidad = d.get("unidad", "pct")
+        signo = "+" if (val or 0) > 0 else ""
+        lineas.append(f"- {d.get('nombre', did)}: {signo}{val} {'pp' if unidad=='pp' else '%'}")
+    lineas.append("")
+    lineas.append("PyG proyectada (base → escenario):")
+    for fila in res["pyg"]:
+        if fila["delta_pct"] is not None:
+            lineas.append(f"  {fila['concepto']}: {fila['base']:,.0f} → {fila['escenario']:,.0f} ({fila['delta_pct']:+.1f}%)")
+        else:
+            lineas.append(f"  {fila['concepto']}: {fila['base']:,.0f} → {fila['escenario']:,.0f}")
+    lineas.append("")
+    lineas.append("Cash Flow proyectado:")
+    for fila in res["cashflow"]:
+        lineas.append(f"  {fila['concepto']}: {fila['base']:,.0f} → {fila['escenario']:,.0f}")
+    m = res["margenes"]
+    lineas.append("")
+    lineas.append(f"Margen EBITDA: {m['margen_ebitda_base']:.1f}% → {m['margen_ebitda_esc']:.1f}%")
+    lineas.append(f"Margen neto: {m['margen_neto_base']:.1f}% → {m['margen_neto_esc']:.1f}%")
+
+    prompt = (
+        "Eres analista financiero senior en una firma Big Four. Redacta una "
+        "**lectura ejecutiva de un escenario what-if** con los datos siguientes. "
+        "Idioma: español neutro corporativo. Formato: 2 a 3 párrafos cortos, sin "
+        "bullets, sin títulos, sin tablas, sin disclaimers. Máximo 200 palabras. "
+        "Cubre: (1) resumen del escenario y de los drivers aplicados; (2) impacto "
+        "más relevante en PyG (destacar EBITDA, beneficio neto, márgenes); (3) "
+        "impacto en caja (FCF, CAPEX); (4) una lectura global en una línea. No "
+        "inventes cifras más allá de las aportadas.\n\nDatos:\n" + "\n".join(lineas)
+    )
+    modelo = _normalizar_modelo((data.get("modelo") or MODELO_POR_DEFECTO))
+    try:
+        texto, _c = llamar_ia_con_reintentos(
+            prompt, max_tokens=900, modelo=modelo,
+            permitir_busqueda=False, modulo="escenarios",
+        )
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True, "texto": (texto or "").strip(), "modelo": modelo})
+
+
+# =====================================================================
 # Habla con tus datos — chat mixto (estructurado + RAG) con diccionario
 # =====================================================================
 
