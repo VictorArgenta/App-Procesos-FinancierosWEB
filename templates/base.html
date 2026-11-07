@@ -4,536 +4,638 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}DFin AI — Financial Intelligence Platform{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo-mark.svg') }}">
     <script>
-        // Pre-aplicar tema antes de pintar nada para evitar flash.
+        // Pre-aplicar tema antes de pintar para evitar flash
         (function() {
             try {
                 var t = localStorage.getItem('dfin-theme');
-                if (t === 'dark' || t === 'light') {
-                    document.documentElement.setAttribute('data-theme', t);
-                }
+                if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t);
             } catch (_) {}
         })();
     </script>
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo-mark.svg') }}">
-    <!-- Inter: tipografía de interfaz (con fallback a system fonts si el CDN
-         está bloqueado por la red corporativa) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap">
     <style>
+        /* ====================================================================
+           DFin — Shell de dashboard enterprise
+             · Sidebar oscuro persistente + topbar glassmorphism
+             · Fondo tecnológico animado (mesh gradient + grid blueprint)
+             · Tipografía IBM Plex Sans (display) + Inter (body) + JetBrains Mono
+             · Modo claro por defecto; modo noche con toggle en topbar.
+           Clases legacy (.btn, .card, .data-table, .alert, .tag…) se conservan
+           para que las pantallas interiores no se rompan.
+           ================================================================== */
         :root {
-            --deloitte-green: #86BC25;
-            --deloitte-green-dark: #43B02A;
-            --deloitte-green-soft: #e8f2d5;
-            --black: #0E1015;
-            --white: #FFFFFF;
-            --gray-11: #53565A;
-            --gray-10: #63666A;
-            --gray-7: #97999B;
-            --gray-6: #A7A8AA;
-            --gray-3: #BBBCBC;
-            --gray-1: #D0D0CE;
-            --gray-bg: #F5F5F4;
-            --gray-border: #E4E4E2;
-            --danger: #DA291C;
-            --warning: #ED8B00;
-            --info: #00A3E0;
+            /* === Paleta nueva (slate con sesgo azul) === */
+            --bg: #F7F8FA;
+            --surface: #FFFFFF;
+            --surface-muted: #F1F3F6;
+            --surface-elevated: #FFFFFF;
+            --border: #E5E7EB;
+            --border-strong: #D1D5DB;
+            --fg: #0F172A;
+            --fg-dim: #475569;
+            --fg-mute: #94A3B8;
+
+            /* Sidebar oscura (siempre oscura, también en modo claro) */
+            --nav-bg: #0F172A;
+            --nav-bg-elevated: #1E293B;
+            --nav-fg: #CBD5E1;
+            --nav-fg-dim: #94A3B8;
+            --nav-divider: #1E293B;
+
+            /* Acento Deloitte */
+            --brand: #86BC25;
+            --brand-dark: #43B02A;
+            --brand-soft: #F0F7E3;
+            --brand-on: #0F172A;
+
+            /* Semánticos */
+            --good: #16A34A;
+            --good-bg: #DCFCE7;
+            --warn: #D97706;
+            --warn-bg: #FEF3C7;
+            --bad: #DC2626;
+            --bad-bg: #FEE2E2;
+            --info: #0EA5E9;
+            --info-bg: #E0F2FE;
+
+            /* Charts */
+            --chart-grid: #E5E7EB;
+            --chart-axis: #94A3B8;
+
+            /* Legacy aliases → conservan las clases antiguas */
+            --deloitte-green: var(--brand);
+            --deloitte-green-dark: var(--brand-dark);
+            --deloitte-green-soft: var(--brand-soft);
+            --black: var(--fg);
+            --white: var(--surface);
+            --gray-11: var(--fg-dim);
+            --gray-10: var(--fg-dim);
+            --gray-7: var(--fg-mute);
+            --gray-6: var(--fg-mute);
+            --gray-3: var(--border-strong);
+            --gray-1: var(--border-strong);
+            --gray-bg: var(--surface-muted);
+            --gray-border: var(--border);
+            --danger: var(--bad);
+            --warning: var(--warn);
+
             color-scheme: light;
         }
 
-        /* --- Modo noche: redefine los tokens; el nav con logos y la banda
-             de cotizaciones se mantienen en su color original mediante
-             reglas específicas más abajo. --- */
+        /* === Modo noche === */
         @media (prefers-color-scheme: dark) {
             :root:not([data-theme="light"]) {
-                --black: #F0F2F5;
-                --white: #1A1D24;
-                --gray-11: #DADCE0;
-                --gray-10: #A8ACB3;
-                --gray-7: #7C8088;
-                --gray-6: #626670;
-                --gray-3: #4A4E57;
-                --gray-1: #363B45;
-                --gray-bg: #13161B;
-                --gray-border: #262A32;
-                --deloitte-green-soft: #253717;
+                --bg: #0B1120;
+                --surface: #111827;
+                --surface-muted: #1E293B;
+                --surface-elevated: #1A2234;
+                --border: #1E293B;
+                --border-strong: #334155;
+                --fg: #F8FAFC;
+                --fg-dim: #CBD5E1;
+                --fg-mute: #64748B;
+                --nav-bg: #050B18;
+                --nav-bg-elevated: #0F172A;
+                --brand-soft: #1F2E0F;
+                --good-bg: #052e16;
+                --warn-bg: #431407;
+                --bad-bg: #450a0a;
+                --info-bg: #082f49;
+                --chart-grid: #1E293B;
+                --chart-axis: #64748B;
                 color-scheme: dark;
             }
         }
         :root[data-theme="dark"] {
-            --black: #F0F2F5;
-            --white: #1A1D24;
-            --gray-11: #DADCE0;
-            --gray-10: #A8ACB3;
-            --gray-7: #7C8088;
-            --gray-6: #626670;
-            --gray-3: #4A4E57;
-            --gray-1: #363B45;
-            --gray-bg: #13161B;
-            --gray-border: #262A32;
-            --deloitte-green-soft: #253717;
+            --bg: #0B1120;
+            --surface: #111827;
+            --surface-muted: #1E293B;
+            --surface-elevated: #1A2234;
+            --border: #1E293B;
+            --border-strong: #334155;
+            --fg: #F8FAFC;
+            --fg-dim: #CBD5E1;
+            --fg-mute: #64748B;
+            --nav-bg: #050B18;
+            --nav-bg-elevated: #0F172A;
+            --brand-soft: #1F2E0F;
+            --good-bg: #052e16;
+            --warn-bg: #431407;
+            --bad-bg: #450a0a;
+            --info-bg: #082f49;
+            --chart-grid: #1E293B;
+            --chart-axis: #64748B;
             color-scheme: dark;
         }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        /* El atributo nativo [hidden] debe ganar a cualquier display específico */
+        * { box-sizing: border-box; }
         [hidden] { display: none !important; }
-
-        html, body { height: 100%; }
+        html, body { height: 100%; margin: 0; }
 
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
-            font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';  /* mejoras tipográficas de Inter */
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            background-color: var(--gray-bg);
-            color: var(--black);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            background: var(--bg);
+            color: var(--fg);
             font-size: 14px;
             line-height: 1.5;
-        }
-
-        a { color: inherit; }
-
-        /* --- Iconos SVG unificados (macro _icons.html) --- */
-        .app-icon {
-            display: inline-block;
-            vertical-align: -0.15em;
-            color: currentColor;
-            flex-shrink: 0;
-        }
-        .app-icon.muted { color: var(--gray-10); }
-
-        /* --- Micro-animaciones sutiles --- */
-        @keyframes app-fade-up {
-            from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: none; }
-        }
-        @keyframes app-fade-in {
-            from { opacity: 0; }
-            to   { opacity: 1; }
-        }
-        .app-stagger > * {
-            animation: app-fade-up 0.35s ease-out both;
-        }
-        .app-stagger > *:nth-child(1) { animation-delay: 0.02s; }
-        .app-stagger > *:nth-child(2) { animation-delay: 0.08s; }
-        .app-stagger > *:nth-child(3) { animation-delay: 0.14s; }
-        .app-stagger > *:nth-child(4) { animation-delay: 0.20s; }
-        .app-stagger > *:nth-child(5) { animation-delay: 0.26s; }
-        .app-stagger > *:nth-child(6) { animation-delay: 0.32s; }
-        .app-stagger > *:nth-child(7) { animation-delay: 0.38s; }
-        .app-stagger > *:nth-child(8) { animation-delay: 0.44s; }
-        /* Respetamos la preferencia del sistema */
-        @media (prefers-reduced-motion: reduce) {
-            .app-stagger > * { animation: none !important; }
-        }
-
-        /* Topbar (breadcrumb + user zone) */
-        .topbar {
-            background: var(--black);
-            color: var(--gray-3);
-            font-size: 0.78rem;
-            padding: 6px 0;
-            border-bottom: 1px solid #1a1a1a;
-        }
-        .topbar-inner {
-            max-width: 1560px;
-            margin: 0 auto;
-            padding: 0 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 1rem;
-        }
-        .topbar-left span { color: var(--gray-6); letter-spacing: 0.3px; }
-        .topbar-right { display: flex; align-items: center; gap: 1.2rem; }
-
-        /* Logos en el nav principal: tamaño prominente. */
-        .nav-logo-empresa {
-            display: flex;
-            align-items: center;
-            gap: 0.9rem;
-            margin-left: 0.7rem;
-        }
-        .nav-logo-empresa .nav-logo-sep {
-            display: inline-block;
-            width: 1px;
-            height: 44px;
-            background: var(--gray-border, #d6d6d6);
-        }
-        .nav-logo-empresa img {
-            height: 58px;
-            max-width: 260px;
-            width: auto;
-            object-fit: contain;
-            display: block;
-        }
-        /* Logo Deloitte inline: justo a la derecha del logo de la empresa,
-           misma altura y mismo separador. */
-        .nav-logo-deloitte-inline {
-            display: flex;
-            align-items: center;
-            gap: 0.9rem;
-            margin-left: 0.2rem;
-        }
-        .nav-logo-deloitte-inline img {
-            height: 58px;
-            max-width: 200px;
-            width: auto;
-            object-fit: contain;
-            display: block;
-        }
-        @media (max-width: 900px) {
-            .nav-logo-empresa img,
-            .nav-logo-deloitte-inline img { height: 42px; max-width: 150px; }
-            .nav-logo-empresa .nav-logo-sep,
-            .nav-logo-deloitte-inline .nav-logo-sep { height: 32px; }
-        }
-
-        /* Pill de coste de tokens — siempre visible en el nav. */
-        .coste-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border: 1px solid #F5D4A3;
-            background: #FDF4E7;
-            color: #7A4500;
-            border-radius: 999px;
-            font-size: 0.82rem;
-            font-weight: 700;
-            text-decoration: none;
-            transition: all 0.15s ease;
-            white-space: nowrap;
-        }
-        .coste-pill:hover {
-            background: #F9DEB7;
-            border-color: #ED8B00;
-            color: #5C3300;
-        }
-        .coste-pill.active {
-            background: #ED8B00;
-            color: #FFFFFF;
-            border-color: #ED8B00;
-        }
-        .coste-pill-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #ED8B00;
-            color: #FFFFFF;
-            font-weight: 800;
-            font-size: 0.72rem;
-        }
-        .coste-pill.active .coste-pill-icon {
-            background: #FFFFFF;
-            color: #ED8B00;
-        }
-        .coste-pill-label {
-            opacity: 0.7;
-            font-size: 0.72rem;
-            font-weight: 600;
-        }
-        .topbar-right a { color: var(--gray-3); text-decoration: none; transition: color .15s; }
-        .topbar-right a:hover { color: var(--deloitte-green); }
-        .topbar-right .sep { color: var(--gray-10); }
-        .user-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            background: var(--gray-bg);
-            border: 1px solid var(--gray-border);
-            padding: 5px 12px;
-            border-radius: 999px;
-            color: var(--gray-11);
-            font-size: 0.78rem;
-            font-weight: 500;
-        }
-        .user-chip::before {
-            content: "";
-            width: 7px; height: 7px; border-radius: 50%;
-            background: var(--deloitte-green);
-            box-shadow: 0 0 6px var(--deloitte-green);
-        }
-
-        /* Navbar */
-        nav.main-nav {
-            background: var(--white);
-            border-bottom: 1px solid var(--gray-border);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
-        }
-        .nav-container {
-            max-width: 1560px;
-            margin: 0 auto;
-            padding: 0 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 86px;
-        }
-        .nav-brand {
-            display: flex;
-            align-items: center;
-            text-decoration: none;
-        }
-        .nav-brand img { height: 56px; width: auto; display: block; }
-
-        .nav-links {
-            display: flex;
-            align-items: stretch;
-            list-style: none;
-            height: 100%;
-        }
-        .nav-links > li {
             position: relative;
-            display: flex;
-            align-items: stretch;
+            overflow-x: hidden;
         }
-        .nav-links > li > a,
-        .nav-links > li > button {
-            background: none;
-            border: 0;
-            font-family: inherit;
-            font-size: 0.9rem;
-            cursor: pointer;
-            color: var(--gray-11);
-            text-decoration: none;
-            padding: 0 18px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-weight: 600;
-            letter-spacing: 0.2px;
-            border-bottom: 3px solid transparent;
-            transition: color .15s, border-color .15s;
+        a { color: inherit; }
+        h1, h2, h3, h4, h5 {
+            font-family: 'IBM Plex Sans', 'Inter', system-ui, sans-serif;
+            letter-spacing: -0.015em;
+            text-wrap: balance;
         }
-        .nav-links > li > a:hover,
-        .nav-links > li > button:hover,
-        .nav-links > li.open > button,
-        .nav-links > li > a.active {
-            color: var(--black);
-            border-bottom-color: var(--deloitte-green);
+        .num, .tabular, .mono-num { font-variant-numeric: tabular-nums; }
+        .mono { font-family: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace; }
+
+        /* ============== Fondo tecnológico animado ============== */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -15%;
+            z-index: -2;
+            pointer-events: none;
+            background:
+                radial-gradient(50vmax 40vmax at 18% 20%, rgba(134, 188, 37, 0.18), transparent 60%),
+                radial-gradient(45vmax 38vmax at 82% 72%, rgba(37, 99, 235, 0.16), transparent 60%),
+                radial-gradient(40vmax 36vmax at 55% 35%, rgba(139, 92, 246, 0.10), transparent 60%),
+                radial-gradient(35vmax 30vmax at 35% 85%, rgba(14, 165, 233, 0.09), transparent 60%);
+            animation: mesh-float 28s ease-in-out infinite alternate;
+            will-change: transform;
         }
-        .nav-links .caret {
-            display: inline-block;
-            border-left: 4px solid transparent;
-            border-right: 4px solid transparent;
-            border-top: 5px solid currentColor;
-            transform: translateY(1px);
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            background-image:
+                linear-gradient(to right, rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(15, 23, 42, 0.045) 1px, transparent 1px);
+            background-size: 32px 32px;
+            mask-image: radial-gradient(ellipse at 50% 40%, black 10%, transparent 80%);
+            -webkit-mask-image: radial-gradient(ellipse at 50% 40%, black 10%, transparent 80%);
+            animation: grid-drift 60s linear infinite;
+        }
+        @keyframes mesh-float {
+            0%   { transform: translate3d(0, 0, 0) scale(1); }
+            50%  { transform: translate3d(2.5%, -1.5%, 0) scale(1.02); }
+            100% { transform: translate3d(-1.5%, 2.5%, 0) scale(1.01); }
+        }
+        @keyframes grid-drift {
+            0%   { background-position: 0 0, 0 0; }
+            100% { background-position: 64px 64px, 64px 64px; }
+        }
+        :root[data-theme="dark"] body::after,
+        @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body::after { background-image:
+            linear-gradient(to right, rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+        } }
+        @media (prefers-reduced-motion: reduce) {
+            body::before, body::after { animation: none !important; }
         }
 
-        .dropdown-menu {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background: var(--white);
-            min-width: 280px;
-            border: 1px solid var(--gray-border);
-            border-top: 3px solid var(--deloitte-green);
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
-            padding: 8px 0;
-            display: none;
-            z-index: 1100;
+        /* ============== Layout ============== */
+        .app-shell {
+            display: grid;
+            grid-template-columns: 248px 1fr;
+            min-height: 100vh;
+            position: relative;
+            z-index: 1;
         }
-        .nav-links > li.open .dropdown-menu { display: block; }
-        .dropdown-menu a {
-            display: block;
-            padding: 10px 18px;
-            text-decoration: none;
-            color: var(--gray-11);
-            font-size: 0.88rem;
-            border-left: 3px solid transparent;
-            transition: background .12s, color .12s, border-color .12s;
-        }
-        .dropdown-menu a small {
-            display: block;
-            color: var(--gray-7);
-            font-weight: 400;
-            font-size: 0.75rem;
-            margin-top: 2px;
-        }
-        .dropdown-menu a:hover {
-            background: var(--gray-bg);
-            color: var(--black);
-            border-left-color: var(--deloitte-green);
-        }
-        .dropdown-menu a .badge {
-            float: right;
-            background: var(--deloitte-green);
-            color: var(--black);
-            font-size: 0.65rem;
-            font-weight: 700;
-            padding: 1px 7px;
-            border-radius: 10px;
-            letter-spacing: 0.3px;
-        }
-        .dropdown-menu a .badge.soon {
-            background: var(--gray-1);
-            color: var(--gray-11);
-        }
-
-        .nav-cta {
+        .ds-main {
             display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            margin-left: 1rem;
+            flex-direction: column;
+            min-width: 0;
         }
-        .icon-btn {
-            width: 38px; height: 38px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            border: 1px solid var(--gray-border);
-            background: var(--white);
-            color: var(--gray-11);
-            cursor: pointer;
-            font-size: 1rem;
-            transition: background .12s, color .12s, border-color .12s;
-        }
-        .icon-btn:hover {
-            border-color: var(--deloitte-green);
-            color: var(--deloitte-green);
-        }
-
-        /* Main content */
-        main {
+        .ds-content {
+            padding: 28px 36px 40px;
             flex: 1;
             max-width: 1560px;
-            margin: 0 auto;
-            padding: 1.5rem;
             width: 100%;
+            margin: 0 auto;
+        }
+        @media (max-width: 960px) {
+            .app-shell { grid-template-columns: 1fr; }
+            .ds-sidebar { display: none; }
+            .ds-content { padding: 20px 16px 32px; }
         }
 
-        /* Page header */
-        .page-header {
+        /* ============== Sidebar ============== */
+        .ds-sidebar {
+            background: var(--nav-bg);
+            color: var(--nav-fg);
+            position: sticky;
+            top: 0;
+            height: 100vh;
             display: flex;
-            align-items: flex-end;
-            justify-content: space-between;
-            gap: 1rem;
-            flex-wrap: wrap;
-            padding-bottom: 1rem;
-            margin-bottom: 1.2rem;
-            border-bottom: 1px solid var(--gray-border);
+            flex-direction: column;
+            border-right: 1px solid var(--nav-divider);
+            overflow: hidden;
         }
-        .page-header .eyebrow {
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-size: 0.72rem;
-            color: var(--deloitte-green-dark);
-            font-weight: 700;
+        .ds-sidebar::before {
+            content: "";
+            position: absolute; inset: 0;
+            background:
+                radial-gradient(60% 20% at 50% -5%, rgba(134,188,37,0.14), transparent 70%),
+                radial-gradient(70% 30% at 50% 105%, rgba(37,99,235,0.10), transparent 70%);
+            pointer-events: none; z-index: 0;
+        }
+        .ds-sidebar::after {
+            content: "";
+            position: absolute;
+            top: -40%; left: 0; right: 0; height: 30%;
+            background: linear-gradient(to bottom,
+                transparent 0%,
+                rgba(134,188,37,0.08) 40%,
+                rgba(134,188,37,0.14) 50%,
+                rgba(134,188,37,0.08) 60%,
+                transparent 100%);
+            animation: sidebar-sweep 16s ease-in-out infinite;
+            pointer-events: none; z-index: 0;
+        }
+        .ds-sidebar > * { position: relative; z-index: 1; }
+        @keyframes sidebar-sweep {
+            0%, 100% { transform: translateY(0); opacity: 0; }
+            10%      { opacity: 1; }
+            50%      { transform: translateY(400%); opacity: 1; }
+            60%      { opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ds-sidebar::after { animation: none !important; display: none; }
+        }
+        .ds-side-head {
+            padding: 18px 20px;
+            display: flex; align-items: center; gap: 10px;
+            border-bottom: 1px solid var(--nav-divider);
+        }
+        .ds-logo-mark {
+            width: 36px; height: 36px;
+            background: var(--brand);
+            color: var(--nav-bg);
+            border-radius: 8px;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 15px;
+            font-family: 'IBM Plex Sans', sans-serif;
+            flex-shrink: 0;
+        }
+        .ds-logo-mark img { width: 22px; height: 22px; display: block; }
+        .ds-brand {
+            font-weight: 700; color: #FFFFFF;
+            font-family: 'IBM Plex Sans', sans-serif;
+            font-size: 15px; line-height: 1.15;
+            letter-spacing: -0.015em;
+            min-width: 0;
+        }
+        .ds-brand small {
+            display: block;
+            font-size: 11px; font-weight: 400;
+            color: var(--nav-fg-dim);
+            margin-top: 1px; letter-spacing: 0;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .ds-side-nav {
+            padding: 14px 10px;
+            overflow-y: auto; flex: 1;
+            display: flex; flex-direction: column; gap: 2px;
+            min-height: 0;
+            scrollbar-width: thin;
+            scrollbar-color: var(--nav-bg-elevated) transparent;
+        }
+        .ds-side-nav::-webkit-scrollbar { width: 6px; }
+        .ds-side-nav::-webkit-scrollbar-thumb { background: var(--nav-bg-elevated); border-radius: 3px; }
+        .ds-side-section {
+            padding: 14px 12px 6px;
+            font-size: 10.5px; font-weight: 700;
+            letter-spacing: 0.7px; text-transform: uppercase;
+            color: var(--nav-fg-dim);
+        }
+        .ds-nav-item {
+            display: flex; align-items: center; gap: 11px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            color: var(--nav-fg);
+            text-decoration: none;
+            font-size: 13.5px; font-weight: 500;
+            position: relative;
+            transition: background 0.12s, color 0.12s;
+            cursor: pointer;
+        }
+        .ds-nav-item:hover { background: var(--nav-bg-elevated); color: #FFFFFF; }
+        .ds-nav-item.active { background: var(--nav-bg-elevated); color: #FFFFFF; }
+        .ds-nav-item.active::before {
+            content: "";
+            position: absolute; left: -10px; top: 50%;
+            transform: translateY(-50%);
+            width: 3px; height: 20px;
+            background: var(--brand);
+            border-radius: 0 3px 3px 0;
+        }
+        .ds-nav-item svg { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.85; }
+        .ds-nav-item.active svg { opacity: 1; }
+        .ds-nav-item .ds-pill {
+            margin-left: auto;
+            background: var(--brand);
+            color: var(--nav-bg);
+            font-size: 10px; font-weight: 700;
+            padding: 1px 6px; border-radius: 999px;
+            letter-spacing: 0.3px;
+        }
+        .ds-nav-item .ds-pill.gray { background: var(--nav-bg-elevated); color: var(--nav-fg-dim); }
+        .ds-nav-item .ds-pill.warn { background: var(--warn); color: #FFFFFF; }
+        .ds-side-foot {
+            padding: 12px 14px 16px;
+            border-top: 1px solid var(--nav-divider);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .ds-avatar {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #86BC25 0%, #43B02A 100%);
+            color: var(--nav-bg);
+            display: inline-flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 12.5px;
+            flex-shrink: 0;
+        }
+        .ds-deloitte-logo {
+            background: #FFFFFF;
+            border-radius: 6px;
+            padding: 4px 8px;
+            display: inline-flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            height: 34px;
+        }
+        .ds-deloitte-logo img { max-height: 24px; max-width: 80px; width: auto; height: auto; object-fit: contain; }
+        .ds-avatar-txt { font-size: 13px; font-weight: 600; color: #FFFFFF; line-height: 1.1; min-width: 0; }
+        .ds-avatar-txt small { display: block; font-size: 11px; font-weight: 400; color: var(--nav-fg-dim); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* ============== Topbar ============== */
+        .ds-topbar {
+            position: sticky;
+            top: 0;
+            z-index: 15;
+            background: color-mix(in srgb, var(--surface) 82%, transparent);
+            backdrop-filter: saturate(1.4) blur(14px);
+            -webkit-backdrop-filter: saturate(1.4) blur(14px);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 24px;
+            display: flex; align-items: center; gap: 20px;
+            min-height: 54px;
+        }
+        .ds-breadcrumb {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 13px; color: var(--fg-mute);
+        }
+        .ds-breadcrumb .current { color: var(--fg); font-weight: 500; }
+        .ds-breadcrumb svg { width: 13px; height: 13px; }
+        .ds-search {
+            flex: 1; max-width: 480px;
+            position: relative;
+        }
+        .ds-search input {
+            width: 100%;
+            background: var(--surface-muted);
+            border: 1px solid transparent;
+            border-radius: 8px;
+            padding: 8px 10px 8px 34px;
+            font-size: 13px; color: var(--fg);
+            font-family: inherit;
+            transition: border-color 0.12s, background 0.12s;
+        }
+        .ds-search input:focus {
+            outline: none;
+            background: var(--surface);
+            border-color: var(--brand);
+        }
+        .ds-search > svg {
+            position: absolute; left: 10px; top: 50%;
+            transform: translateY(-50%);
+            width: 15px; height: 15px; color: var(--fg-mute);
+        }
+        .ds-search .kbd {
+            position: absolute; right: 8px; top: 50%;
+            transform: translateY(-50%);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            color: var(--fg-dim);
+        }
+        .ds-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+        .ds-empresa-logo {
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 3px 8px;
+            height: 32px;
+            display: inline-flex; align-items: center;
+            flex-shrink: 0;
+        }
+        .ds-empresa-logo img {
+            max-height: 22px; max-width: 110px;
+            width: auto; height: auto;
+            object-fit: contain; display: block;
+        }
+        .ds-icon-btn {
+            width: 34px; height: 34px;
+            display: inline-flex; align-items: center; justify-content: center;
+            background: transparent;
+            color: var(--fg-dim);
+            border: 1px solid transparent;
+            border-radius: 7px;
+            cursor: pointer;
+            transition: all 0.12s;
+            position: relative;
+            font-family: inherit;
+        }
+        .ds-icon-btn:hover {
+            background: var(--surface-muted);
+            color: var(--fg);
+            border-color: var(--border);
+        }
+        .ds-icon-btn .ping {
+            position: absolute;
+            top: 7px; right: 8px;
+            width: 7px; height: 7px;
+            background: var(--brand-dark);
+            border-radius: 50%;
+            border: 2px solid var(--surface);
+        }
+        .ds-tenant-chip {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: 13px;
+            padding: 5px 11px;
+            background: var(--surface-muted);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--fg-dim);
+            font-weight: 500;
+        }
+        .ds-tenant-chip::before {
+            content: "";
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--brand-dark);
+            box-shadow: 0 0 0 0 var(--brand-dark);
+            animation: pulse-dot 2.2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%   { box-shadow: 0 0 0 0 rgba(67, 176, 42, 0.55); }
+            70%  { box-shadow: 0 0 0 10px rgba(67, 176, 42, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(67, 176, 42, 0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ds-tenant-chip::before { animation: none !important; box-shadow: 0 0 6px var(--brand-dark); }
+        }
+
+        /* ============== Ticker ============== */
+        .ds-ticker {
+            background: #0F172A;
+            color: #E2E8F0;
+            margin: 14px 36px 0;
+            border-radius: 10px;
+            padding: 0;
+            overflow: hidden;
+            display: flex; align-items: stretch;
+            border: 1px solid #1E293B;
+            position: relative;
+        }
+        @media (max-width: 960px) { .ds-ticker { margin: 10px 12px 0; } }
+        .ds-ticker-label {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 14px;
+            background: #050B18;
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.6px;
+            color: #94A3B8;
+            border-right: 1px solid #1E293B;
+            flex-shrink: 0;
+        }
+        .ds-ticker-label .live-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: #86BC25; box-shadow: 0 0 6px #86BC25;
+            animation: live-blink 1.4s ease-in-out infinite;
+        }
+        @keyframes live-blink {
+            0%, 100% { opacity: 1; } 50% { opacity: 0.35; }
+        }
+        .ds-ticker-viewport {
+            overflow: hidden; position: relative;
+            flex: 1; display: flex; align-items: center;
+        }
+        .ds-ticker-track {
+            display: inline-flex; gap: 36px;
+            padding: 0 20px;
+            white-space: nowrap;
+            animation: ticker-roll 52s linear infinite;
+            will-change: transform;
+        }
+        .ds-ticker-viewport:hover .ds-ticker-track { animation-play-state: paused; }
+        @keyframes ticker-roll {
+            0% { transform: translateX(0); } 100% { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .ds-ticker-track { animation: none !important; }
+        }
+        .ds-quote { display: inline-flex; align-items: baseline; gap: 8px; font-size: 13px; font-variant-numeric: tabular-nums; }
+        .ds-quote .sym { font-weight: 700; color: #F8FAFC; letter-spacing: 0.3px; }
+        .ds-quote .price { color: #CBD5E1; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+        .ds-quote .chg { font-weight: 600; font-size: 12px; font-family: 'JetBrains Mono', monospace; }
+        .ds-quote .chg.up { color: #4ADE80; }
+        .ds-quote .chg.down { color: #F87171; }
+        .ds-quote .chg.flat { color: #94A3B8; }
+        .ds-ticker-viewport::after {
+            content: "";
+            position: absolute; top: 0; bottom: 0; right: 0;
+            width: 60px;
+            background: linear-gradient(to left, #0F172A, transparent);
+            pointer-events: none;
+        }
+
+        /* ============== Páginas (hero, breadcrumbs, botones genéricos) ============== */
+        .page-header {
+            margin-bottom: 1.4rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
         }
         .page-header h1 {
-            color: var(--black);
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin-top: 4px;
+            font-size: 1.55rem; font-weight: 700;
+            margin: 0 0 4px; color: var(--fg);
         }
-        .page-header p.lead {
-            color: var(--gray-10);
-            font-size: 0.95rem;
-            margin-top: 6px;
-            max-width: 720px;
-        }
+        .page-header p { color: var(--fg-dim); font-size: 0.95rem; margin: 0; }
+        .page-header p.lead { color: var(--fg-dim); font-size: 0.95rem; margin-top: 6px; max-width: 720px; }
 
-        /* Cards */
+        .breadcrumbs {
+            font-size: 0.78rem; color: var(--fg-mute);
+            margin-bottom: 0.7rem;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .breadcrumbs .sep { color: var(--border-strong); }
+        .breadcrumbs .current { color: var(--fg); font-weight: 600; }
+
+        /* === Cards === */
         .card {
-            background: var(--white);
-            border: 1px solid var(--gray-border);
-            border-radius: 4px;
-            padding: 1.6rem;
-            margin-bottom: 1.2rem;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1.3rem 1.5rem;
+            margin-bottom: 1.1rem;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
         }
         .card h2 {
-            color: var(--black);
-            margin-bottom: 1rem;
-            font-size: 1.15rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            color: var(--fg); margin: 0 0 1rem;
+            font-size: 1.05rem; font-weight: 700;
+            display: flex; align-items: center; gap: 10px;
         }
         .card h2::before {
             content: "";
-            width: 4px;
-            height: 18px;
-            background: var(--deloitte-green);
+            width: 3px; height: 16px;
+            background: var(--brand);
+            border-radius: 2px;
             display: inline-block;
         }
         .card h3 {
-            color: var(--black);
-            font-size: 1rem;
-            font-weight: 700;
-            margin-bottom: 0.6rem;
+            color: var(--fg); font-size: 0.95rem;
+            font-weight: 600; margin-bottom: 0.55rem;
         }
 
-        /* KPI row */
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.2rem;
-        }
+        /* === KPI genérico === */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.9rem; margin-bottom: 1rem; }
         .kpi {
-            background: var(--white);
-            border: 1px solid var(--gray-border);
-            border-left: 4px solid var(--deloitte-green);
-            padding: 1rem 1.2rem;
-            border-radius: 3px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--brand);
+            padding: 0.9rem 1.1rem;
+            border-radius: 8px;
         }
-        .kpi .kpi-label {
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            color: var(--gray-10);
-            letter-spacing: 1.3px;
-            font-weight: 600;
-        }
-        .kpi .kpi-value {
-            font-size: 1.55rem;
-            color: var(--black);
-            font-weight: 700;
-            margin-top: 4px;
-        }
-        .kpi .kpi-delta {
-            font-size: 0.78rem;
-            color: var(--deloitte-green-dark);
-            font-weight: 600;
-            margin-top: 2px;
-        }
-        .kpi .kpi-delta.neg { color: var(--danger); }
+        .kpi .kpi-label { font-size: 0.7rem; text-transform: uppercase; color: var(--fg-mute); letter-spacing: 0.6px; font-weight: 600; }
+        .kpi .kpi-value { font-family: 'IBM Plex Sans', sans-serif; font-size: 1.5rem; color: var(--fg); font-weight: 700; margin-top: 3px; letter-spacing: -0.02em; }
+        .kpi .kpi-delta { font-size: 0.76rem; color: var(--good); font-weight: 600; margin-top: 2px; }
+        .kpi .kpi-delta.neg { color: var(--bad); }
 
-        /* Forms */
-        .form-group {
-            margin-bottom: 1.1rem;
-        }
+        /* === Forms === */
+        .form-group { margin-bottom: 1rem; }
         .form-group label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 0.35rem;
-            color: var(--black);
-            font-size: 0.82rem;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
+            display: block; font-weight: 600;
+            margin-bottom: 0.35rem; color: var(--fg);
+            font-size: 0.78rem; text-transform: uppercase;
+            letter-spacing: 0.4px;
         }
         .form-group .hint {
-            display: block;
-            color: var(--gray-10);
-            font-size: 0.78rem;
-            font-weight: 400;
-            text-transform: none;
-            letter-spacing: 0;
+            display: block; color: var(--fg-dim);
+            font-size: 0.76rem; font-weight: 400;
+            text-transform: none; letter-spacing: 0;
             margin-top: 0.3rem;
         }
         .form-group input[type="text"],
@@ -543,1034 +645,1090 @@
         .form-group input[type="password"],
         .form-group select,
         .form-group textarea {
-            width: 100%;
-            max-width: 560px;
-            padding: 10px 12px;
-            border: 1px solid var(--gray-1);
-            border-radius: 3px;
-            font-size: 0.95rem;
-            font-family: inherit;
-            background: var(--white);
-            color: var(--black);
+            width: 100%; max-width: 560px;
+            padding: 9px 11px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            font-size: 0.92rem; font-family: inherit;
+            background: var(--surface); color: var(--fg);
             transition: border-color 0.15s, box-shadow 0.15s;
         }
         .form-group textarea { min-height: 110px; resize: vertical; }
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: var(--deloitte-green);
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none; border-color: var(--brand);
             box-shadow: 0 0 0 3px rgba(134, 188, 37, 0.18);
         }
 
-        /* Buttons */
+        /* === Botones === */
         .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 10px 20px;
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 15px;
             border: 1px solid transparent;
-            border-radius: 3px;
-            font-size: 0.85rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.15s;
-            text-decoration: none;
-            font-family: inherit;
-            letter-spacing: 0.3px;
+            border-radius: 7px;
+            font-size: 0.85rem; font-weight: 600;
+            cursor: pointer; transition: all 0.12s;
+            text-decoration: none; font-family: inherit;
         }
-        .btn-primary {
-            background: var(--deloitte-green);
-            color: var(--brand-primary-text, var(--black));
-            border-color: var(--deloitte-green);
-        }
-        .btn-primary:hover {
-            background: var(--deloitte-green-dark);
-            border-color: var(--deloitte-green-dark);
-            color: var(--brand-primary-dark-text, var(--white));
-        }
-        .btn-dark {
-            background: var(--black);
-            color: var(--white);
-        }
-        .btn-dark:hover { background: #2a2a2a; }
-        .btn-secondary {
-            background: var(--white);
-            color: var(--black);
-            border-color: var(--gray-1);
-        }
-        .btn-secondary:hover { border-color: var(--black); }
-        .btn-outline {
-            background: transparent;
-            color: var(--deloitte-green-dark);
-            border-color: var(--deloitte-green);
-        }
-        .btn-outline:hover {
-            background: var(--deloitte-green);
-            color: var(--black);
-        }
+        .btn-primary { background: var(--brand); color: var(--brand-on); border-color: var(--brand); }
+        .btn-primary:hover { background: var(--brand-dark); color: #FFF; border-color: var(--brand-dark); }
+        .btn-dark { background: var(--fg); color: var(--surface); }
+        .btn-dark:hover { background: var(--brand-dark); color: #FFF; }
+        .btn-secondary { background: var(--surface); color: var(--fg); border-color: var(--border); }
+        .btn-secondary:hover { border-color: var(--border-strong); background: var(--surface-muted); }
+        .btn-outline { background: transparent; color: var(--brand-dark); border-color: var(--brand); }
+        .btn-outline:hover { background: var(--brand); color: var(--brand-on); }
         .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
 
-        /* Tables */
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 0.6rem 0;
-            font-size: 0.88rem;
-        }
-        .data-table thead {
-            background: var(--black);
-            color: var(--white);
-        }
+        /* === Data tables === */
+        .data-table { width: 100%; border-collapse: collapse; margin: 0.6rem 0; font-size: 0.88rem; }
+        .data-table thead { background: var(--fg); color: var(--surface); }
         .data-table th {
-            padding: 12px 14px;
-            text-align: left;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            font-size: 0.73rem;
-            border-bottom: 3px solid var(--deloitte-green);
-        }
-        .data-table td {
-            padding: 11px 14px;
-            border-bottom: 1px solid var(--gray-border);
-        }
-        .data-table tbody tr:hover { background-color: var(--gray-bg); }
-
-        /* Alerts */
-        .alert {
-            padding: 12px 16px;
-            border-radius: 3px;
-            margin-bottom: 1.2rem;
-            font-size: 0.88rem;
-            border-left: 4px solid;
-            background: var(--white);
-        }
-        .alert-error {
-            background: #fdecec;
-            color: #7a1818;
-            border-left-color: var(--danger);
-        }
-        .alert-warning {
-            background: #fdf4e7;
-            color: #7a4500;
-            border-left-color: var(--warning);
-        }
-        .alert-info {
-            background: #e8f4fc;
-            color: #0d5a80;
-            border-left-color: var(--info);
-        }
-        .alert-success {
-            background: var(--deloitte-green-soft);
-            color: #2d5f12;
-            border-left-color: var(--deloitte-green);
-        }
-
-        /* Badges / tags */
-        .tag {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 10px;
+            padding: 11px 13px; text-align: left; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
             font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            background: var(--gray-bg);
-            color: var(--gray-11);
-            border: 1px solid var(--gray-border);
+            border-bottom: 2px solid var(--brand);
         }
-        .tag-green { background: var(--deloitte-green-soft); color: #2d5f12; border-color: #c3dc91; }
-        .tag-black { background: var(--black); color: var(--white); border-color: var(--black); }
-        .tag-red { background: #fdecec; color: #7a1818; border-color: #f3bcbc; }
-        .tag-orange { background: #fdf4e7; color: #7a4500; border-color: #f5d4a3; }
-        .tag-blue { background: #e8f4fc; color: #0d5a80; border-color: #aed6ee; }
+        .data-table td { padding: 10px 13px; border-bottom: 1px solid var(--border); }
+        .data-table tbody tr:hover { background-color: var(--surface-muted); }
 
-        /* Nota de memoria */
+        /* === Alerts === */
+        .alert {
+            padding: 11px 15px; border-radius: 7px;
+            margin-bottom: 1rem; font-size: 0.85rem;
+            border-left: 4px solid; background: var(--surface);
+        }
+        .alert-error { background: var(--bad-bg); color: #991B1B; border-left-color: var(--bad); }
+        .alert-warning { background: var(--warn-bg); color: #92400E; border-left-color: var(--warn); }
+        .alert-info { background: var(--info-bg); color: #0C4A6E; border-left-color: var(--info); }
+        .alert-success { background: var(--brand-soft); color: #166534; border-left-color: var(--brand); }
+
+        /* === Tags/badges genéricos === */
+        .tag {
+            display: inline-block; padding: 2px 10px;
+            border-radius: 999px; font-size: 0.72rem;
+            font-weight: 600; letter-spacing: 0.3px;
+            background: var(--surface-muted); color: var(--fg-dim);
+            border: 1px solid var(--border);
+        }
+        .tag-green { background: var(--brand-soft); color: #166534; border-color: transparent; }
+        .tag-black { background: var(--fg); color: var(--surface); border-color: var(--fg); }
+        .tag-red { background: var(--bad-bg); color: #991B1B; border-color: transparent; }
+        .tag-orange { background: var(--warn-bg); color: #92400E; border-color: transparent; }
+        .tag-blue { background: var(--info-bg); color: #0C4A6E; border-color: transparent; }
+
+        /* === Pill-badge (home del índice) === */
+        .pill-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 2px 10px; font-size: 0.72rem; font-weight: 600;
+            border-radius: 999px; margin-left: 10px;
+            letter-spacing: 0.2px;
+            background: var(--brand-soft); color: var(--brand-dark); border: 1px solid var(--brand);
+        }
+        .pill-badge.zero { background: var(--surface-muted); color: var(--fg-dim); border-color: var(--border); }
+        .pill-badge.warn { background: var(--warn-bg); color: #92400E; border-color: var(--warn); }
+        .pill-badge svg { width: 12px; height: 12px; }
+
+        /* === Nota de memoria === */
         .nota-memoria {
-            background: var(--white);
-            border-left: 4px solid var(--deloitte-green);
-            padding: 1.4rem 1.8rem;
-            border-radius: 0 3px 3px 0;
-            line-height: 1.7;
-            color: var(--black);
+            background: var(--surface);
+            border-left: 3px solid var(--brand);
+            padding: 1.3rem 1.6rem; border-radius: 0 7px 7px 0;
+            line-height: 1.7; color: var(--fg);
         }
         .nota-memoria h1, .nota-memoria h2, .nota-memoria h3 {
-            color: var(--black);
-            margin-top: 1.3rem;
-            margin-bottom: 0.5rem;
+            color: var(--fg); margin-top: 1.2rem; margin-bottom: 0.5rem;
             padding-bottom: 0.3rem;
-            border-bottom: 1px solid var(--gray-border);
+            border-bottom: 1px solid var(--border);
             font-weight: 700;
         }
         .nota-memoria h1:first-child, .nota-memoria h2:first-child, .nota-memoria h3:first-child { margin-top: 0; }
-        .nota-memoria h1 { font-size: 1.3rem; }
-        .nota-memoria h2 { font-size: 1.1rem; }
-        .nota-memoria h3 { font-size: 1rem; border-bottom: none; }
+        .nota-memoria h1 { font-size: 1.25rem; }
+        .nota-memoria h2 { font-size: 1.05rem; }
+        .nota-memoria h3 { font-size: 0.98rem; border-bottom: none; }
         .nota-memoria p { margin-bottom: 0.7rem; }
-        .nota-memoria ul, .nota-memoria ol { margin: 0.4rem 0 1rem 1.4rem; }
+        .nota-memoria ul, .nota-memoria ol { margin: 0.4rem 0 0.9rem 1.4rem; }
         .nota-memoria li { margin-bottom: 0.25rem; }
-        .nota-memoria strong { color: var(--black); }
         .nota-memoria code {
-            background: var(--gray-bg);
-            padding: 1px 6px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', monospace;
+            background: var(--surface-muted);
+            padding: 1px 6px; border-radius: 3px;
+            font-family: 'JetBrains Mono', monospace;
             font-size: 0.88em;
         }
 
-        /* Spinner overlay */
+        /* === Iconos app === */
+        .app-icon { display: inline-block; vertical-align: -0.15em; color: currentColor; flex-shrink: 0; }
+        .app-icon.muted { color: var(--fg-dim); }
+
+        /* === Micro-animaciones ("stagger" en entradas) === */
+        .app-stagger > * { animation: app-fade-up 0.35s ease-out both; }
+        .app-stagger > *:nth-child(1) { animation-delay: 0.02s; }
+        .app-stagger > *:nth-child(2) { animation-delay: 0.08s; }
+        .app-stagger > *:nth-child(3) { animation-delay: 0.14s; }
+        .app-stagger > *:nth-child(4) { animation-delay: 0.20s; }
+        .app-stagger > *:nth-child(5) { animation-delay: 0.26s; }
+        .app-stagger > *:nth-child(6) { animation-delay: 0.32s; }
+        .app-stagger > *:nth-child(7) { animation-delay: 0.38s; }
+        .app-stagger > *:nth-child(8) { animation-delay: 0.44s; }
+        @keyframes app-fade-up {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .app-stagger > * { animation: none !important; }
+        }
+
+        /* === Spinner overlay === */
         .spinner-overlay {
-            display: none;
-            position: fixed; top: 0; left: 0;
+            display: none; position: fixed; top: 0; left: 0;
             width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.55);
+            background: rgba(10, 12, 14, 0.55);
             z-index: 9999;
-            justify-content: center;
-            align-items: center;
+            justify-content: center; align-items: center;
         }
         .spinner-overlay.active { display: flex; }
         .spinner-box {
-            background: var(--white);
-            padding: 2rem 2.5rem;
-            border-radius: 4px;
+            background: var(--surface);
+            padding: 1.8rem 2.2rem;
+            border-radius: 10px;
             text-align: center;
-            border-top: 4px solid var(--deloitte-green);
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            border-top: 3px solid var(--brand);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
         .spinner {
-            width: 42px; height: 42px;
-            border: 3px solid var(--gray-border);
-            border-top: 3px solid var(--deloitte-green);
+            width: 36px; height: 36px;
+            border: 3px solid var(--border);
+            border-top-color: var(--brand);
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 1rem;
+            margin: 0 auto 10px;
+            animation: hd-spin 0.8s linear infinite;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spinner-box p { color: var(--black); font-weight: 600; }
+        @keyframes hd-spin { to { transform: rotate(360deg); } }
 
-        /* Footer */
-        footer.site-footer {
-            background: var(--black);
-            color: var(--gray-3);
-            margin-top: 3rem;
-            padding: 2.5rem 0 0;
+        /* === RAG banner (indexado) === */
+        .rag-banner[hidden] { display: none !important; }
+        .rag-banner {
+            background: var(--warn-bg);
+            border: 1px solid var(--warn);
+            color: #92400E;
+            padding: 8px 18px;
             font-size: 0.85rem;
+            display: flex; align-items: center; gap: 10px;
+            margin: 14px 36px 0;
+            border-radius: 10px;
         }
-        .footer-top {
-            max-width: 1560px;
-            margin: 0 auto;
-            padding: 0 1.5rem 2rem;
-            display: grid;
-            grid-template-columns: 1.4fr 1fr 1fr 1fr;
-            gap: 2rem;
-            border-bottom: 1px solid #1f1f1f;
-        }
-        .footer-top h4 {
-            color: var(--white);
-            font-size: 0.78rem;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 0.9rem;
-        }
-        .footer-top ul { list-style: none; }
-        .footer-top li { margin-bottom: 0.4rem; }
-        .footer-top a { color: var(--gray-6); text-decoration: none; transition: color .15s; }
-        .footer-top a:hover { color: var(--deloitte-green); }
-        .footer-top .brand p { color: var(--gray-6); margin-top: 0.6rem; max-width: 320px; line-height: 1.55; }
-        .footer-accent {
-            height: 4px;
-            background: linear-gradient(90deg, var(--deloitte-green) 0%, var(--deloitte-green-dark) 60%, var(--black) 100%);
-        }
-        .footer-bottom {
-            max-width: 1560px;
-            margin: 0 auto;
-            padding: 1rem 1.5rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            color: var(--gray-7);
-            font-size: 0.78rem;
-        }
-
-        /* Breadcrumbs */
-        .breadcrumbs {
-            font-size: 0.78rem;
-            color: var(--gray-10);
-            margin-bottom: 1rem;
-        }
-        .breadcrumbs a { color: var(--gray-10); text-decoration: none; }
-        .breadcrumbs a:hover { color: var(--deloitte-green-dark); }
-        .breadcrumbs .sep { margin: 0 6px; color: var(--gray-6); }
-        .breadcrumbs .current { color: var(--black); font-weight: 600; }
-
-        /* Responsive */
-        @media (max-width: 960px) {
-            .nav-container { height: 72px; }
-            .nav-links > li > a, .nav-links > li > button { padding: 0 12px; font-size: 0.82rem; }
-            .nav-brand img { height: 46px; }
-            .footer-top { grid-template-columns: 1fr 1fr; }
-        }
-        @media (max-width: 720px) {
-            .nav-links { display: none; }
-            .topbar-inner { font-size: 0.7rem; }
-            .page-header h1 { font-size: 1.4rem; }
-            .footer-top { grid-template-columns: 1fr; }
-            .data-table th, .data-table td { padding: 8px 10px; font-size: 0.78rem; }
+        @media (max-width: 960px) { .rag-banner { margin: 10px 12px 0; } }
+        .rag-banner small { display: block; color: #78350F; font-size: 0.76rem; font-weight: 400; margin-top: 1px; }
+        .rag-spin {
+            width: 13px; height: 13px;
+            border: 2px solid rgba(146, 64, 14, 0.25);
+            border-top-color: #92400E;
+            border-radius: 50%;
+            animation: hd-spin 0.7s linear infinite;
+            display: inline-block;
         }
 
         /* ==================== Command Palette (Ctrl+K) ==================== */
-        .cmdk-trigger {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: var(--gray-bg);
-            border: 1px solid var(--gray-border);
-            color: var(--gray-11);
-            font-family: inherit;
-            font-size: 0.78rem;
-            padding: 6px 10px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.15s, border-color 0.15s, color 0.15s;
-            letter-spacing: 0.2px;
-        }
-        .cmdk-trigger:hover {
-            background: var(--deloitte-green-soft);
-            border-color: var(--deloitte-green);
-            color: var(--deloitte-green-dark);
-        }
-        .cmdk-trigger svg { width: 13px; height: 13px; opacity: 0.85; }
-        .cmdk-trigger kbd {
-            font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
-            font-size: 0.68rem;
-            background: var(--white);
-            border: 1px solid var(--gray-border);
-            border-radius: 4px;
-            padding: 1px 5px;
-            color: var(--gray-10);
-            margin-left: 4px;
-        }
-
         dialog.cmdk {
             width: min(620px, calc(100vw - 32px));
             max-height: min(72vh, 540px);
             padding: 0;
-            border: 1px solid var(--gray-border);
+            border: 1px solid var(--border);
             border-radius: 14px;
-            background: #FFFFFF;
+            background: var(--surface);
             box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.08);
             top: 18vh;
-            margin-left: auto;
-            margin-right: auto;
+            margin-left: auto; margin-right: auto;
             overflow: hidden;
-            color: var(--black);
-            font-family: inherit;
+            color: var(--fg); font-family: inherit;
         }
         dialog.cmdk::backdrop {
             background: rgba(10, 12, 14, 0.42);
             backdrop-filter: blur(3px);
-            -webkit-backdrop-filter: blur(3px);
         }
         .cmdk-input-wrap {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+            display: flex; align-items: center; gap: 10px;
             padding: 14px 16px;
-            border-bottom: 1px solid var(--gray-border);
+            border-bottom: 1px solid var(--border);
         }
-        .cmdk-input-wrap svg.cmdk-icon-search {
-            width: 18px; height: 18px;
-            color: var(--gray-10);
-            flex-shrink: 0;
-        }
+        .cmdk-input-wrap svg.cmdk-icon-search { width: 18px; height: 18px; color: var(--fg-dim); flex-shrink: 0; }
         .cmdk-input-wrap input {
-            flex: 1;
-            border: 0;
-            outline: 0;
-            font-family: inherit;
-            font-size: 0.95rem;
-            color: var(--black);
-            background: transparent;
+            flex: 1; border: 0; outline: 0;
+            font-family: inherit; font-size: 0.95rem;
+            color: var(--fg); background: transparent;
             padding: 2px 0;
         }
-        .cmdk-input-wrap input::placeholder { color: var(--gray-7); }
+        .cmdk-input-wrap input::placeholder { color: var(--fg-mute); }
         .cmdk-esc {
-            font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
-            font-size: 0.65rem;
-            background: var(--gray-bg);
-            border: 1px solid var(--gray-border);
-            border-radius: 4px;
-            padding: 2px 6px;
-            color: var(--gray-10);
+            font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;
+            background: var(--surface-muted); border: 1px solid var(--border);
+            border-radius: 4px; padding: 2px 6px; color: var(--fg-dim);
             letter-spacing: 0.3px;
         }
-        .cmdk-list {
-            overflow-y: auto;
-            max-height: calc(72vh - 110px);
-            padding: 6px 6px 8px;
-        }
+        .cmdk-list { overflow-y: auto; max-height: calc(72vh - 110px); padding: 6px 6px 8px; }
         .cmdk-group {
-            font-size: 0.68rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            color: var(--gray-10);
-            padding: 10px 12px 4px;
+            font-size: 0.68rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.6px;
+            color: var(--fg-dim); padding: 10px 12px 4px;
         }
         .cmdk-item {
-            display: flex;
-            align-items: center;
-            gap: 11px;
-            padding: 8px 10px;
-            border-radius: 8px;
-            text-decoration: none;
-            color: var(--black);
-            cursor: pointer;
+            display: flex; align-items: center; gap: 11px;
+            padding: 8px 10px; border-radius: 8px;
+            text-decoration: none; color: var(--fg); cursor: pointer;
             border: 1px solid transparent;
         }
-        .cmdk-item:hover,
-        .cmdk-item.active {
-            background: var(--deloitte-green-soft);
-            border-color: rgba(134, 188, 37, 0.45);
+        .cmdk-item:hover, .cmdk-item.active {
+            background: var(--brand-soft);
+            border-color: var(--brand);
         }
         .cmdk-item .cmdk-item-icon {
             width: 28px; height: 28px;
             display: flex; align-items: center; justify-content: center;
-            background: var(--gray-bg);
-            border-radius: 7px;
-            color: var(--gray-11);
-            flex-shrink: 0;
+            background: var(--surface-muted); border-radius: 7px;
+            color: var(--fg-dim); flex-shrink: 0;
         }
-        .cmdk-item.active .cmdk-item-icon {
-            background: #FFFFFF;
-            color: var(--deloitte-green-dark);
-        }
+        .cmdk-item.active .cmdk-item-icon { background: var(--surface); color: var(--brand-dark); }
         .cmdk-item-body { flex: 1; min-width: 0; }
-        .cmdk-item-name {
-            font-size: 0.86rem;
-            font-weight: 600;
-            color: var(--black);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .cmdk-item-desc {
-            font-size: 0.72rem;
-            color: var(--gray-10);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+        .cmdk-item-name { font-size: 0.86rem; font-weight: 600; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cmdk-item-desc { font-size: 0.72rem; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .cmdk-item-tag {
-            font-size: 0.64rem;
-            background: var(--gray-bg);
-            border: 1px solid var(--gray-border);
-            border-radius: 4px;
-            padding: 1px 6px;
-            color: var(--gray-10);
-            letter-spacing: 0.3px;
-            text-transform: uppercase;
+            font-size: 0.64rem; background: var(--surface-muted); border: 1px solid var(--border);
+            border-radius: 4px; padding: 1px 6px; color: var(--fg-dim);
+            letter-spacing: 0.3px; text-transform: uppercase;
         }
-        .cmdk-item.active .cmdk-item-tag { background: #FFFFFF; }
-        .cmdk-empty {
-            padding: 28px 16px;
-            text-align: center;
-            color: var(--gray-10);
-            font-size: 0.85rem;
-        }
+        .cmdk-empty { padding: 28px 16px; text-align: center; color: var(--fg-dim); font-size: 0.85rem; }
         .cmdk-footer {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 8px 14px;
-            border-top: 1px solid var(--gray-border);
-            background: var(--gray-bg);
-            font-size: 0.7rem;
-            color: var(--gray-10);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px; border-top: 1px solid var(--border);
+            background: var(--surface-muted); font-size: 0.7rem; color: var(--fg-dim);
         }
         .cmdk-footer kbd {
-            font-family: 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
-            font-size: 0.66rem;
-            background: #FFFFFF;
-            border: 1px solid var(--gray-border);
-            border-radius: 4px;
-            padding: 1px 5px;
-            margin: 0 2px;
-            color: var(--gray-11);
-        }
-        @media (max-width: 720px) {
-            .cmdk-trigger { padding: 4px 6px; }
-            .cmdk-trigger kbd { display: none; }
-            dialog.cmdk { top: 8vh; }
+            font-family: 'JetBrains Mono', monospace; font-size: 0.66rem;
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 4px; padding: 1px 5px; margin: 0 2px; color: var(--fg-dim);
         }
 
-        /* ==== Nav siempre en claro ====
-           Los logos (DFin, empresa, Deloitte) tienen fondo blanco: la nav
-           superior se mantiene en claro en ambos temas; es el resto de la
-           pantalla la que cambia. */
-        nav.main-nav { background: #FFFFFF !important; border-bottom-color: #E4E4E2 !important; }
-        nav.main-nav .dropdown-menu {
-            background: #FFFFFF !important;
-            border-color: #E4E4E2 !important;
-            color: #0E1015 !important;
-        }
-        nav.main-nav .dropdown-menu a { color: #0E1015 !important; }
-        nav.main-nav .dropdown-menu a small { color: #63666A !important; }
-        nav.main-nav .dropdown-menu a:hover { background: #F5F5F4 !important; }
-        nav.main-nav .nav-links > li > a,
-        nav.main-nav .nav-links > li > button { color: #53565A !important; }
-        nav.main-nav .nav-links > li > a:hover,
-        nav.main-nav .nav-links > li > button:hover,
-        nav.main-nav .nav-links > li.open > button,
-        nav.main-nav .nav-links > li > a.active { color: #000 !important; }
-        nav.main-nav .cmdk-trigger {
-            background: #F5F5F4 !important; border-color: #E4E4E2 !important; color: #53565A !important;
-        }
-        nav.main-nav .cmdk-trigger:hover {
-            background: #e8f2d5 !important; border-color: #86BC25 !important; color: #43B02A !important;
-        }
-        nav.main-nav .cmdk-trigger kbd {
-            background: #FFFFFF !important; border-color: #E4E4E2 !important; color: #63666A !important;
-        }
-        nav.main-nav .user-chip {
-            background: #F5F5F4 !important; border-color: #E4E4E2 !important; color: #53565A !important;
-        }
-        nav.main-nav .icon-btn {
-            background: #FFFFFF !important; border-color: #E4E4E2 !important; color: #53565A !important;
-        }
-        nav.main-nav .icon-btn:hover {
-            border-color: #86BC25 !important; color: #43B02A !important;
-        }
-        nav.main-nav .nav-logo-empresa .nav-logo-sep,
-        nav.main-nav .nav-logo-deloitte-inline .nav-logo-sep { background: #E4E4E2 !important; }
-
-        /* Impresión siempre en modo claro para que los PDFs del Panel
-           Ejecutivo y del Benchmark no salgan con fondo negro. */
+        /* Impresión siempre en claro */
         @media print {
             :root, :root[data-theme="dark"], :root[data-theme="light"] {
-                --black: #000000 !important;
-                --white: #FFFFFF !important;
-                --gray-11: #53565A !important;
-                --gray-10: #63666A !important;
-                --gray-bg: #F5F5F4 !important;
-                --gray-border: #E4E4E2 !important;
-                --deloitte-green-soft: #e8f2d5 !important;
+                --bg: #FFFFFF !important; --surface: #FFFFFF !important;
+                --surface-muted: #F5F5F4 !important; --border: #E4E4E2 !important;
+                --fg: #000000 !important; --fg-dim: #53565A !important;
                 color-scheme: light !important;
             }
-            body { background: #FFFFFF !important; color: #000 !important; }
+            body { background: #FFF !important; color: #000 !important; }
+            body::before, body::after { display: none !important; }
+            .ds-sidebar, .ds-topbar, .ds-ticker, .rag-banner, dialog.cmdk, .spinner-overlay { display: none !important; }
+            .app-shell { grid-template-columns: 1fr !important; }
+            .ds-content { padding: 0 !important; max-width: 100% !important; }
         }
     </style>
 
-    {# Tema visual personalizable por empresa. Sobrescribe variables CSS si
-       Empresas/{TICKER}/tema.txt existe. Los valores ya fueron validados
-       como hex en _cargar_tema_empresa(). #}
+    {# Tema visual personalizable por empresa (sin cambios funcionales). #}
     {% if TEMA_EMPRESA %}
     <style>
         :root {
-            {% if TEMA_EMPRESA.color_primario %}--deloitte-green: {{ TEMA_EMPRESA.color_primario }};
-            --brand-primary: {{ TEMA_EMPRESA.color_primario }};{% endif %}
-            {% if TEMA_EMPRESA.color_primario_oscuro %}--deloitte-green-dark: {{ TEMA_EMPRESA.color_primario_oscuro }};{% endif %}
-            {% if TEMA_EMPRESA.color_secundario %}--brand-secondary: {{ TEMA_EMPRESA.color_secundario }};{% endif %}
-            {% if TEMA_EMPRESA.color_acento %}--brand-accent: {{ TEMA_EMPRESA.color_acento }};{% endif %}
-            {% if TEMA_EMPRESA.color_texto_primario %}--brand-primary-text: {{ TEMA_EMPRESA.color_texto_primario }};{% endif %}
-            {% if TEMA_EMPRESA.color_texto_primario_oscuro %}--brand-primary-dark-text: {{ TEMA_EMPRESA.color_texto_primario_oscuro }};{% endif %}
+            {% if TEMA_EMPRESA.color_primario %}--brand: {{ TEMA_EMPRESA.color_primario }}; --deloitte-green: {{ TEMA_EMPRESA.color_primario }}; --brand-primary: {{ TEMA_EMPRESA.color_primario }};{% endif %}
+            {% if TEMA_EMPRESA.color_primario_oscuro %}--brand-dark: {{ TEMA_EMPRESA.color_primario_oscuro }}; --deloitte-green-dark: {{ TEMA_EMPRESA.color_primario_oscuro }};{% endif %}
+            {% if TEMA_EMPRESA.color_texto_primario %}--brand-on: {{ TEMA_EMPRESA.color_texto_primario }};{% endif %}
         }
-        {% if TEMA_EMPRESA.fondo_topbar %}.topbar { background: {{ TEMA_EMPRESA.fondo_topbar }} !important; }{% endif %}
-        {% if TEMA_EMPRESA.color_texto_topbar %}.topbar, .topbar-left span, .topbar-right, .topbar-right a { color: {{ TEMA_EMPRESA.color_texto_topbar }} !important; }{% endif %}
     </style>
     {% endif %}
 </head>
+
 <body>
-    <nav class="main-nav">
-        <div class="nav-container">
-            <a href="/" class="nav-brand" aria-label="Inicio DFin AI">
-                <img src="{{ url_for('static', filename='logo.svg') }}" alt="DFin AI">
-            </a>
-            {% if EMPRESA_LOGO_DISPONIBLE %}
-            <div class="nav-logo-empresa" title="{{ EMPRESA_NOMBRE }}">
-                <span class="nav-logo-sep" aria-hidden="true"></span>
-                <img src="{{ EMPRESA_LOGO_URL }}" alt="{{ EMPRESA_NOMBRE }}">
+<div class="app-shell">
+    <!-- ============== SIDEBAR ============== -->
+    <aside class="ds-sidebar">
+        <div class="ds-side-head">
+            <a href="/" class="ds-logo-mark" title="Inicio · DFin AI">D</a>
+            <div class="ds-brand" style="flex: 1; min-width: 0;">
+                DFin AI
+                <small>Financial Intelligence</small>
             </div>
+        </div>
+
+        <nav class="ds-side-nav">
+            <div class="ds-side-section">Workspace</div>
+            <a class="ds-nav-item {% if request.path == '/' %}active{% endif %}" href="/">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                Inicio
+            </a>
+            <a class="ds-nav-item {% if '/habla-con-tus-datos' in request.path %}active{% endif %}" href="/habla-con-tus-datos">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Habla con tus datos
+                <span class="ds-pill">AI</span>
+            </a>
+            {% if EMPRESA_COTIZA %}
+            <a class="ds-nav-item {% if '/panel-ejecutivo' in request.path %}active{% endif %}" href="/panel-ejecutivo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/></svg>
+                Panel ejecutivo
+            </a>
+            <a class="ds-nav-item {% if '/benchmark' in request.path %}active{% endif %}" href="/benchmark">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                Benchmark sectorial
+            </a>
             {% endif %}
+
+            <div class="ds-side-section">Operar</div>
+            {% if EMPRESA_COTIZA %}
+            <a class="ds-nav-item {% if request.path.startswith('/analisis') or '/generar_informe' in request.path %}active{% endif %}" href="/analisis">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg>
+                Informe narrativo
+            </a>
+            {% endif %}
+            <a class="ds-nav-item {% if '/relacion-inversores' in request.path %}active{% endif %}" href="/relacion-inversores">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
+                Relación con Stakeholders
+            </a>
+            <a class="ds-nav-item {% if '/noticias' in request.path %}active{% endif %}" href="/noticias">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+                Noticias del sector
+            </a>
+            <a class="ds-nav-item {% if '/informes-generados' in request.path %}active{% endif %}" href="/informes-generados">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                Informes generados
+            </a>
+
+            <div class="ds-side-section">Preview</div>
+            <a class="ds-nav-item {% if '/presupuesto' in request.path %}active{% endif %}" href="/presupuesto">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
+                Presupuesto ML
+                <span class="ds-pill gray">Soon</span>
+            </a>
+            <a class="ds-nav-item {% if '/radar-normativo' in request.path %}active{% endif %}" href="/radar-normativo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/></svg>
+                Radar normativo
+                <span class="ds-pill gray">Soon</span>
+            </a>
+
+            <div class="ds-side-section">Administrar</div>
+            <a class="ds-nav-item {% if request.path.startswith('/admin') %}active{% endif %}" href="/admin">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>
+                Administración
+            </a>
+            <a class="ds-nav-item {% if '/coste' in request.path %}active{% endif %}" href="/coste">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                Coste de tokens
+            </a>
+        </nav>
+
+        <div class="ds-side-foot">
             {% if DELOITTE_LOGO_DISPONIBLE %}
-            <div class="nav-logo-deloitte-inline" title="Powered by Deloitte">
-                <span class="nav-logo-sep" aria-hidden="true"></span>
+            <div class="ds-deloitte-logo">
                 <img src="{{ DELOITTE_LOGO_URL }}" alt="Deloitte">
             </div>
+            {% else %}
+            <span class="ds-avatar">Dx</span>
             {% endif %}
-            <ul class="nav-links">
-                <li>
-                    <a href="/" class="{% if request.path == '/' %}active{% endif %}">Inicio</a>
-                </li>
-                <li class="has-dropdown">
-                    <button type="button" aria-haspopup="true">Análisis <span class="caret"></span></button>
-                    <div class="dropdown-menu">
-                        {% if EMPRESA_COTIZA %}
-                        <a href="/analisis">Generar Informe Narrativo<small>Informe individual con IA + datos de Yahoo</small></a>
-                        {% endif %}
-                        <a href="/informes-generados">Informes generados<small>Histórico de informes Word / PDF</small></a>
-                        <a href="/relacion-inversores">Relación con Stakeholders<small>Bandeja de consultas con IA</small></a>
-                        <a href="/habla-con-tus-datos">Habla con tus datos<small>Chat sobre indicadores financieros y documentación</small></a>
-                    </div>
-                </li>
-                <li class="has-dropdown">
-                    <button type="button" aria-haspopup="true">Funcionalidades <span class="caret"></span></button>
-                    <div class="dropdown-menu">
-                        <a href="/presupuesto">Elaboración de Presupuesto (ML)<small>Forecasting con Machine Learning</small><span class="badge soon">Preview</span></a>
-                        <a href="/radar-normativo">Radar Normativo<small>Alertas regulatorias y fiscales</small><span class="badge soon">Preview</span></a>
-                        <a href="/noticias">Noticias del Sector<small>Actualidad del sector y de la compañía</small></a>
-                    </div>
-                </li>
-                <li>
-                    <a href="/admin" class="{% if request.path.startswith('/admin') %}active{% endif %}">Administración</a>
-                </li>
-                <li class="nav-cta">
-                    <button type="button" class="cmdk-trigger" onclick="window.cmdkOpen && window.cmdkOpen()" title="Abrir buscador (Ctrl+K)" aria-label="Abrir buscador">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                        Buscar <kbd>Ctrl K</kbd>
-                    </button>
-                    <span class="user-chip">{{ TENANT_NOMBRE }}{% if TICKER_FIJO %} · {{ TICKER_FIJO }}{% else %} · Tenant ES-01{% endif %}</span>
-                    <button type="button" class="icon-btn" id="theme-toggle" title="Alternar modo noche" aria-label="Alternar modo noche">
-                        <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                        <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" hidden><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-                    </button>
-                    <button class="icon-btn" title="Notificaciones" aria-label="Notificaciones">&#9873;</button>
-                </li>
-            </ul>
+            <div class="ds-avatar-txt" style="flex: 1; min-width: 0;">
+                Powered by Deloitte
+                <small>{% if TICKER_FIJO %}Ticker · {{ TICKER_FIJO }}{% else %}Workspace activo{% endif %}</small>
+            </div>
         </div>
-    </nav>
+    </aside>
 
-    {% if TICKER_FIJO %}
-    <div id="rag-banner" class="rag-banner" hidden>
-        <span class="rag-spin" aria-hidden="true"></span>
-        <span><strong>Indexando documentos de {{ EMPRESA_NOMBRE }}…</strong>
-            <small id="rag-banner-progreso">Esto es de fondo; puedes seguir usando la app. Yahoo, búsqueda web y líneas maestras ya están listos.</small>
-        </span>
+    <!-- ============== MAIN ============== -->
+    <div class="ds-main">
+        <header class="ds-topbar">
+            <div class="ds-breadcrumb">
+                <span>Workspace</span>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <span class="current">{% block breadcrumb_actual %}{% if request.path == '/' %}Inicio{% else %}{{ request.path.lstrip('/').split('/')[0].replace('-', ' ').title() }}{% endif %}{% endblock %}</span>
+            </div>
+
+            <div class="ds-search">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" readonly placeholder="Buscar módulo, KPI o documento…" onclick="window.cmdkOpen && window.cmdkOpen()" aria-label="Buscar">
+                <span class="kbd">⌘K</span>
+            </div>
+
+            <div class="ds-topbar-right">
+                {% if EMPRESA_LOGO_DISPONIBLE %}
+                <div class="ds-empresa-logo" title="{{ EMPRESA_NOMBRE }}">
+                    <img src="{{ EMPRESA_LOGO_URL }}" alt="{{ EMPRESA_NOMBRE }}">
+                </div>
+                {% endif %}
+                {% if TICKER_FIJO %}
+                <span class="ds-tenant-chip">{{ EMPRESA_NOMBRE or 'Empresa' }} · {{ TICKER_FIJO }}</span>
+                {% else %}
+                <span class="ds-tenant-chip">{{ TENANT_NOMBRE or 'DFin AI' }}</span>
+                {% endif %}
+                <button type="button" class="ds-icon-btn" id="theme-toggle" title="Alternar modo noche" aria-label="Alternar modo noche">
+                    <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16" hidden><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+                </button>
+                <button type="button" class="ds-icon-btn" title="Notificaciones" aria-label="Notificaciones">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                    <span class="ping"></span>
+                </button>
+                <button type="button" class="ds-icon-btn" title="Ayuda" aria-label="Ayuda">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                </button>
+            </div>
+        </header>
+
+        {% if TICKER_FIJO and EMPRESA_COTIZA %}
+        <div class="ds-ticker" aria-label="Cotizaciones en vivo">
+            <div class="ds-ticker-label"><span class="live-dot" aria-hidden="true"></span>LIVE</div>
+            <div class="ds-ticker-viewport"><div class="ds-ticker-track" id="ds-ticker-track"></div></div>
+        </div>
+        {% endif %}
+
+        {% if TICKER_FIJO %}
+        <div id="rag-banner" class="rag-banner" hidden>
+            <span class="rag-spin" aria-hidden="true"></span>
+            <span><strong>Indexando documentos de {{ EMPRESA_NOMBRE }}…</strong>
+                <small id="rag-banner-progreso">Esto es de fondo; puedes seguir usando la app.</small>
+            </span>
+        </div>
+        <script>
+            (function() {
+                var banner = document.getElementById('rag-banner');
+                var progSpan = document.getElementById('rag-banner-progreso');
+                if (!banner) return;
+                async function check() {
+                    try {
+                        var r = await fetch('/rag/status', { cache: 'no-store' });
+                        var j = await r.json();
+                        if (j.en_construccion) {
+                            banner.hidden = false;
+                            if (j.progreso) progSpan.textContent = j.progreso;
+                            setTimeout(check, 4000);
+                        } else { banner.hidden = true; }
+                    } catch (_) {}
+                }
+                check();
+            })();
+        </script>
+        {% endif %}
+
+        <main class="ds-content">
+            {% block content %}{% endblock %}
+        </main>
     </div>
-    <style>
-        .rag-banner[hidden] { display: none !important; }
-        .rag-banner {
-            background: #FFF8E1;
-            border: 1px solid #FFE082;
-            color: #5D4037;
-            padding: 8px 16px;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .rag-banner small { display: block; color: #7A5C2A; font-size: 0.76rem; font-weight: 400; margin-top: 1px; }
-        .rag-spin {
-            width: 13px; height: 13px;
-            border: 2px solid rgba(0,0,0,0.15);
-            border-top-color: #5D4037;
-            border-radius: 50%;
-            animation: rag-spin 0.7s linear infinite;
-            display: inline-block;
-        }
-        @keyframes rag-spin { to { transform: rotate(360deg); } }
-    </style>
-    <script>
-        (function() {
-            const banner = document.getElementById('rag-banner');
-            const progSpan = document.getElementById('rag-banner-progreso');
-            if (!banner) return;
-            async function check() {
-                try {
-                    const r = await fetch('/rag/status', { cache: 'no-store' });
-                    const j = await r.json();
-                    if (j.en_construccion) {
-                        banner.hidden = false;
-                        if (j.progreso) progSpan.textContent = j.progreso;
-                        setTimeout(check, 4000);
-                    } else {
-                        banner.hidden = true;
-                    }
-                } catch (_e) { /* silencio */ }
-            }
-            check();
-        })();
-    </script>
-    {% endif %}
+</div>
 
-    <main>
-        {% block content %}{% endblock %}
-    </main>
-
-    <footer class="site-footer">
-        <div class="footer-top">
-            <div class="brand">
-                <h4>DFin AI</h4>
-                <p>Plataforma corporativa de inteligencia financiera. Analítica avanzada con IA generativa, automatización de procesos contables y supervisión normativa en un único entorno.</p>
-            </div>
-            <div>
-                <h4>Producto</h4>
-                <ul>
-                    {% if EMPRESA_COTIZA %}
-                    <li><a href="/analisis">Informe Narrativo</a></li>
-                    {% endif %}
-                    <li><a href="/relacion-inversores">Relación con Stakeholders</a></li>
-                    <li><a href="/habla-con-tus-datos">Habla con tus datos</a></li>
-                    <li><a href="/presupuesto">Presupuesto ML</a></li>
-                </ul>
-            </div>
-            <div>
-                <h4>Inteligencia</h4>
-                <ul>
-                    <li><a href="/radar-normativo">Radar Normativo</a></li>
-                    <li><a href="/noticias">Noticias del Sector</a></li>
-                    <li><a href="#">API &amp; Integraciones</a></li>
-                    <li><a href="#">Changelog</a></li>
-                </ul>
-            </div>
-            <div>
-                <h4>Organización</h4>
-                <ul>
-                    <li><a href="/admin">Administración</a></li>
-                    <li><a href="/coste">Coste de tokens</a></li>
-                    <li><a href="#">Política de privacidad</a></li>
-                    <li><a href="#">Términos de servicio</a></li>
-                </ul>
-            </div>
-        </div>
-        <div class="footer-accent"></div>
-        <div class="footer-bottom">
-            <span>&copy; 2026 DFin AI. Todos los derechos reservados.</span>
-            <span>Entorno privado · {{ TENANT_NOMBRE }} · v1.4.0 · Build 2026.04 · Región EU-WEST-1</span>
-        </div>
-    </footer>
-
-    <!-- ==================== Command Palette ==================== -->
-    <dialog id="cmdk" class="cmdk" aria-label="Buscador rápido">
-        <div class="cmdk-input-wrap">
-            <svg class="cmdk-icon-search" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-            <input id="cmdk-input" type="text" placeholder="Buscar módulo, acción o atajo…" autocomplete="off" spellcheck="false">
-            <span class="cmdk-esc">ESC</span>
-        </div>
-        <div class="cmdk-list" id="cmdk-list" role="listbox"></div>
-        <div class="cmdk-footer">
-            <span><kbd>↑</kbd><kbd>↓</kbd> navegar · <kbd>↵</kbd> abrir · <kbd>Esc</kbd> cerrar</span>
-            <span>DFin AI</span>
-        </div>
-    </dialog>
-    <script>
-    (function() {
-        var cotiza = {{ 'true' if EMPRESA_COTIZA else 'false' }};
-        var tickerFijo = {{ 'true' if TICKER_FIJO else 'false' }};
-
-        // Icon SVG set (inline, stroke=currentColor)
-        var ICONS = {
-            home: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
-            'bar-chart': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg>',
-            clipboard: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/></svg>',
-            'trend-up': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
-            mail: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>',
-            chat: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
-            newspaper: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>',
-            folder: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>',
-            ruler: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>',
-            radar: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/></svg>',
-            settings: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>',
-            coin: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>',
-            refresh: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>'
-        };
-
-        var ITEMS = [
-            { name: 'Inicio', desc: 'Volver a la pantalla principal', url: '/', icon: 'home', group: 'Navegación', keys: 'inicio home dashboard' }
-        ];
-        if (cotiza) {
-            ITEMS.push({ name: 'Generar Informe Narrativo', desc: 'Informe con IA a partir de datos de Yahoo', url: '/analisis', icon: 'bar-chart', group: 'Módulos', keys: 'informe narrativo yahoo ia analisis' });
-            ITEMS.push({ name: 'Panel Ejecutivo', desc: 'One-pager A4 con KPIs, evolución y benchmark', url: '/panel-ejecutivo', icon: 'clipboard', group: 'Módulos', keys: 'panel ejecutivo one pager pdf direccion kpi resumen' });
-            ITEMS.push({ name: 'Benchmark Sectorial', desc: 'Comparativa con competidores (múltiplos, márgenes, crecimiento)', url: '/benchmark', icon: 'trend-up', group: 'Módulos', keys: 'benchmark sectorial competidores comparativa peers pe margen crecimiento' });
-        }
-        ITEMS.push(
-            { name: 'Relación con Stakeholders', desc: 'Bandeja de correos con IA (inversores, analistas, reguladores…)', url: '/relacion-inversores', icon: 'mail', group: 'Módulos', keys: 'stakeholders ir inversores analistas reguladores auditores correos gmail bandeja' },
-            { name: 'Habla con tus datos', desc: 'Chat sobre indicadores financieros y documentación corporativa', url: '/habla-con-tus-datos', icon: 'chat', group: 'Módulos', keys: 'habla chat datos consulta documental kpi rag diccionario pregunta' },
-            { name: 'Noticias del Sector', desc: 'Noticias del sector y de la compañía', url: '/noticias', icon: 'newspaper', group: 'Módulos', keys: 'noticias sector actualidad news' },
-            { name: 'Informes generados', desc: 'Histórico de informes Word / PDF', url: '/informes-generados', icon: 'folder', group: 'Módulos', keys: 'informes generados historico word pdf descargas' },
-            { name: 'Elaboración de Presupuesto (ML)', desc: 'Forecasting con Machine Learning', url: '/presupuesto', icon: 'ruler', group: 'Preview', tag: 'Preview', keys: 'presupuesto forecasting ml machine learning' },
-            { name: 'Radar Normativo', desc: 'Alertas regulatorias y fiscales', url: '/radar-normativo', icon: 'radar', group: 'Preview', tag: 'Preview', keys: 'radar normativo regulatorio fiscal alertas' },
-            { name: 'Administración', desc: 'Panel admin y configuración', url: '/admin', icon: 'settings', group: 'Admin', keys: 'admin administracion panel configuracion' },
-            { name: 'Coste de tokens', desc: 'Consumo y auditoría de IA', url: '/coste', icon: 'coin', group: 'Admin', keys: 'coste tokens consumo auditoria ia' }
-        );
-        if (!tickerFijo) {
-            ITEMS.push({ name: 'Cambiar de empresa', desc: 'Volver al selector de empresa', url: '/cambiar-empresa', icon: 'refresh', group: 'Admin', keys: 'cambiar empresa selector' });
-        }
-
-        var dlg = document.getElementById('cmdk');
-        var input = document.getElementById('cmdk-input');
-        var list = document.getElementById('cmdk-list');
-        var selectedIndex = 0;
-        var filtered = ITEMS.slice();
-
-        function fuzzyScore(item, q) {
-            if (!q) return 1;
-            var hay = (item.name + ' ' + item.desc + ' ' + (item.keys || '')).toLowerCase();
-            if (hay.indexOf(q) !== -1) return 10;
-            // letras en orden
-            var qi = 0;
-            for (var i = 0; i < hay.length && qi < q.length; i++) {
-                if (hay[i] === q[qi]) qi++;
-            }
-            return qi === q.length ? 1 : 0;
-        }
-
-        function filter(q) {
-            q = (q || '').trim().toLowerCase();
-            if (!q) {
-                filtered = ITEMS.slice();
-            } else {
-                filtered = ITEMS
-                    .map(function(it) { return { it: it, s: fuzzyScore(it, q) }; })
-                    .filter(function(x) { return x.s > 0; })
-                    .sort(function(a, b) { return b.s - a.s; })
-                    .map(function(x) { return x.it; });
-            }
-            selectedIndex = 0;
-            render();
-        }
-
-        function render() {
-            list.innerHTML = '';
-            if (!filtered.length) {
-                list.innerHTML = '<div class="cmdk-empty">Sin resultados</div>';
-                return;
-            }
-            var groups = {};
-            var order = [];
-            filtered.forEach(function(it) {
-                if (!groups[it.group]) { groups[it.group] = []; order.push(it.group); }
-                groups[it.group].push(it);
-            });
-            var globalIdx = 0;
-            order.forEach(function(g) {
-                var h = document.createElement('div');
-                h.className = 'cmdk-group';
-                h.textContent = g;
-                list.appendChild(h);
-                groups[g].forEach(function(it) {
-                    var a = document.createElement('a');
-                    a.className = 'cmdk-item' + (globalIdx === selectedIndex ? ' active' : '');
-                    a.href = it.url;
-                    a.dataset.idx = globalIdx;
-                    a.setAttribute('role', 'option');
-                    a.innerHTML =
-                        '<span class="cmdk-item-icon">' + (ICONS[it.icon] || ICONS.home) + '</span>' +
-                        '<span class="cmdk-item-body">' +
-                            '<span class="cmdk-item-name"></span>' +
-                            '<span class="cmdk-item-desc"></span>' +
-                        '</span>' +
-                        (it.tag ? '<span class="cmdk-item-tag">' + it.tag + '</span>' : '');
-                    a.querySelector('.cmdk-item-name').textContent = it.name;
-                    a.querySelector('.cmdk-item-desc').textContent = it.desc;
-                    var myIdx = globalIdx;
-                    a.addEventListener('mouseenter', function() {
-                        selectedIndex = myIdx;
-                        updateActive();
-                    });
-                    list.appendChild(a);
-                    globalIdx++;
-                });
-            });
-        }
-
-        function updateActive() {
-            var all = list.querySelectorAll('.cmdk-item');
-            all.forEach(function(el, i) {
-                if (i === selectedIndex) {
-                    el.classList.add('active');
-                    var r = el.getBoundingClientRect();
-                    var lr = list.getBoundingClientRect();
-                    if (r.top < lr.top) el.scrollIntoView({ block: 'nearest' });
-                    else if (r.bottom > lr.bottom) el.scrollIntoView({ block: 'nearest' });
-                } else {
-                    el.classList.remove('active');
-                }
-            });
-        }
-
-        function openCmdk() {
-            input.value = '';
-            filter('');
-            if (typeof dlg.showModal === 'function') {
-                try { dlg.showModal(); } catch (_) { dlg.setAttribute('open', ''); }
-            } else {
-                dlg.setAttribute('open', '');
-            }
-            setTimeout(function() { input.focus(); }, 20);
-        }
-        function closeCmdk() {
-            if (typeof dlg.close === 'function') dlg.close();
-            else dlg.removeAttribute('open');
-        }
-        window.cmdkOpen = openCmdk;
-
-        document.addEventListener('keydown', function(e) {
-            // Ctrl+K / Cmd+K
-            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-                e.preventDefault();
-                if (dlg.open) closeCmdk(); else openCmdk();
-                return;
-            }
-            // '/' como alternativa cuando no estamos en un input
-            if (e.key === '/' && !dlg.open) {
-                var ae = document.activeElement;
-                var tag = ae && ae.tagName ? ae.tagName.toLowerCase() : '';
-                var editable = tag === 'input' || tag === 'textarea' || (ae && ae.isContentEditable);
-                if (!editable) {
-                    e.preventDefault();
-                    openCmdk();
-                }
-            }
-        });
-
-        input.addEventListener('input', function() { filter(input.value); });
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                selectedIndex = Math.min(selectedIndex + 1, filtered.length - 1);
-                updateActive();
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                selectedIndex = Math.max(selectedIndex - 1, 0);
-                updateActive();
-            } else if (e.key === 'Home') {
-                e.preventDefault();
-                selectedIndex = 0;
-                updateActive();
-            } else if (e.key === 'End') {
-                e.preventDefault();
-                selectedIndex = Math.max(filtered.length - 1, 0);
-                updateActive();
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                var it = filtered[selectedIndex];
-                if (it) window.location.href = it.url;
-            } else if (e.key === 'Escape') {
-                // dialog cierra por defecto; aseguramos el estado
-                closeCmdk();
-            }
-        });
-
-        // click fuera del contenido → cerrar
-        dlg.addEventListener('click', function(e) {
-            var r = dlg.getBoundingClientRect();
-            var inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-            if (!inside) closeCmdk();
-        });
-    })();
-    </script>
-
-    <div class="spinner-overlay" id="loadingSpinner">
-        <div class="spinner-box">
-            <div class="spinner"></div>
-            <p>Procesando datos financieros...</p>
-        </div>
+<!-- ==================== Command Palette ==================== -->
+<dialog id="cmdk" class="cmdk" aria-label="Buscador rápido">
+    <div class="cmdk-input-wrap">
+        <svg class="cmdk-icon-search" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="cmdk-input" type="text" placeholder="Buscar módulo, acción o atajo…" autocomplete="off" spellcheck="false">
+        <span class="cmdk-esc">ESC</span>
     </div>
+    <div class="cmdk-list" id="cmdk-list" role="listbox"></div>
+    <div class="cmdk-footer">
+        <span><kbd>↑</kbd><kbd>↓</kbd> navegar · <kbd>↵</kbd> abrir · <kbd>Esc</kbd> cerrar</span>
+        <span>DFin AI</span>
+    </div>
+</dialog>
+<script>
+(function() {
+    var cotiza = {{ 'true' if EMPRESA_COTIZA else 'false' }};
+    var tickerFijo = {{ 'true' if TICKER_FIJO else 'false' }};
 
-    <script>
-        // Dropdowns (click-to-open, close on outside click)
-        (function() {
-            var items = document.querySelectorAll('.nav-links .has-dropdown');
-            items.forEach(function(item) {
-                var btn = item.querySelector('button');
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    var isOpen = item.classList.contains('open');
-                    items.forEach(function(i) { i.classList.remove('open'); });
-                    if (!isOpen) item.classList.add('open');
-                });
-            });
-            document.addEventListener('click', function() {
-                items.forEach(function(i) { i.classList.remove('open'); });
-            });
-        })();
+    var ICONS = {
+        home: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+        'bar-chart': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg>',
+        clipboard: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/></svg>',
+        'trend-up': '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>',
+        mail: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>',
+        chat: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+        newspaper: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>',
+        folder: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>',
+        ruler: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/></svg>',
+        radar: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/></svg>',
+        settings: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m18.36-7.36l-4.24 4.24m-6.24 6.24l-4.24 4.24m0-14.72l4.24 4.24m6.24 6.24l4.24 4.24"/></svg>',
+        coin: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>',
+        refresh: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>'
+    };
 
-        // Toggle de tema (persistente). El pre-aplicar está en el <head>.
-        (function() {
-            var btn = document.getElementById('theme-toggle');
-            var icoMoon = document.getElementById('theme-icon-moon');
-            var icoSun = document.getElementById('theme-icon-sun');
-            if (!btn) return;
-            function temaActual() {
-                var attr = document.documentElement.getAttribute('data-theme');
-                if (attr === 'dark' || attr === 'light') return attr;
-                try {
-                    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-                        ? 'dark' : 'light';
-                } catch (_) { return 'light'; }
-            }
-            function pintarIcono() {
-                var t = temaActual();
-                if (icoMoon && icoSun) {
-                    icoMoon.hidden = (t === 'dark');
-                    icoSun.hidden = (t !== 'dark');
-                }
-                btn.setAttribute('title', t === 'dark' ? 'Activar modo claro' : 'Activar modo noche');
-            }
-            btn.addEventListener('click', function() {
-                var siguiente = temaActual() === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-theme', siguiente);
-                try { localStorage.setItem('dfin-theme', siguiente); } catch (_) {}
-                pintarIcono();
-            });
-            pintarIcono();
-            // Si el usuario no ha elegido explícitamente y cambia el OS,
-            // re-pintamos el icono para reflejarlo.
-            try {
-                var mq = window.matchMedia('(prefers-color-scheme: dark)');
-                mq.addEventListener && mq.addEventListener('change', pintarIcono);
-            } catch (_) {}
-        })();
+    var ITEMS = [
+        { name: 'Inicio', desc: 'Volver a la pantalla principal', url: '/', icon: 'home', group: 'Navegación', keys: 'inicio home dashboard' }
+    ];
+    if (cotiza) {
+        ITEMS.push({ name: 'Generar Informe Narrativo', desc: 'Informe con IA a partir de la información de la base de datos', url: '/analisis', icon: 'bar-chart', group: 'Módulos', keys: 'informe narrativo ia analisis' });
+        ITEMS.push({ name: 'Panel Ejecutivo', desc: 'One-pager A4 con KPIs, evolución y benchmark', url: '/panel-ejecutivo', icon: 'clipboard', group: 'Módulos', keys: 'panel ejecutivo one pager pdf direccion kpi resumen' });
+        ITEMS.push({ name: 'Benchmark Sectorial', desc: 'Comparativa con competidores (múltiplos, márgenes, crecimiento)', url: '/benchmark', icon: 'trend-up', group: 'Módulos', keys: 'benchmark sectorial competidores comparativa peers pe margen crecimiento' });
+    }
+    ITEMS.push(
+        { name: 'Relación con Stakeholders', desc: 'Bandeja de correos con IA', url: '/relacion-inversores', icon: 'mail', group: 'Módulos', keys: 'stakeholders ir inversores analistas reguladores auditores correos gmail bandeja' },
+        { name: 'Habla con tus datos', desc: 'Chat sobre indicadores financieros y documentación corporativa', url: '/habla-con-tus-datos', icon: 'chat', group: 'Módulos', keys: 'habla chat datos consulta documental kpi rag diccionario pregunta' },
+        { name: 'Noticias del Sector', desc: 'Noticias del sector y de la compañía', url: '/noticias', icon: 'newspaper', group: 'Módulos', keys: 'noticias sector actualidad news' },
+        { name: 'Informes generados', desc: 'Histórico de informes Word / PDF', url: '/informes-generados', icon: 'folder', group: 'Módulos', keys: 'informes generados historico word pdf descargas' },
+        { name: 'Elaboración de Presupuesto (ML)', desc: 'Forecasting con Machine Learning', url: '/presupuesto', icon: 'ruler', group: 'Preview', tag: 'Preview', keys: 'presupuesto forecasting ml machine learning' },
+        { name: 'Radar Normativo', desc: 'Alertas regulatorias y fiscales', url: '/radar-normativo', icon: 'radar', group: 'Preview', tag: 'Preview', keys: 'radar normativo regulatorio fiscal alertas' },
+        { name: 'Administración', desc: 'Panel admin y configuración', url: '/admin', icon: 'settings', group: 'Admin', keys: 'admin administracion panel configuracion' },
+        { name: 'Coste de tokens', desc: 'Consumo y auditoría de IA', url: '/coste', icon: 'coin', group: 'Admin', keys: 'coste tokens consumo auditoria ia' }
+    );
+    if (!tickerFijo) {
+        ITEMS.push({ name: 'Cambiar de empresa', desc: 'Volver al selector de empresa', url: '/cambiar-empresa', icon: 'refresh', group: 'Admin', keys: 'cambiar empresa selector' });
+    }
 
-        function showLoading() {
-            document.getElementById('loadingSpinner').classList.add('active');
+    var dlg = document.getElementById('cmdk');
+    var input = document.getElementById('cmdk-input');
+    var list = document.getElementById('cmdk-list');
+    var selectedIndex = 0;
+    var filtered = ITEMS.slice();
+
+    function fuzzyScore(item, q) {
+        if (!q) return 1;
+        var hay = (item.name + ' ' + item.desc + ' ' + (item.keys || '')).toLowerCase();
+        if (hay.indexOf(q) !== -1) return 10;
+        var qi = 0;
+        for (var i = 0; i < hay.length && qi < q.length; i++) if (hay[i] === q[qi]) qi++;
+        return qi === q.length ? 1 : 0;
+    }
+    function filter(q) {
+        q = (q || '').trim().toLowerCase();
+        if (!q) { filtered = ITEMS.slice(); }
+        else {
+            filtered = ITEMS
+                .map(function(it) { return { it: it, s: fuzzyScore(it, q) }; })
+                .filter(function(x) { return x.s > 0; })
+                .sort(function(a, b) { return b.s - a.s; })
+                .map(function(x) { return x.it; });
         }
-
-        function downloadFile(form) {
-            var spinner = document.getElementById('loadingSpinner');
-            var originalText = spinner.querySelector('p').textContent;
-            spinner.querySelector('p').textContent = 'Generando documento...';
-            spinner.classList.add('active');
-
-            fetch(form.action, {
-                method: 'POST',
-                body: new FormData(form)
-            })
-            .then(function(response) {
-                if (!response.ok) {
-                    return response.text().then(function(text) { throw new Error(text); });
-                }
-                var disposition = response.headers.get('Content-Disposition') || '';
-                var match = disposition.match(/filename=([^;]+)/);
-                var filename = match ? match[1].trim().replace(/"/g, '') : 'documento';
-                return response.blob().then(function(blob) {
-                    return { blob: blob, filename: filename };
-                });
-            })
-            .then(function(result) {
-                var url = window.URL.createObjectURL(result.blob);
+        selectedIndex = 0;
+        render();
+    }
+    function render() {
+        list.innerHTML = '';
+        if (!filtered.length) { list.innerHTML = '<div class="cmdk-empty">Sin resultados</div>'; return; }
+        var groups = {}; var order = [];
+        filtered.forEach(function(it) {
+            if (!groups[it.group]) { groups[it.group] = []; order.push(it.group); }
+            groups[it.group].push(it);
+        });
+        var globalIdx = 0;
+        order.forEach(function(g) {
+            var h = document.createElement('div'); h.className = 'cmdk-group'; h.textContent = g;
+            list.appendChild(h);
+            groups[g].forEach(function(it) {
                 var a = document.createElement('a');
-                a.href = url;
-                a.download = result.filename;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                a.remove();
+                a.className = 'cmdk-item' + (globalIdx === selectedIndex ? ' active' : '');
+                a.href = it.url; a.dataset.idx = globalIdx; a.setAttribute('role', 'option');
+                a.innerHTML =
+                    '<span class="cmdk-item-icon">' + (ICONS[it.icon] || ICONS.home) + '</span>' +
+                    '<span class="cmdk-item-body"><span class="cmdk-item-name"></span><span class="cmdk-item-desc"></span></span>' +
+                    (it.tag ? '<span class="cmdk-item-tag">' + it.tag + '</span>' : '');
+                a.querySelector('.cmdk-item-name').textContent = it.name;
+                a.querySelector('.cmdk-item-desc').textContent = it.desc;
+                var myIdx = globalIdx;
+                a.addEventListener('mouseenter', function() { selectedIndex = myIdx; updateActive(); });
+                list.appendChild(a);
+                globalIdx++;
+            });
+        });
+    }
+    function updateActive() {
+        var all = list.querySelectorAll('.cmdk-item');
+        all.forEach(function(el, i) {
+            if (i === selectedIndex) {
+                el.classList.add('active');
+                var r = el.getBoundingClientRect(); var lr = list.getBoundingClientRect();
+                if (r.top < lr.top || r.bottom > lr.bottom) el.scrollIntoView({ block: 'nearest' });
+            } else el.classList.remove('active');
+        });
+    }
+    function openCmdk() {
+        input.value = ''; filter('');
+        if (typeof dlg.showModal === 'function') { try { dlg.showModal(); } catch (_) { dlg.setAttribute('open', ''); } }
+        else dlg.setAttribute('open', '');
+        setTimeout(function() { input.focus(); }, 20);
+    }
+    function closeCmdk() { if (typeof dlg.close === 'function') dlg.close(); else dlg.removeAttribute('open'); }
+    window.cmdkOpen = openCmdk;
+
+    document.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) { e.preventDefault(); if (dlg.open) closeCmdk(); else openCmdk(); return; }
+        if (e.key === '/' && !dlg.open) {
+            var ae = document.activeElement; var tag = ae && ae.tagName ? ae.tagName.toLowerCase() : '';
+            var editable = tag === 'input' || tag === 'textarea' || (ae && ae.isContentEditable);
+            if (!editable) { e.preventDefault(); openCmdk(); }
+        }
+    });
+    input.addEventListener('input', function() { filter(input.value); });
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowDown') { e.preventDefault(); selectedIndex = Math.min(selectedIndex + 1, filtered.length - 1); updateActive(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); selectedIndex = Math.max(selectedIndex - 1, 0); updateActive(); }
+        else if (e.key === 'Home') { e.preventDefault(); selectedIndex = 0; updateActive(); }
+        else if (e.key === 'End') { e.preventDefault(); selectedIndex = Math.max(filtered.length - 1, 0); updateActive(); }
+        else if (e.key === 'Enter') { e.preventDefault(); var it = filtered[selectedIndex]; if (it) window.location.href = it.url; }
+        else if (e.key === 'Escape') closeCmdk();
+    });
+    dlg.addEventListener('click', function(e) {
+        var r = dlg.getBoundingClientRect();
+        var inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+        if (!inside) closeCmdk();
+    });
+})();
+</script>
+
+<div class="spinner-overlay" id="loadingSpinner">
+    <div class="spinner-box">
+        <div class="spinner"></div>
+        <p style="margin: 0; color: var(--fg-dim); font-size: 0.9rem;">Procesando…</p>
+    </div>
+</div>
+
+<script>
+    // Toggle de tema
+    (function() {
+        var btn = document.getElementById('theme-toggle');
+        var icoMoon = document.getElementById('theme-icon-moon');
+        var icoSun = document.getElementById('theme-icon-sun');
+        if (!btn) return;
+        function temaActual() {
+            var attr = document.documentElement.getAttribute('data-theme');
+            if (attr === 'dark' || attr === 'light') return attr;
+            try { return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+            catch (_) { return 'light'; }
+        }
+        function pintarIcono() {
+            var t = temaActual();
+            if (icoMoon && icoSun) { icoMoon.hidden = (t === 'dark'); icoSun.hidden = (t !== 'dark'); }
+            btn.setAttribute('title', t === 'dark' ? 'Activar modo claro' : 'Activar modo noche');
+        }
+        btn.addEventListener('click', function() {
+            var siguiente = temaActual() === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', siguiente);
+            try { localStorage.setItem('dfin-theme', siguiente); } catch (_) {}
+            pintarIcono();
+        });
+        pintarIcono();
+    })();
+
+    // Spinner / download helpers legacy
+    function showLoading() { document.getElementById('loadingSpinner').classList.add('active'); }
+
+    function downloadFile(form) {
+        var spinner = document.getElementById('loadingSpinner');
+        var originalText = spinner.querySelector('p').textContent;
+        spinner.querySelector('p').textContent = 'Generando documento…';
+        spinner.classList.add('active');
+        fetch(form.action, { method: 'POST', body: new FormData(form) })
+        .then(function(response) {
+            if (!response.ok) return response.text().then(function(t) { throw new Error(t); });
+            var disp = response.headers.get('Content-Disposition') || '';
+            var m = disp.match(/filename=([^;]+)/);
+            var filename = m ? m[1].trim().replace(/"/g, '') : 'documento';
+            return response.blob().then(function(blob) { return { blob: blob, filename: filename }; });
+        })
+        .then(function(res) {
+            var url = window.URL.createObjectURL(res.blob);
+            var a = document.createElement('a'); a.href = url; a.download = res.filename;
+            document.body.appendChild(a); a.click();
+            window.URL.revokeObjectURL(url); a.remove();
+        })
+        .catch(function(e) { alert('Error al generar el documento: ' + e.message); })
+        .finally(function() {
+            spinner.classList.remove('active');
+            spinner.querySelector('p').textContent = originalText;
+        });
+        return false;
+    }
+
+    {% if TICKER_FIJO and EMPRESA_COTIZA %}
+    // Ticker en vivo (usa /cotizaciones si disponible, fallback a mock)
+    (function() {
+        var track = document.getElementById('ds-ticker-track');
+        if (!track) return;
+        function fmtPrice(v) { return Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 }); }
+        function render(items) {
+            var html = items.map(function(q) {
+                var chg = q.change_pct;
+                var dir = chg > 0 ? 'up' : (chg < 0 ? 'down' : 'flat');
+                var arrow = chg > 0 ? '▲' : (chg < 0 ? '▼' : '·');
+                var chgTxt = chg === null || chg === undefined ? '—' : ((chg > 0 ? '+' : '') + chg.toFixed(2) + '%');
+                var priceTxt = (q.price === null || q.price === undefined) ? '—' : fmtPrice(q.price);
+                return '<span class="ds-quote"><span class="sym">' + q.ticker + '</span>' +
+                       '<span class="price">' + priceTxt + '</span>' +
+                       '<span class="chg ' + dir + '">' + arrow + ' ' + chgTxt + '</span></span>';
+            }).join('');
+            track.innerHTML = html + html; // duplicamos para loop continuo
+        }
+        function cargar() {
+            fetch('/cotizaciones', { cache: 'no-store' })
+                .then(function(r) { return r.json(); })
+                .then(function(j) {
+                    if (j && j.ok && j.cotizaciones && j.cotizaciones.length) render(j.cotizaciones);
+                })
+                .catch(function() {});
+        }
+        cargar();
+        setInterval(cargar, 30000);
+    })();
+    {% endif %}
+</script>
+<!-- ==================== Asistente IA flotante ==================== -->
+<button type="button" class="ds-asistente-fab" id="asistente-fab" title="Asistente DFin" aria-label="Abrir asistente IA">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    <span class="ds-asistente-fab-pulse"></span>
+</button>
+
+<aside class="ds-asistente-drawer" id="asistente-drawer" aria-hidden="true">
+    <header class="ds-asistente-head">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span class="ds-asistente-brand">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </span>
+            <div>
+                <div style="font-size: 14px; font-weight: 600; color: var(--fg); font-family: 'IBM Plex Sans', sans-serif;">Asistente DFin</div>
+                <div style="font-size: 11px; color: var(--fg-mute);" id="asistente-modo-sub">Modo ayuda de la aplicación</div>
+            </div>
+        </div>
+        <button type="button" class="ds-icon-btn" onclick="asistenteCerrar()" aria-label="Cerrar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+    </header>
+
+    <div class="ds-asistente-tabs">
+        <button type="button" class="ds-asistente-tab is-active" data-modo="ayuda">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Ayuda de la app
+        </button>
+        <button type="button" class="ds-asistente-tab" data-modo="libre">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M22 2 12 12"/></svg>
+            Preguntar al modelo
+        </button>
+    </div>
+
+    <div class="ds-asistente-messages" id="asistente-messages">
+        <div class="ds-asistente-welcome">
+            <strong>Hola, soy el asistente de DFin AI.</strong><br>
+            Puedo ayudarte a moverte por la aplicación y explicarte qué hace cada módulo. Cambia a <em>Preguntar al modelo</em> para consultas abiertas al LLM.
+        </div>
+    </div>
+
+    <div class="ds-asistente-input">
+        <select id="asistente-modelo" class="ds-asistente-modelo" aria-label="Modelo IA">
+            {% for id, label in MODELOS_ORDENADOS %}
+            <option value="{{ id }}" {% if id == MODELO_POR_DEFECTO %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <div class="ds-asistente-composer">
+            <textarea id="asistente-textarea" rows="1" placeholder="Pregunta algo…"></textarea>
+            <button type="button" id="asistente-enviar" class="ds-asistente-send" title="Enviar (Enter)" aria-label="Enviar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 21.7a.5.5 0 0 0 .9 0l6.5-19a.5.5 0 0 0-.6-.6l-19 6.5a.5.5 0 0 0 0 .9l7.9 3.2a2 2 0 0 1 1.1 1.1z"/><path d="m21.9 2.1-11 11"/></svg>
+            </button>
+        </div>
+    </div>
+</aside>
+
+<style>
+.ds-asistente-fab {
+    position: fixed;
+    right: 22px; bottom: 22px;
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--brand);
+    color: var(--brand-on);
+    border: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 10px 28px rgba(134, 188, 37, 0.45), 0 4px 10px rgba(15, 23, 42, 0.22);
+    z-index: 90;
+    transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+    font-family: inherit;
+}
+.ds-asistente-fab:hover {
+    background: var(--brand-dark); color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 14px 34px rgba(67, 176, 42, 0.5), 0 6px 14px rgba(15, 23, 42, 0.28);
+}
+.ds-asistente-fab svg { width: 22px; height: 22px; }
+.ds-asistente-fab-pulse {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    animation: fab-ripple 2.8s ease-in-out infinite;
+    pointer-events: none;
+    box-shadow: 0 0 0 0 rgba(134, 188, 37, 0.5);
+}
+@keyframes fab-ripple {
+    0%   { box-shadow: 0 0 0 0 rgba(134, 188, 37, 0.55); }
+    70%  { box-shadow: 0 0 0 18px rgba(134, 188, 37, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(134, 188, 37, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ds-asistente-fab-pulse { animation: none !important; }
+}
+
+.ds-asistente-drawer {
+    position: fixed;
+    right: 0; top: 0; bottom: 0;
+    width: min(440px, 100vw);
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    box-shadow: -8px 0 32px rgba(15, 23, 42, 0.12);
+    display: flex; flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    z-index: 95;
+}
+.ds-asistente-drawer.is-open { transform: translateX(0); }
+.ds-asistente-head {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+}
+.ds-asistente-brand {
+    width: 34px; height: 34px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--brand); color: var(--brand-on);
+    border-radius: 8px;
+}
+.ds-asistente-tabs {
+    display: grid; grid-template-columns: 1fr 1fr;
+    padding: 10px 16px 0; gap: 6px;
+    border-bottom: 1px solid var(--border);
+}
+.ds-asistente-tab {
+    background: transparent; border: 0;
+    padding: 9px 10px 11px;
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--fg-mute); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    transition: color 0.12s, border-color 0.12s;
+}
+.ds-asistente-tab:hover { color: var(--fg); }
+.ds-asistente-tab.is-active { color: var(--brand-dark); border-bottom-color: var(--brand); }
+
+.ds-asistente-messages {
+    flex: 1; overflow-y: auto; min-height: 0;
+    padding: 16px 16px 10px;
+    display: flex; flex-direction: column; gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+}
+.ds-asistente-welcome {
+    background: var(--surface-muted);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px; color: var(--fg-dim);
+    line-height: 1.55;
+}
+.ds-asistente-welcome strong { color: var(--fg); }
+.as-msg {
+    max-width: 92%;
+    padding: 10px 13px; border-radius: 11px;
+    font-size: 13px; line-height: 1.55;
+    word-wrap: break-word;
+}
+.as-msg.user {
+    align-self: flex-end;
+    background: var(--brand-soft); color: var(--fg);
+    border: 1px solid var(--brand);
+    border-top-right-radius: 3px;
+}
+.as-msg.ai {
+    align-self: flex-start;
+    background: var(--surface-muted); color: var(--fg);
+    border: 1px solid var(--border);
+    border-top-left-radius: 3px;
+}
+.as-msg.ai p { margin: 0 0 8px; }
+.as-msg.ai p:last-child { margin-bottom: 0; }
+.as-msg.loading {
+    color: var(--fg-mute); font-style: italic;
+    display: inline-flex; align-items: center; gap: 8px;
+}
+.as-msg.loading::before {
+    content: ""; width: 12px; height: 12px;
+    border: 2px solid var(--border-strong); border-top-color: var(--brand);
+    border-radius: 50%;
+    animation: hd-spin 0.7s linear infinite;
+}
+.as-msg.error {
+    align-self: stretch;
+    background: var(--bad-bg); color: #991B1B;
+    border: 1px solid var(--bad);
+    font-size: 12.5px;
+}
+
+.ds-asistente-input {
+    border-top: 1px solid var(--border);
+    padding: 10px 14px 12px;
+    background: var(--surface-muted);
+    display: flex; flex-direction: column; gap: 6px;
+}
+.ds-asistente-modelo {
+    font-family: inherit; font-size: 11.5px;
+    padding: 4px 8px;
+    border: 1px solid var(--border); border-radius: 5px;
+    background: var(--surface); color: var(--fg);
+    max-width: 100%;
+}
+.ds-asistente-modelo:focus { outline: none; border-color: var(--brand); }
+.ds-asistente-composer {
+    display: flex; align-items: flex-end; gap: 6px;
+}
+.ds-asistente-composer textarea {
+    flex: 1; min-height: 40px; max-height: 120px;
+    font-family: inherit; font-size: 13.5px; line-height: 1.5;
+    padding: 9px 11px; border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--surface); color: var(--fg);
+    resize: none;
+}
+.ds-asistente-composer textarea:focus { outline: none; border-color: var(--brand); }
+.ds-asistente-send {
+    width: 40px; height: 40px;
+    background: var(--brand); color: var(--brand-on);
+    border: 0; border-radius: 7px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.ds-asistente-send:hover { background: var(--brand-dark); color: #fff; }
+.ds-asistente-send:disabled { opacity: 0.55; cursor: wait; }
+
+@media print { .ds-asistente-fab, .ds-asistente-drawer { display: none !important; } }
+</style>
+
+<script>
+(function() {
+    var fab = document.getElementById('asistente-fab');
+    var drawer = document.getElementById('asistente-drawer');
+    var messages = document.getElementById('asistente-messages');
+    var textarea = document.getElementById('asistente-textarea');
+    var btnSend = document.getElementById('asistente-enviar');
+    var selModelo = document.getElementById('asistente-modelo');
+    var tabs = document.querySelectorAll('.ds-asistente-tab');
+    var subModo = document.getElementById('asistente-modo-sub');
+    if (!fab || !drawer) return;
+
+    var modoActual = 'ayuda';
+    var enviando = false;
+    var historial = { ayuda: [], libre: [] };  // mensajes por modo, para repintar al cambiar tab
+
+    function abrir() {
+        drawer.classList.add('is-open');
+        drawer.setAttribute('aria-hidden', 'false');
+        setTimeout(function() { textarea.focus(); }, 180);
+    }
+    window.asistenteCerrar = function() {
+        drawer.classList.remove('is-open');
+        drawer.setAttribute('aria-hidden', 'true');
+    };
+
+    fab.addEventListener('click', function() {
+        if (drawer.classList.contains('is-open')) window.asistenteCerrar();
+        else abrir();
+    });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && drawer.classList.contains('is-open')) window.asistenteCerrar();
+    });
+
+    function setModo(m) {
+        if (m !== 'ayuda' && m !== 'libre') return;
+        modoActual = m;
+        tabs.forEach(function(t) { t.classList.toggle('is-active', t.dataset.modo === m); });
+        subModo.textContent = m === 'ayuda' ? 'Modo ayuda de la aplicación' : 'Modo consulta libre al modelo';
+        textarea.placeholder = m === 'ayuda' ? 'Pregunta cómo moverte por la aplicación…' : 'Pregunta cualquier cosa al modelo IA…';
+        repintarMensajes();
+    }
+    tabs.forEach(function(t) { t.addEventListener('click', function() { setModo(t.dataset.modo); }); });
+
+    function nodoWelcome() {
+        var w = document.createElement('div');
+        w.className = 'ds-asistente-welcome';
+        if (modoActual === 'ayuda') {
+            w.innerHTML = '<strong>Hola, soy el asistente de DFin AI.</strong><br>Puedo ayudarte a moverte por la aplicación y explicarte qué hace cada módulo. Prueba: <em>"¿Dónde veo los correos pendientes?"</em>, <em>"¿Cómo descargo los datos en Excel?"</em>, <em>"¿Qué es Habla con tus datos?"</em>.';
+        } else {
+            w.innerHTML = '<strong>Modo consulta libre.</strong><br>Pregunta al modelo IA cualquier cosa (conceptos financieros, metodología, análisis general…). Para datos de tu empresa concretos, usa <em>Habla con tus datos</em>, que trabaja sobre la base de datos y el repositorio documental.';
+        }
+        return w;
+    }
+
+    function escapeHtml(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function parrafos(txt) {
+        return (txt || '').trim().split(/\n{2,}/).map(function(p) {
+            return '<p>' + escapeHtml(p).replace(/\n/g, '<br>') + '</p>';
+        }).join('');
+    }
+
+    function repintarMensajes() {
+        messages.innerHTML = '';
+        var hist = historial[modoActual];
+        if (!hist.length) { messages.appendChild(nodoWelcome()); return; }
+        hist.forEach(function(m) {
+            var d = document.createElement('div');
+            d.className = 'as-msg ' + m.rol;
+            if (m.rol === 'ai') d.innerHTML = parrafos(m.texto);
+            else d.textContent = m.texto;
+            messages.appendChild(d);
+        });
+        messages.scrollTop = messages.scrollHeight;
+    }
+
+    function autoResize() {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+    textarea.addEventListener('input', autoResize);
+
+    textarea.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); }
+    });
+    btnSend.addEventListener('click', enviar);
+
+    function enviar() {
+        if (enviando) return;
+        var pregunta = textarea.value.trim();
+        if (!pregunta) return;
+        enviando = true;
+        btnSend.disabled = true;
+
+        historial[modoActual].push({ rol: 'user', texto: pregunta });
+        repintarMensajes();
+        textarea.value = '';
+        autoResize();
+
+        var loading = document.createElement('div');
+        loading.className = 'as-msg ai loading';
+        loading.textContent = 'Pensando…';
+        messages.appendChild(loading);
+        messages.scrollTop = messages.scrollHeight;
+
+        fetch('/_api/asistente/preguntar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pregunta: pregunta, modo: modoActual, modelo: selModelo.value }),
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(j) {
+                loading.remove();
+                if (!j.ok) {
+                    var err = document.createElement('div');
+                    err.className = 'as-msg error';
+                    err.textContent = j.error || 'No se pudo generar la respuesta.';
+                    messages.appendChild(err);
+                    return;
+                }
+                historial[modoActual].push({ rol: 'ai', texto: j.texto });
+                repintarMensajes();
             })
-            .catch(function(error) {
-                alert('Error al generar el documento: ' + error.message);
+            .catch(function(e) {
+                loading.remove();
+                var err = document.createElement('div');
+                err.className = 'as-msg error';
+                err.textContent = 'Error de conexión: ' + e.message;
+                messages.appendChild(err);
             })
             .finally(function() {
-                spinner.classList.remove('active');
-                spinner.querySelector('p').textContent = originalText;
+                enviando = false;
+                btnSend.disabled = false;
             });
+    }
+})();
+</script>
 
-            return false;
-        }
-    </script>
-    {% block scripts %}{% endblock %}
+{% block scripts %}{% endblock %}
 </body>
 </html>

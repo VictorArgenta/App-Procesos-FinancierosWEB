@@ -3281,23 +3281,37 @@ def index():
             "seleccionar_empresa.html",
             empresas=_empresas_disponibles(),
         )
-    # Si la empresa cotiza, montamos el resumen con los datos de Yahoo ya
-    # precargados en memoria (cache en _TICKER_FIJO_DATOS). No bloquea.
-    dashboard_home = None
-    if _empresa_cotiza():
-        try:
-            datos_cache = _cargar_datos_ticker_fijo()
-            dashboard_home = _resumen_dashboard_home(datos_cache)
-        except Exception as _e:
-            _logging.getLogger("dfin.home").warning(
-                "No se pudo preparar el dashboard de la home: %s", _e,
-            )
+    # Render inmediato: el dashboard y el contador de stakeholders se cargan
+    # vía AJAX tras pintar la página (ver /_api/home/dashboard y
+    # /_api/home/stakeholders), de modo que el TTFB sea sub-100 ms incluso
+    # cuando Yahoo o Gmail tarden en responder.
     return render_template(
         "index.html",
-        ir_pendientes=_contar_pendientes_ir(),
         ir_prefijo=_prefijo_asunto_actual(),
-        dashboard_home=dashboard_home,
     )
+
+
+@app.route("/_api/home/dashboard")
+def _api_home_dashboard():
+    """Endpoint ligero para rellenar KPIs y charts del home vía AJAX."""
+    from flask import jsonify
+    if not TICKER_FIJO or not _empresa_cotiza():
+        return jsonify({"ok": True, "dashboard": None})
+    try:
+        datos = _cargar_datos_ticker_fijo()
+        dash = _resumen_dashboard_home(datos)
+    except Exception as e:  # noqa: BLE001
+        _logging.getLogger("dfin.home").warning("Dashboard home: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+    return jsonify({"ok": True, "dashboard": dash})
+
+
+@app.route("/_api/home/stakeholders")
+def _api_home_stakeholders():
+    """Contador de correos pendientes de IR (lazy, no bloquea el render)."""
+    from flask import jsonify
+    pendientes = _contar_pendientes_ir()
+    return jsonify({"ok": True, "pendientes": pendientes, "prefijo": _prefijo_asunto_actual()})
 
 
 def _resumen_dashboard_home(datos):
@@ -6313,6 +6327,130 @@ def admin():
         fichero_coste=str(_COSTE_FILE),
         fichero_coste_existe=_COSTE_FILE.exists(),
     )
+
+
+# =====================================================================
+# Asistente IA flotante — ayuda de uso + consultas libres
+# =====================================================================
+
+_ASISTENTE_GUIA = """La aplicación se llama DFin AI y es una plataforma corporativa
+de inteligencia financiera. Su navegación principal está en una sidebar
+oscura permanente a la izquierda, organizada en secciones:
+
+Workspace:
+- Inicio (/): panel de bienvenida con KPIs del último FY, dos gráficos
+  (evolución y composición P&L) y un acceso rápido a los módulos.
+- Habla con tus datos (/habla-con-tus-datos): chat con IA sobre los
+  indicadores financieros y la documentación corporativa; resuelve
+  primero con la base de datos (KPIs del diccionario incluidos) y
+  complementa con el repositorio documental. Cada afirmación es
+  trazable a su fuente ([EST] para datos, [N] para documentación).
+- Panel ejecutivo (/panel-ejecutivo): one-pager A4 con KPIs,
+  evolución 5 años, composición P&L y lectura narrativa IA.
+  Exportable a PDF.
+- Benchmark sectorial (/benchmark): posicionamiento de la compañía
+  frente a competidores en múltiplos, márgenes y crecimiento.
+  Con narrativa IA y descarga PDF.
+
+Operar:
+- Informe narrativo (/analisis): elabora con IA memoria, informe del
+  consejo o carta al accionista a partir de los estados financieros.
+  Export Word/PDF. También permite descargar los datos en 3 TXT.
+- Relación con Stakeholders (/relacion-inversores): bandeja de
+  correos de IR con IA que clasifica (minorista/institucional) y
+  propone borradores de respuesta trazables.
+- Noticias del sector (/noticias): vigilancia continua del sector
+  y de la compañía, con envío por correo a interlocutores.
+- Informes generados (/informes-generados): histórico de Word/PDF
+  exportados.
+
+Preview (en construcción):
+- Presupuesto ML, Radar normativo.
+
+Administrar:
+- Administración (/admin), Coste de tokens (/coste).
+
+Características transversales:
+- Modo noche con toggle en la topbar (icono luna/sol).
+- Command Palette con Ctrl+K: salta a cualquier módulo por teclado.
+- Ticker Bloomberg bajo la topbar con cotizaciones en vivo
+  (empresa + competidores) si la empresa cotiza.
+- Diccionario funcional por empresa (Empresas/{TICKER}/diccionario.txt)
+  donde se definen sinónimos, explicaciones de partidas y KPIs
+  calculados con fórmulas. Se edita desde Habla con tus datos →
+  Editar diccionario, con ficha estructurada y vista avanzada.
+
+Preguntas típicas de ayuda: cómo encontrar X, cómo exportar Y,
+dónde se cambia el modelo, qué significa un pill-badge, qué hace
+tal botón, cómo añadir un KPI al diccionario, etc."""
+
+
+_PROMPT_ASISTENTE_AYUDA = """Eres el asistente de uso de DFin AI. Ayudas al
+usuario a navegar la aplicación, encontrar funcionalidades, interpretar
+elementos de la interfaz y entender qué hace cada módulo. Responde en
+español, de forma breve y directa. Si te preguntan algo que no tiene que
+ver con la aplicación, aclara que para eso es mejor la pestaña
+"Preguntar al modelo". Contexto de la aplicación:
+
+{guia}
+
+Pregunta del usuario:
+{pregunta}
+
+Respuesta:"""
+
+
+_PROMPT_ASISTENTE_LIBRE = """Eres un asistente financiero corporativo
+operando dentro de DFin AI (plataforma de inteligencia financiera para
+Deloitte). Responde en español, con tono profesional, conciso y directo.
+Si la pregunta requiere datos específicos de la empresa activa o
+documentación corporativa, recomienda al usuario abrir "Habla con tus
+datos" para obtener una respuesta trazada y con evidencias. Para
+preguntas generales (conceptos financieros, marco contable, metodología),
+responde con lo que sepas.
+
+Pregunta: {pregunta}
+
+Respuesta:"""
+
+
+@app.route("/_api/asistente/preguntar", methods=["POST"])
+def asistente_preguntar():
+    """Endpoint del asistente IA flotante. Dos modos: 'ayuda' (contexto
+    de la aplicación) o 'libre' (pregunta neutra al modelo)."""
+    from flask import jsonify
+    data = request.get_json(silent=True) or {}
+    pregunta = (data.get("pregunta") or "").strip()
+    modo = data.get("modo") or "ayuda"
+    if modo not in ("ayuda", "libre"):
+        modo = "ayuda"
+    if not pregunta:
+        return jsonify({"ok": False, "error": "La pregunta no puede estar vacía."}), 400
+    if len(pregunta) > 2000:
+        return jsonify({"ok": False, "error": "Pregunta demasiado larga (máx. 2000)."}), 400
+
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
+    if modo == "ayuda":
+        prompt = _PROMPT_ASISTENTE_AYUDA.format(guia=_ASISTENTE_GUIA, pregunta=pregunta)
+        max_tokens = 600
+    else:
+        prompt = _PROMPT_ASISTENTE_LIBRE.format(pregunta=pregunta)
+        max_tokens = 900
+
+    try:
+        texto, _citas = llamar_ia_con_reintentos(
+            prompt, max_tokens=max_tokens, modelo=modelo,
+            permitir_busqueda=False, modulo=f"asistente-{modo}",
+        )
+    except Exception as e:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    return jsonify({
+        "ok": True,
+        "texto": (texto or "").strip(),
+        "modelo": modelo,
+        "modo": modo,
+    })
 
 
 # =====================================================================
