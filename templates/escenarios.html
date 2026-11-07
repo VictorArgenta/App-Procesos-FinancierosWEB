@@ -1,0 +1,767 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Simulación de escenarios — {{ EMPRESA_NOMBRE }}{% endblock %}
+{% block breadcrumb_actual %}Simulación de escenarios{% endblock %}
+
+{% block content %}
+<style>
+    .esc-head {
+        display: flex; align-items: flex-end; justify-content: space-between;
+        gap: 20px; margin-bottom: 22px; flex-wrap: wrap;
+    }
+    .esc-head h1 { font-size: 1.55rem; font-weight: 700; margin: 0 0 4px; color: var(--fg); }
+    .esc-head p  { margin: 0; color: var(--fg-dim); font-size: 0.92rem; }
+
+    .esc-layout {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 18px;
+        align-items: start;
+    }
+    @media (max-width: 1100px) {
+        .esc-layout { grid-template-columns: 1fr; }
+    }
+
+    /* ==== Sidebar escenarios ==== */
+    .esc-aside {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        display: flex; flex-direction: column; gap: 10px;
+    }
+    .esc-aside h3 {
+        font-size: 0.7rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.6px;
+        color: var(--fg-mute);
+        margin: 0;
+    }
+    .esc-btn-nuevo {
+        display: flex; align-items: center; justify-content: center; gap: 7px;
+        padding: 9px 12px;
+        background: var(--brand); color: var(--brand-on);
+        border: 0; border-radius: 7px;
+        font-weight: 600; font-size: 0.85rem; font-family: inherit;
+        cursor: pointer;
+    }
+    .esc-btn-nuevo:hover { background: var(--brand-dark); color: #fff; }
+    .esc-list {
+        list-style: none; padding: 0; margin: 0;
+        display: flex; flex-direction: column; gap: 3px;
+    }
+    .esc-item {
+        display: flex; align-items: center; gap: 8px;
+        padding: 9px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        position: relative;
+    }
+    .esc-item:hover { background: var(--surface-muted); }
+    .esc-item.active { background: var(--brand-soft); border-color: var(--brand); }
+    .esc-item-name {
+        font-size: 0.86rem; font-weight: 500; color: var(--fg);
+        flex: 1; min-width: 0;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        padding-right: 20px;
+    }
+    .esc-item-del {
+        background: transparent; border: 0;
+        color: var(--fg-mute);
+        padding: 3px 5px; border-radius: 3px;
+        cursor: pointer; opacity: 0;
+        transition: opacity 0.12s;
+    }
+    .esc-item:hover .esc-item-del { opacity: 1; }
+    .esc-item-del:hover { color: var(--bad); background: var(--bad-bg); }
+    .esc-empty {
+        color: var(--fg-mute); font-style: italic;
+        font-size: 0.8rem; padding: 10px;
+    }
+
+    /* ==== Área principal ==== */
+    .esc-main { display: flex; flex-direction: column; gap: 18px; }
+
+    .esc-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 18px 20px;
+    }
+    .esc-card h2 {
+        font-size: 1rem; font-weight: 700;
+        margin: 0 0 6px; color: var(--fg);
+        display: flex; align-items: center; gap: 8px;
+    }
+    .esc-card p.sub { margin: 0 0 14px; font-size: 0.82rem; color: var(--fg-mute); }
+
+    /* ==== Drivers ==== */
+    .esc-drivers-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 14px;
+    }
+    .driver {
+        background: var(--surface-muted);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+    }
+    .driver-head {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 8px; margin-bottom: 8px;
+    }
+    .driver-name {
+        font-size: 0.86rem; font-weight: 600; color: var(--fg);
+    }
+    .driver-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem; font-weight: 700;
+        color: var(--brand-dark);
+        min-width: 60px; text-align: right;
+    }
+    .driver-val.neg { color: var(--bad); }
+    .driver-val.pos { color: var(--good); }
+    .driver input[type="range"] {
+        width: 100%; accent-color: var(--brand-dark);
+    }
+    .driver-desc {
+        font-size: 0.72rem; color: var(--fg-mute);
+        margin-top: 4px;
+    }
+    .driver-ranges {
+        display: flex; justify-content: space-between;
+        font-size: 0.7rem; color: var(--fg-mute);
+        margin-top: 2px; font-family: 'JetBrains Mono', monospace;
+    }
+
+    .esc-actions {
+        display: flex; gap: 8px; flex-wrap: wrap;
+        margin-top: 10px;
+    }
+    .esc-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 8px 14px; border-radius: 7px;
+        font-size: 0.85rem; font-weight: 600;
+        font-family: inherit; cursor: pointer;
+        border: 1px solid transparent;
+    }
+    .esc-btn.ghost { background: var(--surface); color: var(--fg-dim); border-color: var(--border); }
+    .esc-btn.ghost:hover { background: var(--surface-muted); color: var(--fg); border-color: var(--border-strong); }
+    .esc-btn.brand { background: var(--brand); color: var(--brand-on); }
+    .esc-btn.brand:hover { background: var(--brand-dark); color: #fff; }
+    .esc-btn.dark { background: var(--fg); color: var(--surface); }
+    .esc-btn.dark:hover { background: var(--brand-dark); color: #fff; }
+    .esc-btn:disabled { opacity: 0.55; cursor: wait; }
+    .esc-btn svg { width: 14px; height: 14px; }
+    .esc-btn-link {
+        background: transparent; border: 0; color: var(--fg-dim);
+        font-size: 0.78rem; font-family: inherit; cursor: pointer;
+        padding: 4px 8px; border-radius: 5px;
+    }
+    .esc-btn-link:hover { background: var(--surface-muted); color: var(--brand-dark); }
+
+    /* ==== Tabla PyG / Cash Flow ==== */
+    .esc-tables {
+        display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px;
+    }
+    @media (max-width: 1200px) { .esc-tables { grid-template-columns: 1fr; } }
+    .esc-table {
+        width: 100%; border-collapse: collapse; font-size: 0.86rem;
+    }
+    .esc-table thead th {
+        padding: 10px 12px; text-align: right;
+        font-size: 0.7rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.5px;
+        color: var(--fg-mute);
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-muted);
+    }
+    .esc-table thead th:first-child { text-align: left; }
+    .esc-table tbody td {
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--border);
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+    }
+    .esc-table tbody td:first-child { text-align: left; font-weight: 500; color: var(--fg); }
+    .esc-table tbody tr.sub td { font-weight: 700; background: var(--surface-muted); color: var(--fg); }
+    .esc-table tbody tr.sub td:first-child { color: var(--brand-dark); }
+    .delta-pos { color: var(--good); font-weight: 600; }
+    .delta-neg { color: var(--bad); font-weight: 600; }
+    .delta-flat { color: var(--fg-mute); }
+
+    .esc-margenes {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+        margin-top: 12px;
+    }
+    .esc-margen {
+        background: var(--surface-muted);
+        border: 1px solid var(--border);
+        border-radius: 7px; padding: 10px 12px;
+    }
+    .esc-margen .lbl {
+        font-size: 0.68rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.4px;
+        color: var(--fg-mute);
+    }
+    .esc-margen .vals {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem; font-weight: 700;
+        margin-top: 3px; color: var(--fg);
+    }
+    .esc-margen .vals small { color: var(--fg-mute); font-weight: 400; }
+
+    .chart-wrap-esc { height: 240px; position: relative; }
+
+    /* ==== Narrativa IA ==== */
+    .esc-narrativa { font-size: 0.9rem; line-height: 1.55; color: var(--fg); }
+    .esc-narrativa p { margin: 0 0 0.6rem; }
+    .esc-narrativa p:last-child { margin-bottom: 0; }
+    .esc-narrativa-empty {
+        display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+        font-size: 0.82rem; color: var(--fg-mute);
+    }
+    .esc-narrativa-loading {
+        color: var(--fg-dim); font-size: 0.86rem;
+        display: inline-flex; align-items: center; gap: 8px;
+    }
+    .esc-narrativa-loading::before {
+        content: ""; width: 13px; height: 13px;
+        border: 2px solid var(--border-strong); border-top-color: var(--brand);
+        border-radius: 50%; animation: hd-spin 0.7s linear infinite;
+    }
+    .esc-narrativa-error {
+        background: var(--bad-bg); color: #991B1B;
+        border: 1px solid var(--bad); border-radius: 6px;
+        padding: 8px 12px; font-size: 0.82rem;
+    }
+
+    /* ==== Modal add driver / guardar escenario ==== */
+    .esc-modal-backdrop {
+        position: fixed; inset: 0;
+        background: rgba(10, 12, 14, 0.5);
+        backdrop-filter: blur(3px);
+        display: none; align-items: center; justify-content: center;
+        z-index: 1200; padding: 16px;
+    }
+    .esc-modal-backdrop[open] { display: flex; }
+    .esc-modal {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; width: min(540px, 100%);
+        max-height: 85vh; display: flex; flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+    }
+    .esc-modal-head {
+        padding: 14px 18px; border-bottom: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .esc-modal-head h3 { margin: 0; font-size: 0.98rem; font-weight: 600; }
+    .esc-modal-body { padding: 14px 18px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+    .esc-modal-foot {
+        padding: 11px 18px; border-top: 1px solid var(--border);
+        display: flex; justify-content: flex-end; gap: 8px;
+    }
+    .esc-modal input[type="text"], .esc-modal input[type="number"], .esc-modal textarea, .esc-modal select {
+        width: 100%; padding: 8px 11px;
+        border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface); color: var(--fg);
+        font-family: inherit; font-size: 0.9rem;
+    }
+    .esc-modal input:focus, .esc-modal textarea:focus, .esc-modal select:focus { outline: none; border-color: var(--brand); }
+    .esc-modal label { font-size: 0.78rem; font-weight: 600; color: var(--fg); display: block; margin-bottom: 4px; }
+    .esc-modal .row2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .esc-modal-msg { font-size: 0.78rem; color: var(--fg-mute); min-height: 14px; }
+    .esc-modal-msg.err { color: var(--bad); }
+</style>
+
+<div class="esc-head">
+    <div>
+        <h1>Simulación de escenarios</h1>
+        <p>Ajusta los drivers con los mandos y visualiza el impacto sobre la cuenta de resultados y el flujo de caja del último ejercicio cerrado.</p>
+    </div>
+    <div style="display: flex; gap: 8px; align-items: center;">
+        <button type="button" class="esc-btn ghost" onclick="escModal.abrir('driver')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/></svg>
+            Añadir driver
+        </button>
+    </div>
+</div>
+
+<div class="esc-layout">
+    <!-- Sidebar escenarios -->
+    <aside class="esc-aside">
+        <button type="button" class="esc-btn-nuevo" onclick="escApp.nuevoEscenario()">
+            {{ icon("pencil", size=13) }} Nuevo escenario
+        </button>
+        <h3>Escenarios guardados</h3>
+        <ul class="esc-list" id="esc-list"></ul>
+    </aside>
+
+    <!-- Área principal -->
+    <div class="esc-main">
+        <!-- Drivers -->
+        <section class="esc-card">
+            <h2>Drivers del escenario</h2>
+            <p class="sub">Mueve cada mando para simular variaciones sobre el último ejercicio base. Al soltar el mando se recalcula al instante.</p>
+            <div class="esc-drivers-grid" id="esc-drivers"></div>
+            <div class="esc-actions">
+                <button type="button" class="esc-btn ghost" onclick="escApp.reset()">Resetear a 0</button>
+                <span style="flex: 1;"></span>
+                <select id="esc-modelo" class="esc-btn ghost" style="min-width: 220px;" title="Modelo IA">
+                    {% for id, label in MODELOS_ORDENADOS %}
+                    <option value="{{ id }}" {% if id == MODELO_POR_DEFECTO %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <button type="button" class="esc-btn dark" onclick="escApp.pedirNarrativa()" id="btn-narrativa">
+                    {{ icon("pencil", size=13) }} Lectura con IA
+                </button>
+                <button type="button" class="esc-btn brand" onclick="escModal.abrir('guardar')" id="btn-guardar">
+                    {{ icon("check", size=13) }} Guardar escenario
+                </button>
+            </div>
+        </section>
+
+        <!-- Resultados: PyG + Cash Flow + Márgenes -->
+        <section class="esc-card">
+            <h2>Resultado proyectado <small style="font-weight: 500; color: var(--fg-mute); font-size: 0.78rem; margin-left: 10px;" id="esc-meta">cargando…</small></h2>
+            <div class="esc-tables">
+                <div>
+                    <table class="esc-table" id="esc-tab-pyg">
+                        <thead>
+                            <tr><th>Cuenta de resultados</th><th>Base</th><th>Escenario</th><th>Δ</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <div>
+                    <table class="esc-table" id="esc-tab-cf">
+                        <thead>
+                            <tr><th>Flujo de caja</th><th>Base</th><th>Escenario</th><th>Δ</th></tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="esc-margenes" id="esc-margenes"></div>
+        </section>
+
+        <!-- Narrativa IA -->
+        <section class="esc-card">
+            <h2>Lectura ejecutiva</h2>
+            <div id="esc-narrativa-wrap">
+                <div class="esc-narrativa-empty" id="esc-narrativa-empty">
+                    Pulsa <strong>"Lectura con IA"</strong> para que el modelo redacte un párrafo ejecutivo sobre este escenario.
+                </div>
+                <div id="esc-narrativa-loading" hidden class="esc-narrativa-loading">Redactando lectura…</div>
+                <div id="esc-narrativa-error" hidden class="esc-narrativa-error"></div>
+                <div id="esc-narrativa-text" hidden class="esc-narrativa"></div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<!-- Modal: añadir driver personalizado -->
+<div class="esc-modal-backdrop" id="esc-modal-driver" role="dialog" aria-modal="true">
+    <div class="esc-modal">
+        <div class="esc-modal-head">
+            <h3>Añadir driver personalizado</h3>
+            <button type="button" class="esc-btn-link" onclick="escModal.cerrar('driver')">✕</button>
+        </div>
+        <div class="esc-modal-body">
+            <div>
+                <label>Nombre</label>
+                <input type="text" id="drv-nombre" placeholder="Ej: Tipo de cambio EUR/USD">
+            </div>
+            <div>
+                <label>Descripción breve</label>
+                <input type="text" id="drv-desc" placeholder="Para qué sirve este driver (opcional)">
+            </div>
+            <div class="row2">
+                <div>
+                    <label>Unidad</label>
+                    <select id="drv-unidad">
+                        <option value="pct">Porcentaje (%)</option>
+                        <option value="pp">Puntos porcentuales (pp)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Mínimo</label>
+                    <input type="number" id="drv-min" value="-20" step="1">
+                </div>
+                <div>
+                    <label>Máximo</label>
+                    <input type="number" id="drv-max" value="20" step="1">
+                </div>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--fg-mute);">
+                Nota: por ahora los drivers personalizados se persisten en la configuración pero no están automáticamente mapeados a una partida concreta. Para que afecten a la simulación, los drivers base cubren los casos típicos (ingresos, costes, gastos operativos, tipo impositivo, CAPEX).
+            </div>
+            <div class="esc-modal-msg" id="drv-msg"></div>
+        </div>
+        <div class="esc-modal-foot">
+            <button type="button" class="esc-btn ghost" onclick="escModal.cerrar('driver')">Cancelar</button>
+            <button type="button" class="esc-btn brand" onclick="escApp.guardarNuevoDriver()">Guardar driver</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: guardar escenario -->
+<div class="esc-modal-backdrop" id="esc-modal-guardar" role="dialog" aria-modal="true">
+    <div class="esc-modal">
+        <div class="esc-modal-head">
+            <h3 id="esc-guardar-title">Guardar escenario</h3>
+            <button type="button" class="esc-btn-link" onclick="escModal.cerrar('guardar')">✕</button>
+        </div>
+        <div class="esc-modal-body">
+            <div>
+                <label>Nombre del escenario</label>
+                <input type="text" id="esc-guardar-nombre" placeholder="Ej: Base, Optimista, Pesimista, Recesión 2027…">
+            </div>
+            <div class="esc-modal-msg" id="esc-guardar-msg"></div>
+        </div>
+        <div class="esc-modal-foot">
+            <button type="button" class="esc-btn ghost" onclick="escModal.cerrar('guardar')">Cancelar</button>
+            <button type="button" class="esc-btn brand" onclick="escApp.guardarEscenarioSubmit()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='vendor/echarts-5.5.1.min.js') }}"></script>
+<script>
+function fmtCorto(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    var a = Math.abs(v);
+    if (a >= 1e9) return (v / 1e9).toFixed(1).replace('.', ',') + ' B';
+    if (a >= 1e6) return (v / 1e6).toFixed(1).replace('.', ',') + ' M';
+    if (a >= 1e3) return (v / 1e3).toFixed(0) + ' K';
+    return v.toFixed(0).replace('.', ',');
+}
+function fmtDeltaPct(v) {
+    if (v === null || v === undefined || isNaN(v)) return '—';
+    var signo = v > 0 ? '+' : '';
+    return signo + v.toFixed(1).replace('.', ',') + '%';
+}
+function debounce(fn, ms) {
+    var t = null;
+    return function() {
+        var args = arguments, self = this;
+        if (t) clearTimeout(t);
+        t = setTimeout(function() { fn.apply(self, args); }, ms);
+    };
+}
+
+window.escApp = (function() {
+    var drivers = {{ drivers|tojson }};
+    var escenarios = {{ escenarios_guardados|tojson }};
+    var valores = {};
+    var escenarioActivo = null;  // id del escenario seleccionado
+
+    function pintarDrivers() {
+        var grid = document.getElementById('esc-drivers');
+        grid.innerHTML = '';
+        drivers.forEach(function(d) {
+            var val = (valores[d.id] !== undefined) ? valores[d.id] : (d.default || 0);
+            valores[d.id] = val;
+            var cell = document.createElement('div');
+            cell.className = 'driver';
+            cell.innerHTML =
+                '<div class="driver-head">' +
+                  '<span class="driver-name"></span>' +
+                  '<span class="driver-val"></span>' +
+                '</div>' +
+                '<input type="range">' +
+                '<div class="driver-ranges"><span></span><span></span></div>' +
+                '<div class="driver-desc"></div>';
+            cell.querySelector('.driver-name').textContent = d.nombre;
+            var inp = cell.querySelector('input[type="range"]');
+            inp.min = d.min; inp.max = d.max; inp.step = (d.unidad === 'pp' ? 0.5 : 1);
+            inp.value = val;
+            var ranges = cell.querySelectorAll('.driver-ranges span');
+            var sufijo = (d.unidad === 'pp') ? ' pp' : '%';
+            ranges[0].textContent = d.min + sufijo;
+            ranges[1].textContent = '+' + d.max + sufijo;
+            cell.querySelector('.driver-desc').textContent = d.descripcion || '';
+            var valEl = cell.querySelector('.driver-val');
+            function sync() {
+                var v = parseFloat(inp.value);
+                valores[d.id] = v;
+                valEl.textContent = (v > 0 ? '+' : '') + v + sufijo;
+                valEl.classList.toggle('pos', v > 0);
+                valEl.classList.toggle('neg', v < 0);
+                simularDebounced();
+            }
+            inp.addEventListener('input', sync);
+            sync();
+            grid.appendChild(cell);
+        });
+    }
+
+    function pintarEscenarios() {
+        var list = document.getElementById('esc-list');
+        list.innerHTML = '';
+        if (!escenarios.length) {
+            list.innerHTML = '<li class="esc-empty">Sin escenarios guardados. Ajusta los drivers y pulsa "Guardar escenario".</li>';
+            return;
+        }
+        escenarios.forEach(function(e) {
+            var li = document.createElement('li');
+            li.className = 'esc-item' + (e.id === escenarioActivo ? ' active' : '');
+            li.innerHTML = '<span class="esc-item-name"></span><button class="esc-item-del" type="button" title="Borrar">✕</button>';
+            li.querySelector('.esc-item-name').textContent = e.nombre;
+            li.addEventListener('click', function(ev) {
+                if (ev.target.classList.contains('esc-item-del')) return;
+                cargarEscenario(e);
+            });
+            li.querySelector('.esc-item-del').addEventListener('click', function(ev) {
+                ev.stopPropagation();
+                borrarEscenario(e);
+            });
+            list.appendChild(li);
+        });
+    }
+
+    function cargarEscenario(e) {
+        escenarioActivo = e.id;
+        valores = Object.assign({}, e.valores || {});
+        // Forzar defaults en los drivers que no estén en el escenario guardado
+        drivers.forEach(function(d) { if (valores[d.id] === undefined) valores[d.id] = d.default || 0; });
+        pintarDrivers();
+        pintarEscenarios();
+        simular();
+    }
+
+    async function borrarEscenario(e) {
+        if (!confirm('¿Borrar escenario "' + e.nombre + '"?')) return;
+        try {
+            var r = await fetch('/_api/escenarios/' + e.id, { method: 'DELETE' });
+            var j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            escenarios = escenarios.filter(function(x) { return x.id !== e.id; });
+            if (escenarioActivo === e.id) { escenarioActivo = null; }
+            pintarEscenarios();
+        } catch (ex) { alert('Error al borrar: ' + ex.message); }
+    }
+
+    async function simular() {
+        var meta = document.getElementById('esc-meta');
+        meta.textContent = 'simulando…';
+        try {
+            var r = await fetch('/_api/escenarios/simular', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ valores: valores }),
+            });
+            var j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            renderResultado(j.resultado);
+        } catch (ex) {
+            meta.textContent = 'Error: ' + ex.message;
+        }
+    }
+    var simularDebounced = debounce(simular, 350);
+
+    function renderResultado(res) {
+        var meta = document.getElementById('esc-meta');
+        meta.textContent = 'Periodo base: FY' + (res.periodo_base || '—') + (res.moneda ? ' · ' + res.moneda : '');
+
+        function pintarTabla(tbodyId, filas) {
+            var tb = document.querySelector('#' + tbodyId + ' tbody');
+            tb.innerHTML = '';
+            filas.forEach(function(f) {
+                var tr = document.createElement('tr');
+                if (f.subtotal) tr.className = 'sub';
+                var deltaCls = (f.delta > 0) ? 'delta-pos' : (f.delta < 0 ? 'delta-neg' : 'delta-flat');
+                tr.innerHTML =
+                    '<td></td>' +
+                    '<td>' + fmtCorto(f.base) + '</td>' +
+                    '<td>' + fmtCorto(f.escenario) + '</td>' +
+                    '<td class="' + deltaCls + '">' + (f.delta_pct !== null ? fmtDeltaPct(f.delta_pct) : '—') + '</td>';
+                tr.cells[0].textContent = f.concepto;
+                tb.appendChild(tr);
+            });
+        }
+        pintarTabla('esc-tab-pyg', res.pyg);
+        pintarTabla('esc-tab-cf', res.cashflow);
+
+        // Márgenes
+        var mcont = document.getElementById('esc-margenes');
+        mcont.innerHTML = '';
+        var m = res.margenes || {};
+        function tarjetaM(lbl, b, e) {
+            if (b === null || e === null) return;
+            var div = document.createElement('div');
+            div.className = 'esc-margen';
+            var delta = e - b;
+            var deltaSig = delta > 0 ? '+' : '';
+            var deltaCls = delta > 0 ? 'delta-pos' : (delta < 0 ? 'delta-neg' : 'delta-flat');
+            div.innerHTML =
+                '<div class="lbl">' + lbl + '</div>' +
+                '<div class="vals">' + b.toFixed(1).replace('.',',') + '% → ' + e.toFixed(1).replace('.',',') + '% ' +
+                '<small>(<span class="' + deltaCls + '">' + deltaSig + delta.toFixed(1).replace('.',',') + ' pp</span>)</small></div>';
+            mcont.appendChild(div);
+        }
+        tarjetaM('Margen EBITDA', m.margen_ebitda_base, m.margen_ebitda_esc);
+        tarjetaM('Margen neto', m.margen_neto_base, m.margen_neto_esc);
+        tarjetaM('Tipo impositivo efectivo', m.tax_rate_base, m.tax_rate_esc);
+    }
+
+    async function pedirNarrativa() {
+        var btn = document.getElementById('btn-narrativa');
+        btn.disabled = true;
+        document.getElementById('esc-narrativa-empty').hidden = true;
+        document.getElementById('esc-narrativa-error').hidden = true;
+        document.getElementById('esc-narrativa-text').hidden = true;
+        document.getElementById('esc-narrativa-loading').hidden = false;
+        try {
+            var modelo = document.getElementById('esc-modelo').value;
+            var nombre = 'Escenario actual';
+            var activo = escenarios.find(function(x) { return x.id === escenarioActivo; });
+            if (activo) nombre = activo.nombre;
+            var r = await fetch('/_api/escenarios/narrativa', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ valores: valores, modelo: modelo, nombre: nombre }),
+            });
+            var j = await r.json();
+            document.getElementById('esc-narrativa-loading').hidden = true;
+            if (!j.ok) {
+                var err = document.getElementById('esc-narrativa-error');
+                err.textContent = j.error || 'No se pudo generar la lectura.';
+                err.hidden = false;
+                document.getElementById('esc-narrativa-empty').hidden = false;
+                return;
+            }
+            var t = document.getElementById('esc-narrativa-text');
+            var parrafos = (j.texto || '').trim().split(/\n{2,}/);
+            t.innerHTML = parrafos.map(function(p) {
+                var e = p.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return '<p>' + e.replace(/\n/g, '<br>') + '</p>';
+            }).join('');
+            t.hidden = false;
+        } catch (ex) {
+            document.getElementById('esc-narrativa-loading').hidden = true;
+            var err = document.getElementById('esc-narrativa-error');
+            err.textContent = 'Error: ' + ex.message; err.hidden = false;
+            document.getElementById('esc-narrativa-empty').hidden = false;
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function nuevoEscenario() {
+        escenarioActivo = null;
+        valores = {};
+        drivers.forEach(function(d) { valores[d.id] = d.default || 0; });
+        pintarDrivers();
+        pintarEscenarios();
+        simular();
+    }
+    function reset() {
+        valores = {};
+        drivers.forEach(function(d) { valores[d.id] = 0; });
+        pintarDrivers();
+        simular();
+    }
+
+    async function guardarEscenarioSubmit() {
+        var nombre = (document.getElementById('esc-guardar-nombre').value || '').trim();
+        var msg = document.getElementById('esc-guardar-msg');
+        if (!nombre) { msg.textContent = 'El nombre es obligatorio.'; msg.className = 'esc-modal-msg err'; return; }
+        try {
+            var body = { nombre: nombre, valores: valores };
+            if (escenarioActivo) body.id = escenarioActivo;
+            var r = await fetch('/_api/escenarios', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body),
+            });
+            var j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            escenarios = j.escenarios || [];
+            escenarioActivo = j.id;
+            pintarEscenarios();
+            escModal.cerrar('guardar');
+        } catch (ex) {
+            msg.textContent = 'Error: ' + ex.message; msg.className = 'esc-modal-msg err';
+        }
+    }
+
+    async function guardarNuevoDriver() {
+        var nombre = (document.getElementById('drv-nombre').value || '').trim();
+        var desc = (document.getElementById('drv-desc').value || '').trim();
+        var unidad = document.getElementById('drv-unidad').value;
+        var mn = parseFloat(document.getElementById('drv-min').value);
+        var mx = parseFloat(document.getElementById('drv-max').value);
+        var msg = document.getElementById('drv-msg');
+        if (!nombre) { msg.textContent = 'El nombre es obligatorio.'; msg.className = 'esc-modal-msg err'; return; }
+        if (isNaN(mn) || isNaN(mx) || mn >= mx) { msg.textContent = 'Rango inválido (mínimo < máximo).'; msg.className = 'esc-modal-msg err'; return; }
+        // Id = slug del nombre
+        var did = nombre.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').slice(0, 40);
+        if (!did) { msg.textContent = 'Nombre inválido.'; msg.className = 'esc-modal-msg err'; return; }
+        var nuevo = { id: did, nombre: nombre, descripcion: desc, unidad: unidad, min: mn, max: mx, default: 0 };
+        var lista = drivers.concat([nuevo]);
+        try {
+            var r = await fetch('/_api/escenarios/drivers', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ drivers: lista }),
+            });
+            var j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            drivers = j.drivers;
+            pintarDrivers();
+            escModal.cerrar('driver');
+        } catch (ex) {
+            msg.textContent = 'Error: ' + ex.message; msg.className = 'esc-modal-msg err';
+        }
+    }
+
+    return {
+        init() {
+            pintarEscenarios();
+            pintarDrivers();
+            simular();
+        },
+        nuevoEscenario: nuevoEscenario,
+        reset: reset,
+        pedirNarrativa: pedirNarrativa,
+        guardarEscenarioSubmit: guardarEscenarioSubmit,
+        guardarNuevoDriver: guardarNuevoDriver,
+    };
+})();
+
+window.escModal = {
+    abrir(tipo) {
+        var el = document.getElementById('esc-modal-' + tipo);
+        if (!el) return;
+        el.setAttribute('open', '');
+        if (tipo === 'driver') {
+            document.getElementById('drv-nombre').value = '';
+            document.getElementById('drv-desc').value = '';
+            document.getElementById('drv-min').value = -20;
+            document.getElementById('drv-max').value = 20;
+            document.getElementById('drv-msg').textContent = '';
+            setTimeout(function() { document.getElementById('drv-nombre').focus(); }, 50);
+        } else if (tipo === 'guardar') {
+            document.getElementById('esc-guardar-nombre').value = '';
+            document.getElementById('esc-guardar-msg').textContent = '';
+            setTimeout(function() { document.getElementById('esc-guardar-nombre').focus(); }, 50);
+        }
+    },
+    cerrar(tipo) {
+        var el = document.getElementById('esc-modal-' + tipo);
+        if (el) el.removeAttribute('open');
+    },
+};
+['esc-modal-driver', 'esc-modal-guardar'].forEach(function(id) {
+    var el = document.getElementById(id);
+    el.addEventListener('click', function(e) { if (e.target === el) el.removeAttribute('open'); });
+});
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        ['esc-modal-driver', 'esc-modal-guardar'].forEach(function(id) {
+            var el = document.getElementById(id); if (el) el.removeAttribute('open');
+        });
+    }
+});
+
+escApp.init();
+</script>
+{% endblock %}

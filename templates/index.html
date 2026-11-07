@@ -264,22 +264,19 @@
             <p class="mod-desc">Vigilancia continua de la actualidad del sector de referencia y de la propia compañía, con envío programado a los interlocutores corporativos designados.</p>
             <div class="mod-meta"><span>Sector + empresa</span></div>
         </a>
-        <a class="mod-card preview" href="/presupuesto">
+        {% if EMPRESA_COTIZA %}
+        <a class="mod-card" href="/escenarios">
             <div class="mod-head">
-                <span class="mod-icon">{{ icon("ruler", size=18) }}</span>
-                <div><div class="mod-title">Elaboración Presupuesto (ML)</div><div class="mod-tags"><span class="mod-tag preview">Preview</span></div></div>
+                <span class="mod-icon">{{ icon("bar-chart", size=18) }}</span>
+                <div>
+                    <div class="mod-title">Simulación de escenarios</div>
+                    <div class="mod-tags"><span class="mod-tag ok">AI</span><span class="mod-tag">What-if</span></div>
+                </div>
             </div>
-            <p class="mod-desc">Elaboración asistida del presupuesto plurianual con proyecciones a 12, 24 y 36 meses sobre el histórico corporativo, con simulación de escenarios base, optimista y pesimista.</p>
-            <div class="mod-meta"><span>Lanzamiento Q3 2026</span></div>
+            <p class="mod-desc">Simula escenarios proyectando la cuenta de resultados y el flujo de caja del último ejercicio con drivers configurables (ingresos, costes, gastos operativos, tipo impositivo, CAPEX). Lectura ejecutiva redactada por inteligencia artificial.</p>
+            <div class="mod-meta"><span>5 drivers por defecto · escenarios guardables</span></div>
         </a>
-        <a class="mod-card preview" href="/radar-normativo">
-            <div class="mod-head">
-                <span class="mod-icon">{{ icon("radar", size=18) }}</span>
-                <div><div class="mod-title">Radar normativo</div><div class="mod-tags"><span class="mod-tag preview">Preview</span></div></div>
-            </div>
-            <p class="mod-desc">Supervisión automatizada de novedades regulatorias, contables y fiscales relevantes para la compañía, con alertas priorizadas por materialidad y jurisdicción.</p>
-            <div class="mod-meta"><span>Lanzamiento Q4 2026</span></div>
-        </a>
+        {% endif %}
     </section>
 {% endif %}
 

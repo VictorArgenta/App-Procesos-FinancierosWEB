@@ -1112,17 +1112,12 @@
                 Informes generados
             </a>
 
-            <div class="ds-side-section">Preview</div>
-            <a class="ds-nav-item {% if '/presupuesto' in request.path %}active{% endif %}" href="/presupuesto">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2"/><path d="m11.5 9.5 2-2"/><path d="m8.5 6.5 2-2"/><path d="m17.5 15.5 2-2"/></svg>
-                Presupuesto ML
-                <span class="ds-pill gray">Soon</span>
+            {% if EMPRESA_COTIZA %}
+            <a class="ds-nav-item {% if '/escenarios' in request.path %}active{% endif %}" href="/escenarios">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/><circle cx="8" cy="13" r="1.5"/><circle cx="13" cy="8" r="1.5"/><circle cx="18" cy="10" r="1.5"/></svg>
+                Simulación de escenarios
             </a>
-            <a class="ds-nav-item {% if '/radar-normativo' in request.path %}active{% endif %}" href="/radar-normativo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/><path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/></svg>
-                Radar normativo
-                <span class="ds-pill gray">Soon</span>
-            </a>
+            {% endif %}
 
             <div class="ds-side-section">Administrar</div>
             <a class="ds-nav-item {% if '/parametros' in request.path or request.path.startswith('/admin') %}active{% endif %}" href="/parametros">
@@ -1317,14 +1312,13 @@
         ITEMS.push({ name: 'Generar Informe Narrativo', desc: 'Informe con IA a partir de la información de la base de datos', url: '/analisis', icon: 'bar-chart', group: 'Módulos', keys: 'informe narrativo ia analisis' });
         ITEMS.push({ name: 'Panel Ejecutivo', desc: 'One-pager A4 con KPIs, evolución y benchmark', url: '/panel-ejecutivo', icon: 'clipboard', group: 'Módulos', keys: 'panel ejecutivo one pager pdf direccion kpi resumen' });
         ITEMS.push({ name: 'Benchmark Sectorial', desc: 'Comparativa con competidores (múltiplos, márgenes, crecimiento)', url: '/benchmark', icon: 'trend-up', group: 'Módulos', keys: 'benchmark sectorial competidores comparativa peers pe margen crecimiento' });
+        ITEMS.push({ name: 'Simulación de escenarios', desc: 'What-if sobre PyG y Cash Flow con drivers configurables', url: '/escenarios', icon: 'bar-chart', group: 'Módulos', keys: 'simulacion escenarios what if drivers pyg cashflow proyeccion forecast' });
     }
     ITEMS.push(
         { name: 'Relación con Stakeholders', desc: 'Bandeja de correos con IA', url: '/relacion-inversores', icon: 'mail', group: 'Módulos', keys: 'stakeholders ir inversores analistas reguladores auditores correos gmail bandeja' },
         { name: 'Habla con tus datos', desc: 'Chat sobre indicadores financieros y documentación corporativa', url: '/habla-con-tus-datos', icon: 'chat', group: 'Módulos', keys: 'habla chat datos consulta documental kpi rag diccionario pregunta' },
         { name: 'Noticias del Sector', desc: 'Noticias del sector y de la compañía', url: '/noticias', icon: 'newspaper', group: 'Módulos', keys: 'noticias sector actualidad news' },
         { name: 'Informes generados', desc: 'Histórico de informes Word / PDF', url: '/informes-generados', icon: 'folder', group: 'Módulos', keys: 'informes generados historico word pdf descargas' },
-        { name: 'Elaboración de Presupuesto (ML)', desc: 'Forecasting con Machine Learning', url: '/presupuesto', icon: 'ruler', group: 'Preview', tag: 'Preview', keys: 'presupuesto forecasting ml machine learning' },
-        { name: 'Radar Normativo', desc: 'Alertas regulatorias y fiscales', url: '/radar-normativo', icon: 'radar', group: 'Preview', tag: 'Preview', keys: 'radar normativo regulatorio fiscal alertas' },
         { name: 'Administración', desc: 'Competidores, KPIs del home, sector, diccionario, modelo', url: '/parametros', icon: 'settings', group: 'Admin', keys: 'administracion admin parametros configuracion competidores kpis sector diccionario modelo' },
         { name: 'Coste de tokens', desc: 'Consumo y auditoría de IA', url: '/coste', icon: 'coin', group: 'Admin', keys: 'coste tokens consumo auditoria ia' }
     );
