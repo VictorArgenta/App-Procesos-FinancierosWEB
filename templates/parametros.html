@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% from "_icons.html" import icon %}
-{% block title %}Parámetros — {{ EMPRESA_NOMBRE }}{% endblock %}
-{% block breadcrumb_actual %}Parámetros{% endblock %}
+{% block title %}Administración — {{ EMPRESA_NOMBRE }}{% endblock %}
+{% block breadcrumb_actual %}Administración{% endblock %}
 
 {% block content %}
 <style>
@@ -37,27 +37,60 @@
         border: 1px solid transparent;
     }
     .par-nav a:hover { background: var(--surface-muted); color: var(--fg); }
-    .par-nav a.on { background: var(--brand-soft); color: var(--brand-dark); border-color: var(--brand); font-weight: 600; }
+    .par-nav a.on {
+        background: var(--par-nav-soft, var(--brand-soft));
+        color: var(--par-nav-accent, var(--brand-dark));
+        border-color: var(--par-nav-accent, var(--brand));
+        font-weight: 600;
+    }
+    .par-nav a[data-sec="tickers"].on     { --par-nav-accent: #2563EB; --par-nav-soft: rgba(37, 99, 235, 0.10); }
+    .par-nav a[data-sec="kpis"].on        { --par-nav-accent: #43B02A; --par-nav-soft: rgba(67, 176, 42, 0.12); }
+    .par-nav a[data-sec="diccionario"].on { --par-nav-accent: #8E24AA; --par-nav-soft: rgba(142, 36, 170, 0.10); }
+    .par-nav a[data-sec="modelo"].on      { --par-nav-accent: #F57C00; --par-nav-soft: rgba(245, 124, 0, 0.10); }
     .par-nav svg { width: 15px; height: 15px; flex-shrink: 0; }
 
     .par-sections { display: flex; flex-direction: column; gap: 18px; }
     .par-card {
         background: var(--surface);
         border: 1px solid var(--border);
+        border-top: 4px solid var(--accent, var(--brand));
         border-radius: 12px;
-        padding: 20px 22px;
-        scroll-margin-top: 90px;
+        padding: 20px 22px 22px;
+        scroll-margin-top: 110px;
+        transition: box-shadow 0.25s, border-color 0.25s;
+        position: relative;
     }
+    /* Sombreado diferenciado por bloque: un wash muy sutil en la esquina
+       superior izquierda con el color de acento, para ver que cambias de
+       sección visualmente. */
+    .par-card::before {
+        content: "";
+        position: absolute; left: 0; right: 0; top: 0;
+        height: 120px;
+        background: linear-gradient(to bottom, var(--accent-soft, transparent), transparent 100%);
+        border-radius: 12px 12px 0 0;
+        pointer-events: none; z-index: 0;
+    }
+    .par-card.is-visible { box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06); }
+    .par-card > * { position: relative; z-index: 1; }
+
     .par-card h2 {
-        font-size: 1.05rem; font-weight: 700; margin: 0 0 4px; color: var(--fg);
-        display: flex; align-items: center; gap: 9px;
+        font-size: 1.1rem; font-weight: 700; margin: 0 0 4px; color: var(--fg);
+        display: flex; align-items: center; gap: 10px;
     }
     .par-card h2 .ico {
-        width: 34px; height: 34px;
+        width: 36px; height: 36px;
         display: inline-flex; align-items: center; justify-content: center;
-        background: var(--brand-soft); color: var(--brand-dark);
+        background: var(--accent-soft, var(--brand-soft));
+        color: var(--accent, var(--brand-dark));
         border-radius: 8px;
     }
+
+    /* Colores por sección */
+    #tickers     { --accent: #2563EB; --accent-soft: rgba(37, 99, 235, 0.07); }
+    #kpis        { --accent: #43B02A; --accent-soft: rgba(67, 176, 42, 0.08); }
+    #diccionario { --accent: #8E24AA; --accent-soft: rgba(142, 36, 170, 0.07); }
+    #modelo      { --accent: #F57C00; --accent-soft: rgba(245, 124, 0, 0.07); }
     .par-card h2 .ico svg { width: 17px; height: 17px; }
     .par-card p.sub { margin: 0 0 16px; font-size: 0.85rem; color: var(--fg-dim); padding-left: 44px; }
 
@@ -153,7 +186,7 @@
 
 <div class="par-head">
     <div>
-        <h1>Parámetros · {{ EMPRESA_NOMBRE }}</h1>
+        <h1>Administración · {{ EMPRESA_NOMBRE }}</h1>
         <p>Toda la configuración de la empresa activa en un único sitio. Los cambios se guardan en los ficheros de <code>Empresas/{{ TICKER_FIJO }}/</code> y afectan a todo el equipo.</p>
     </div>
 </div>
@@ -161,19 +194,19 @@
 <div class="par-layout">
     <!-- Navegación lateral interna -->
     <nav class="par-nav" id="par-nav">
-        <a href="#tickers" class="on">
+        <a href="#tickers" data-sec="tickers" class="on">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
             Tickers
         </a>
-        <a href="#kpis">
+        <a href="#kpis" data-sec="kpis">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg>
             KPIs del Inicio
         </a>
-        <a href="#diccionario">
+        <a href="#diccionario" data-sec="diccionario">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
             Diccionario funcional
         </a>
-        <a href="#modelo">
+        <a href="#modelo" data-sec="modelo">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/></svg>
             Modelo IA
         </a>
@@ -274,18 +307,60 @@
 </div>
 
 <script>
-// ===== Navegación interna (scroll suave + estado activo) =====
+// ===== Navegación interna: scroll suave + scroll-spy con IntersectionObserver =====
 (function() {
     var links = document.querySelectorAll('#par-nav a');
+    var secciones = Array.from(document.querySelectorAll('.par-card'));
+    var linkPorId = {};
+    links.forEach(function(a) { linkPorId[a.dataset.sec] = a; });
+
+    // Click → scroll suave y marca el link como activo
+    var scrolleando = false;
     links.forEach(function(a) {
         a.addEventListener('click', function(e) {
             e.preventDefault();
-            var id = a.getAttribute('href').substring(1);
+            var id = a.dataset.sec;
             var el = document.getElementById(id);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            links.forEach(function(x) { x.classList.toggle('on', x === a); });
+            if (!el) return;
+            scrolleando = true;
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            marcarActivo(a);
+            // Deja la bandera activa unos ms para que el observer no pelee con el click
+            setTimeout(function() { scrolleando = false; }, 700);
         });
     });
+
+    function marcarActivo(a) {
+        links.forEach(function(x) { x.classList.toggle('on', x === a); });
+    }
+    function marcarSeccionVisible(id) {
+        var a = linkPorId[id];
+        if (a) marcarActivo(a);
+        // Realza la tarjeta activa con una sombra más marcada
+        secciones.forEach(function(s) { s.classList.toggle('is-visible', s.id === id); });
+    }
+
+    // Spy: la sección activa es la que cruza la línea de disparo (~160 px
+    // desde arriba de la ventana). Usamos un rootMargin asimétrico para ello.
+    var observer = new IntersectionObserver(function(entries) {
+        if (scrolleando) return;
+        // Entre las entradas que están "intersectando", elige la más alta.
+        var visibles = entries.filter(function(e) { return e.isIntersecting; });
+        if (!visibles.length) return;
+        var masAlta = visibles.sort(function(a, b) {
+            return a.boundingClientRect.top - b.boundingClientRect.top;
+        })[0];
+        marcarSeccionVisible(masAlta.target.id);
+    }, {
+        // El trigger line: a ~160 px del tope. rootMargin: top negativo +
+        // bottom negativo deja una "banda" en el centro-arriba.
+        rootMargin: '-120px 0px -55% 0px',
+        threshold: 0,
+    });
+    secciones.forEach(function(s) { observer.observe(s); });
+
+    // Inicial: marca la primera
+    if (secciones.length) marcarSeccionVisible(secciones[0].id);
 })();
 
 // ===== Tickers (competidores + interés) =====
