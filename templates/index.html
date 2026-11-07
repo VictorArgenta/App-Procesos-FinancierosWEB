@@ -204,17 +204,17 @@
         <p class="modules-sub">Accesos ordenados por propósito · se adaptan a la visión seleccionada en la barra lateral.</p>
     </div>
     {% for blq in HOME_BLOCKS %}
-    <section class="home-block" data-vision="{{ blq.visiones | join(' ') }}">
-        <div class="home-block-head home-block-color-{{ blq.color }}">
+    <section class="home-block" data-vision="{{ blq['visiones'] | join(' ') }}">
+        <div class="home-block-head home-block-color-{{ blq['color'] }}">
             <span class="home-block-dot"></span>
-            <h4>{{ blq.titulo }}</h4>
-            <span class="home-block-count">{{ blq.items | length }} módulos</span>
+            <h4>{{ blq['titulo'] }}</h4>
+            <span class="home-block-count">{{ blq['items'] | length }} módulos</span>
         </div>
         <div class="home-block-grid">
-            {% for it in blq.items %}
-            <a class="home-tile home-block-color-{{ blq.color }}" href="{{ it.slug }}">
-                <div class="home-tile-title">{{ it.titulo }}</div>
-                <div class="home-tile-desc">{{ it.desc }}</div>
+            {% for it in blq['items'] %}
+            <a class="home-tile home-block-color-{{ blq['color'] }}" href="{{ it['slug'] }}">
+                <div class="home-tile-title">{{ it['titulo'] }}</div>
+                <div class="home-tile-desc">{{ it['desc'] }}</div>
                 <div class="home-tile-arrow">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
                 </div>
