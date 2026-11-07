@@ -986,6 +986,7 @@
             <a class="ds-nav-item {% if '/relacion-inversores' in request.path %}active{% endif %}" href="/relacion-inversores">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
                 Relación con Stakeholders
+                <span class="ds-pill" id="side-ir-count" hidden></span>
             </a>
             <a class="ds-nav-item {% if '/noticias' in request.path %}active{% endif %}" href="/noticias">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
@@ -1334,6 +1335,49 @@
         });
         return false;
     }
+
+    {% if TICKER_FIJO %}
+    // Contador de correos pendientes en Stakeholders (sidebar).
+    // Usa el endpoint lazy /_api/home/stakeholders, que ya está cacheado
+    // 30 s server-side. Se re-consulta cada 90 s mientras la pestaña esté
+    // en primer plano para reflejar nuevos correos sin recargar.
+    (function() {
+        var el = document.getElementById('side-ir-count');
+        if (!el) return;
+        function pintar() {
+            fetch('/_api/home/stakeholders', { cache: 'no-store' })
+                .then(function(r) { return r.json(); })
+                .then(function(j) {
+                    if (!j || !j.ok) { el.hidden = true; return; }
+                    var n = j.pendientes;
+                    if (n === null || n === undefined) {
+                        // Gmail no conectado → avisamos con pill en warn
+                        el.className = 'ds-pill warn';
+                        el.textContent = '!';
+                        el.setAttribute('title', 'Gmail no está conectado');
+                        el.hidden = false;
+                    } else if (n > 0) {
+                        el.className = 'ds-pill';
+                        el.textContent = n > 99 ? '99+' : String(n);
+                        el.setAttribute('title', n + ' correo' + (n !== 1 ? 's' : '') + ' pendiente' + (n !== 1 ? 's' : '') + ' en bandeja');
+                        el.hidden = false;
+                    } else {
+                        el.hidden = true;
+                    }
+                })
+                .catch(function() { el.hidden = true; });
+        }
+        pintar();
+        // Refresco periódico (solo si la pestaña está visible).
+        setInterval(function() {
+            if (!document.hidden) pintar();
+        }, 90000);
+        // Refresco al volver a la pestaña tras estar en segundo plano.
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) pintar();
+        });
+    })();
+    {% endif %}
 
     {% if TICKER_FIJO and EMPRESA_COTIZA %}
     // Ticker en vivo (usa /cotizaciones si disponible, fallback a mock)
