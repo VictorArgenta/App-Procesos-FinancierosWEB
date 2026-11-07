@@ -1125,6 +1125,10 @@
             </a>
 
             <div class="ds-side-section">Administrar</div>
+            <a class="ds-nav-item {% if '/parametros' in request.path %}active{% endif %}" href="/parametros">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="8" x2="16" y2="8"/></svg>
+                Parámetros
+            </a>
             <a class="ds-nav-item {% if request.path.startswith('/admin') %}active{% endif %}" href="/admin">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>
                 Administración
@@ -1325,6 +1329,7 @@
         { name: 'Informes generados', desc: 'Histórico de informes Word / PDF', url: '/informes-generados', icon: 'folder', group: 'Módulos', keys: 'informes generados historico word pdf descargas' },
         { name: 'Elaboración de Presupuesto (ML)', desc: 'Forecasting con Machine Learning', url: '/presupuesto', icon: 'ruler', group: 'Preview', tag: 'Preview', keys: 'presupuesto forecasting ml machine learning' },
         { name: 'Radar Normativo', desc: 'Alertas regulatorias y fiscales', url: '/radar-normativo', icon: 'radar', group: 'Preview', tag: 'Preview', keys: 'radar normativo regulatorio fiscal alertas' },
+        { name: 'Parámetros de la empresa', desc: 'Competidores, KPIs del home, sector, diccionario, modelo', url: '/parametros', icon: 'settings', group: 'Admin', keys: 'parametros configuracion competidores kpis sector diccionario modelo' },
         { name: 'Administración', desc: 'Panel admin y configuración', url: '/admin', icon: 'settings', group: 'Admin', keys: 'admin administracion panel configuracion' },
         { name: 'Coste de tokens', desc: 'Consumo y auditoría de IA', url: '/coste', icon: 'coin', group: 'Admin', keys: 'coste tokens consumo auditoria ia' }
     );

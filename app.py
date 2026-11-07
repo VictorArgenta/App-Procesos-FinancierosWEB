@@ -3272,6 +3272,24 @@ def cotizaciones():
     return jsonify({"ok": True, "cacheado": False, **data})
 
 
+@app.route("/parametros")
+def parametros():
+    """Pantalla de configuración de la empresa activa: tickers (competidores
+    e intereses), KPIs del home, sector/subsectores, diccionario funcional
+    y modelo IA por defecto."""
+    if not TICKER_FIJO:
+        return redirect(url_for("index"))
+    return render_template(
+        "parametros.html",
+        competidores=_cargar_competidores_empresa(),
+        tickers_interes=_cargar_tickers_interes_empresa(),
+        kpi_catalogo=_HOME_KPI_CATALOGO,
+        kpis_seleccionados=_cargar_home_kpis_empresa(),
+        kpi_max=_HOME_KPI_MAX,
+        sector=_cargar_sector_empresa(),
+    )
+
+
 @app.route("/_api/tickers", methods=["GET"])
 def _api_tickers_listar():
     """Devuelve el estado actual: principal + competidores + tickers de interés."""

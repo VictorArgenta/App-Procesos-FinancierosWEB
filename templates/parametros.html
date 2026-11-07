@@ -1,0 +1,494 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Parámetros — {{ EMPRESA_NOMBRE }}{% endblock %}
+{% block breadcrumb_actual %}Parámetros{% endblock %}
+
+{% block content %}
+<style>
+    .par-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 22px; flex-wrap: wrap; }
+    .par-head h1 { font-size: 1.55rem; font-weight: 700; margin: 0 0 4px; color: var(--fg); }
+    .par-head p { margin: 0; color: var(--fg-dim); font-size: 0.92rem; }
+
+    .par-layout {
+        display: grid;
+        grid-template-columns: 220px 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+    @media (max-width: 860px) {
+        .par-layout { grid-template-columns: 1fr; }
+        .par-nav { position: static; }
+    }
+
+    .par-nav {
+        position: sticky; top: 100px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px;
+        display: flex; flex-direction: column; gap: 2px;
+    }
+    .par-nav a {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 12px; border-radius: 7px;
+        color: var(--fg-dim); text-decoration: none;
+        font-size: 0.86rem; font-weight: 500;
+        transition: background 0.12s, color 0.12s;
+        border: 1px solid transparent;
+    }
+    .par-nav a:hover { background: var(--surface-muted); color: var(--fg); }
+    .par-nav a.on { background: var(--brand-soft); color: var(--brand-dark); border-color: var(--brand); font-weight: 600; }
+    .par-nav svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+    .par-sections { display: flex; flex-direction: column; gap: 18px; }
+    .par-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px 22px;
+        scroll-margin-top: 90px;
+    }
+    .par-card h2 {
+        font-size: 1.05rem; font-weight: 700; margin: 0 0 4px; color: var(--fg);
+        display: flex; align-items: center; gap: 9px;
+    }
+    .par-card h2 .ico {
+        width: 34px; height: 34px;
+        display: inline-flex; align-items: center; justify-content: center;
+        background: var(--brand-soft); color: var(--brand-dark);
+        border-radius: 8px;
+    }
+    .par-card h2 .ico svg { width: 17px; height: 17px; }
+    .par-card p.sub { margin: 0 0 16px; font-size: 0.85rem; color: var(--fg-dim); padding-left: 44px; }
+
+    .par-section-body { display: flex; flex-direction: column; gap: 14px; }
+
+    .par-field label {
+        display: block; font-weight: 600; font-size: 0.78rem;
+        color: var(--fg); text-transform: uppercase; letter-spacing: 0.3px;
+        margin-bottom: 5px;
+    }
+    .par-field .hint { color: var(--fg-dim); font-size: 0.78rem; font-weight: 400; text-transform: none; letter-spacing: 0; }
+    .par-field input[type="text"], .par-field select {
+        width: 100%; max-width: 560px;
+        padding: 8px 11px; border: 1px solid var(--border); border-radius: 7px;
+        font-family: inherit; font-size: 0.9rem;
+        background: var(--surface); color: var(--fg);
+    }
+    .par-field input:focus, .par-field select:focus { outline: none; border-color: var(--brand); }
+
+    .par-chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; padding: 8px 10px; background: var(--surface-muted); border: 1px solid var(--border); border-radius: 7px; }
+    .par-chip {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 3px 4px 3px 10px;
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+        color: var(--fg); font-family: 'JetBrains Mono', monospace;
+        letter-spacing: 0.3px;
+    }
+    .par-chip.comp { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-dark); }
+    .par-chip button { background: transparent; border: 0; padding: 1px 4px; cursor: pointer; color: inherit; opacity: 0.55; font-family: inherit; font-size: 0.78rem; }
+    .par-chip button:hover { opacity: 1; color: var(--bad); }
+    .par-chip-add { display: flex; gap: 6px; margin-top: 8px; }
+    .par-chip-add input {
+        flex: 1; max-width: 300px;
+        padding: 7px 11px; font-size: 0.86rem;
+        border: 1px solid var(--border); border-radius: 6px;
+        background: var(--surface); color: var(--fg);
+        text-transform: uppercase; font-family: inherit;
+    }
+    .par-chip-add input:focus { outline: none; border-color: var(--brand); }
+    .par-chip-add button {
+        padding: 7px 14px; border: 0; border-radius: 6px;
+        background: var(--fg); color: var(--surface);
+        font-family: inherit; font-size: 0.82rem; font-weight: 600;
+        cursor: pointer;
+    }
+    .par-chip-add button:hover { background: var(--brand-dark); color: #fff; }
+    .par-chip-add button:disabled { opacity: 0.6; cursor: wait; }
+    .par-msg { font-size: 0.78rem; margin-top: 4px; color: var(--fg-mute); min-height: 14px; }
+    .par-msg.ok { color: var(--good); }
+    .par-msg.err { color: var(--bad); }
+
+    .par-kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    @media (max-width: 600px) { .par-kpi-grid { grid-template-columns: 1fr; } }
+    .par-kpi-opt {
+        display: flex; align-items: center; gap: 8px;
+        padding: 8px 11px;
+        border: 1px solid var(--border); border-radius: 7px;
+        background: var(--surface); cursor: pointer;
+        font-size: 0.84rem; color: var(--fg);
+    }
+    .par-kpi-opt:hover { background: var(--surface-muted); border-color: var(--border-strong); }
+    .par-kpi-opt.on { background: var(--brand-soft); border-color: var(--brand); color: var(--brand-dark); font-weight: 600; }
+    .par-kpi-opt input[type="checkbox"] { accent-color: var(--brand-dark); width: 14px; height: 14px; }
+    .par-kpi-opt .sw { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .par-kpi-opt .lbl { flex: 1; min-width: 0; }
+    .par-fam-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--fg-mute); margin: 10px 0 4px; }
+
+    .par-btn-primary {
+        background: var(--brand); color: var(--brand-on);
+        border: 0; border-radius: 7px;
+        padding: 9px 16px;
+        font-family: inherit; font-size: 0.85rem; font-weight: 600;
+        cursor: pointer;
+    }
+    .par-btn-primary:hover { background: var(--brand-dark); color: #fff; }
+    .par-btn-primary:disabled { opacity: 0.6; cursor: wait; }
+    .par-btn-link {
+        background: var(--surface); color: var(--fg-dim);
+        border: 1px solid var(--border); border-radius: 7px;
+        padding: 8px 14px; font-family: inherit; font-size: 0.85rem; font-weight: 600;
+        cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .par-btn-link:hover { background: var(--surface-muted); color: var(--fg); border-color: var(--border-strong); }
+
+    .par-status-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        background: var(--brand-soft); color: var(--brand-dark); border: 1px solid var(--brand);
+    }
+    .par-status-pill.gray { background: var(--surface-muted); color: var(--fg-dim); border-color: var(--border); }
+</style>
+
+<div class="par-head">
+    <div>
+        <h1>Parámetros · {{ EMPRESA_NOMBRE }}</h1>
+        <p>Toda la configuración de la empresa activa en un único sitio. Los cambios se guardan en los ficheros de <code>Empresas/{{ TICKER_FIJO }}/</code> y afectan a todo el equipo.</p>
+    </div>
+</div>
+
+<div class="par-layout">
+    <!-- Navegación lateral interna -->
+    <nav class="par-nav" id="par-nav">
+        <a href="#tickers" class="on">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            Tickers
+        </a>
+        <a href="#kpis">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg>
+            KPIs del Inicio
+        </a>
+        <a href="#diccionario">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+            Diccionario funcional
+        </a>
+        <a href="#modelo">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/></svg>
+            Modelo IA
+        </a>
+    </nav>
+
+    <div class="par-sections">
+
+        <!-- ================= TICKERS ================= -->
+        <section class="par-card" id="tickers">
+            <h2>
+                <span class="ico"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
+                Tickers
+            </h2>
+            <p class="sub">Define la lista de empresas (competidores) y otros instrumentos (índices, divisas, materias primas) que se muestran en la banda LIVE del dashboard y en el Benchmark Sectorial.</p>
+            <div class="par-section-body">
+                <div class="par-field">
+                    <label>Competidores <span class="hint">· aparecen en el ticker y en el Benchmark Sectorial</span></label>
+                    <div class="par-chips" id="par-comp-list"></div>
+                    <div class="par-chip-add">
+                        <input type="text" id="par-comp-input" placeholder="GOOGL, AMZN, NFLX…" maxlength="20" autocomplete="off">
+                        <button type="button" id="par-comp-btn" onclick="parTickers.añadir('comp')">Añadir</button>
+                    </div>
+                    <div class="par-msg" id="par-comp-msg"></div>
+                </div>
+                <div class="par-field">
+                    <label>Tickers de interés <span class="hint">· solo aparecen en la banda LIVE (no en Benchmark)</span></label>
+                    <div class="par-chips" id="par-int-list"></div>
+                    <div class="par-chip-add">
+                        <input type="text" id="par-int-input" placeholder="SPY, EURUSD=X, GC=F, BTC-USD…" maxlength="20" autocomplete="off">
+                        <button type="button" id="par-int-btn" onclick="parTickers.añadir('int')">Añadir</button>
+                    </div>
+                    <div class="par-msg" id="par-int-msg"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= KPIs HOME ================= -->
+        {% if EMPRESA_COTIZA %}
+        <section class="par-card" id="kpis">
+            <h2>
+                <span class="ico"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg></span>
+                KPIs del Inicio
+            </h2>
+            <p class="sub">Elige hasta <strong>{{ kpi_max }}</strong> indicadores que aparecen como tarjetas en el dashboard de inicio. La selección se guarda para toda la empresa.</p>
+            <div class="par-section-body">
+                <div class="par-field">
+                    <label>Selección actual <span class="hint">· <span id="par-kpi-count">0</span> / {{ kpi_max }}</span></label>
+                    <div id="par-kpi-grid"></div>
+                </div>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button type="button" class="par-btn-primary" id="par-kpi-save" onclick="parKpis.guardar()">Guardar KPIs</button>
+                    <span class="par-msg" id="par-kpi-msg"></span>
+                </div>
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- ================= DICCIONARIO ================= -->
+        <section class="par-card" id="diccionario">
+            <h2>
+                <span class="ico"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg></span>
+                Diccionario funcional
+            </h2>
+            <p class="sub">Define sinónimos corporativos, KPIs calculados con fórmula e instrucciones de presentación para que la IA interprete y presente los datos siguiendo las convenciones de la empresa.</p>
+            <div class="par-section-body">
+                <div id="par-dicc-stats" style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <span class="par-status-pill gray"><span id="par-dicc-sin">—</span> sinónimos</span>
+                    <span class="par-status-pill gray"><span id="par-dicc-kpi">—</span> KPIs con fórmula</span>
+                    <span class="par-status-pill gray"><span id="par-dicc-def">—</span> definiciones</span>
+                </div>
+                <a href="/habla-con-tus-datos" class="par-btn-link" style="align-self: flex-start;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                    Editar diccionario (en Habla con tus datos)
+                </a>
+            </div>
+        </section>
+
+        <!-- ================= MODELO IA ================= -->
+        <section class="par-card" id="modelo">
+            <h2>
+                <span class="ico"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/></svg></span>
+                Modelo IA por defecto
+            </h2>
+            <p class="sub">El modelo que se preselecciona en los distintos módulos (Habla con tus datos, Narrativas, Relación con Stakeholders). Puede cambiarse puntualmente en cada pantalla.</p>
+            <div class="par-section-body">
+                <div class="par-field">
+                    <label>Modelo</label>
+                    <select disabled title="Para cambiar el modelo por defecto, modifica la variable MODELO_POR_DEFECTO en app.py (requiere reinicio).">
+                        {% for id, label in MODELOS_ORDENADOS %}
+                        <option value="{{ id }}" {% if id == MODELO_POR_DEFECTO %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="par-msg">Actualmente: <strong>{{ MODELO_POR_DEFECTO }}</strong>. Requiere edición de app.py para modificarlo (próxima iteración: edición en caliente).</div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+<script>
+// ===== Navegación interna (scroll suave + estado activo) =====
+(function() {
+    var links = document.querySelectorAll('#par-nav a');
+    links.forEach(function(a) {
+        a.addEventListener('click', function(e) {
+            e.preventDefault();
+            var id = a.getAttribute('href').substring(1);
+            var el = document.getElementById(id);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            links.forEach(function(x) { x.classList.toggle('on', x === a); });
+        });
+    });
+})();
+
+// ===== Tickers (competidores + interés) =====
+window.parTickers = (function() {
+    var state = { comp: [], int: [] };
+    var añadiendo = false;
+
+    function pintar() {
+        ['comp', 'int'].forEach(function(k) {
+            var cont = document.getElementById('par-' + k + '-list');
+            var items = state[k];
+            cont.innerHTML = '';
+            if (!items.length) {
+                var e = document.createElement('span');
+                e.style.cssText = 'font-size: 0.78rem; color: var(--fg-mute); font-style: italic;';
+                e.textContent = k === 'comp' ? 'Sin competidores definidos.' : 'Sin tickers de interés.';
+                cont.appendChild(e);
+                return;
+            }
+            items.forEach(function(t, i) {
+                var c = document.createElement('span');
+                c.className = 'par-chip' + (k === 'comp' ? ' comp' : '');
+                c.innerHTML = '<span></span><button type="button" title="Quitar">✕</button>';
+                c.querySelector('span').textContent = t;
+                c.querySelector('button').addEventListener('click', function() {
+                    state[k].splice(i, 1);
+                    guardar();
+                });
+                cont.appendChild(c);
+            });
+        });
+    }
+    function msg(k, texto, cls) {
+        var m = document.getElementById('par-' + k + '-msg');
+        m.textContent = texto || '';
+        m.className = 'par-msg' + (cls ? ' ' + cls : '');
+    }
+    async function cargar() {
+        try {
+            var r = await fetch('/_api/tickers');
+            var j = await r.json();
+            if (j && j.ok) {
+                state.comp = j.competidores || [];
+                state.int = j.interes || [];
+                pintar();
+            }
+        } catch (e) {
+            msg('comp', 'Error al cargar: ' + e.message, 'err');
+        }
+    }
+    async function guardar() {
+        try {
+            var r = await fetch('/_api/tickers', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ competidores: state.comp, interes: state.int }),
+            });
+            var j = await r.json();
+            if (!j.ok) throw new Error(j.error);
+            state.comp = j.competidores || [];
+            state.int = j.interes || [];
+            pintar();
+        } catch (e) {
+            msg('comp', 'Error al guardar: ' + e.message, 'err');
+        }
+    }
+    cargar();
+    return {
+        async añadir(tipo) {
+            if (añadiendo) return;
+            var k = tipo === 'comp' ? 'comp' : 'int';
+            var input = document.getElementById('par-' + k + '-input');
+            var btn = document.getElementById('par-' + k + '-btn');
+            var t = (input.value || '').trim().toUpperCase();
+            if (!t) return;
+            if (state.comp.indexOf(t) !== -1 || state.int.indexOf(t) !== -1) {
+                msg(k, 'Ese ticker ya está en la lista.', 'err');
+                return;
+            }
+            añadiendo = true; btn.disabled = true;
+            msg(k, 'Validando con Yahoo Finance…');
+            try {
+                var r = await fetch('/_api/tickers/validar', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ ticker: t }),
+                });
+                var j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                if (!j.valido) { msg(k, j.mensaje || 'Ticker no encontrado.', 'err'); return; }
+                state[k].push(t);
+                await guardar();
+                input.value = '';
+                msg(k, 'Añadido: ' + t + (j.nombre && j.nombre !== t ? ' · ' + j.nombre : ''), 'ok');
+            } catch (e) {
+                msg(k, 'Error: ' + e.message, 'err');
+            } finally {
+                añadiendo = false; btn.disabled = false;
+            }
+        },
+    };
+})();
+['par-comp-input', 'par-int-input'].forEach(function(id) {
+    var inp = document.getElementById(id);
+    if (!inp) return;
+    inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); parTickers.añadir(id.endsWith('comp-input') ? 'comp' : 'int'); }
+    });
+});
+
+{% if EMPRESA_COTIZA %}
+// ===== KPIs del Inicio =====
+window.parKpis = (function() {
+    var catalogo = {{ kpi_catalogo|tojson }};
+    var seleccion = new Set({{ kpis_seleccionados|tojson }});
+    var max = {{ kpi_max }};
+
+    function pintar() {
+        var grid = document.getElementById('par-kpi-grid');
+        grid.innerHTML = '';
+        var familias = {};
+        catalogo.forEach(function(k) {
+            var f = k.familia || 'Otros';
+            if (!familias[f]) familias[f] = [];
+            familias[f].push(k);
+        });
+        Object.keys(familias).forEach(function(fname) {
+            var h = document.createElement('div');
+            h.className = 'par-fam-title';
+            h.textContent = fname;
+            grid.appendChild(h);
+            var cont = document.createElement('div');
+            cont.className = 'par-kpi-grid';
+            familias[fname].forEach(function(k) {
+                var label = document.createElement('label');
+                label.className = 'par-kpi-opt' + (seleccion.has(k.id) ? ' on' : '');
+                var marcado = seleccion.has(k.id);
+                var disabled = !marcado && seleccion.size >= max;
+                label.innerHTML =
+                    '<input type="checkbox"' + (marcado ? ' checked' : '') + (disabled ? ' disabled' : '') + '>' +
+                    '<span class="sw" style="background:' + k.color + ';"></span>' +
+                    '<span class="lbl"></span>';
+                label.querySelector('.lbl').textContent = k.titulo;
+                label.querySelector('input').addEventListener('change', function(e) {
+                    if (e.target.checked) { if (seleccion.size < max) seleccion.add(k.id); }
+                    else { seleccion.delete(k.id); }
+                    pintar();
+                });
+                cont.appendChild(label);
+            });
+            grid.appendChild(cont);
+        });
+        document.getElementById('par-kpi-count').textContent = seleccion.size;
+    }
+    pintar();
+    return {
+        async guardar() {
+            if (!seleccion.size) {
+                var m = document.getElementById('par-kpi-msg');
+                m.textContent = 'Selecciona al menos un KPI.'; m.className = 'par-msg err';
+                return;
+            }
+            var btn = document.getElementById('par-kpi-save');
+            btn.disabled = true;
+            try {
+                var r = await fetch('/_api/home/kpis', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ ids: Array.from(seleccion) }),
+                });
+                var j = await r.json();
+                if (!j.ok) throw new Error(j.error);
+                var m = document.getElementById('par-kpi-msg');
+                m.textContent = 'Guardado · ' + j.seleccionados.length + ' KPIs activos. Se aplicará al recargar el Inicio.';
+                m.className = 'par-msg ok';
+            } catch (e) {
+                var m = document.getElementById('par-kpi-msg');
+                m.textContent = 'Error: ' + e.message; m.className = 'par-msg err';
+            } finally {
+                btn.disabled = false;
+            }
+        },
+    };
+})();
+{% endif %}
+
+// ===== Stats del diccionario =====
+(function() {
+    fetch('/habla-con-tus-datos/diccionario').then(function(r) { return r.json(); }).then(function(j) {
+        if (!j.ok) return;
+        var entradas = j.entradas || [];
+        var kpi = 0, sin = 0, def = 0;
+        entradas.forEach(function(e) {
+            if (e.formula && e.formula.trim()) kpi++;
+            else if (e.sinonimos && e.sinonimos.length) sin += e.sinonimos.length;
+            else if ((e.definicion && e.definicion.trim()) || (e.presentacion && e.presentacion.trim())) def++;
+        });
+        document.getElementById('par-dicc-sin').textContent = sin;
+        document.getElementById('par-dicc-kpi').textContent = kpi;
+        document.getElementById('par-dicc-def').textContent = def;
+        ['sin', 'kpi', 'def'].forEach(function(k) {
+            var n = (k === 'sin' ? sin : k === 'kpi' ? kpi : def);
+            var pill = document.getElementById('par-dicc-' + k).parentElement;
+            pill.classList.toggle('gray', n === 0);
+        });
+    }).catch(function() {});
+})();
+</script>
+{% endblock %}
