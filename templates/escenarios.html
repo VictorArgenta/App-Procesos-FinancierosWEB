@@ -313,50 +313,61 @@
                     <option value="{{ id }}" {% if id == MODELO_POR_DEFECTO %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
-                <button type="button" class="esc-btn dark" onclick="escApp.pedirNarrativa()" id="btn-narrativa">
-                    {{ icon("pencil", size=13) }} Lectura con IA
-                </button>
-                <button type="button" class="esc-btn brand" onclick="escModal.abrir('guardar')" id="btn-guardar">
+                <button type="button" class="esc-btn ghost" onclick="escModal.abrir('guardar')" id="btn-guardar" title="Guarda los drivers actuales con un nombre">
                     {{ icon("check", size=13) }} Guardar escenario
+                </button>
+                <button type="button" class="esc-btn brand" onclick="escApp.simularIA()" id="btn-simular">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    Simular con IA
                 </button>
             </div>
         </section>
 
         <!-- Resultados: PyG + Cash Flow + Márgenes -->
         <section class="esc-card">
-            <h2>Resultado proyectado <small style="font-weight: 500; color: var(--fg-mute); font-size: 0.78rem; margin-left: 10px;" id="esc-meta">cargando…</small></h2>
-            <div class="esc-tables">
-                <div>
-                    <table class="esc-table" id="esc-tab-pyg">
-                        <thead>
-                            <tr><th>Cuenta de resultados</th><th>Base</th><th>Escenario</th><th>Δ</th></tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
-                <div>
-                    <table class="esc-table" id="esc-tab-cf">
-                        <thead>
-                            <tr><th>Flujo de caja</th><th>Base</th><th>Escenario</th><th>Δ</th></tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
+            <h2>Resultado proyectado <small style="font-weight: 500; color: var(--fg-mute); font-size: 0.78rem; margin-left: 10px;" id="esc-meta">mueve los drivers y pulsa "Simular con IA"</small></h2>
+
+            <div id="esc-sin-resultado" class="esc-narrativa-empty" style="padding: 24px 12px;">
+                Aún no hay escenario calculado. Ajusta los drivers y pulsa <strong>"Simular con IA"</strong> para que el modelo proyecte PyG y Cash Flow con su criterio de modelización.
             </div>
-            <div class="esc-margenes" id="esc-margenes"></div>
+
+            <div id="esc-loading-ia" hidden style="padding: 28px 12px;">
+                <div class="esc-narrativa-loading">Pidiendo a la IA que calcule el escenario (puede tardar 10-30 s según el modelo)…</div>
+            </div>
+
+            <div id="esc-error-ia" hidden class="esc-narrativa-error"></div>
+
+            <div id="esc-resultado-wrap" hidden>
+                <div id="esc-razonamiento" style="margin-bottom: 14px; padding: 10px 14px; background: var(--info-bg); border-left: 3px solid var(--info); border-radius: 6px; font-size: 0.86rem; color: var(--fg); line-height: 1.5;"></div>
+
+                <div class="esc-tables">
+                    <div>
+                        <table class="esc-table" id="esc-tab-pyg">
+                            <thead>
+                                <tr><th>Cuenta de resultados</th><th>Base</th><th>Escenario</th><th>Δ</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <table class="esc-table" id="esc-tab-cf">
+                            <thead>
+                                <tr><th>Flujo de caja</th><th>Base</th><th>Escenario</th><th>Δ</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="esc-margenes" id="esc-margenes"></div>
+
+                <div id="esc-alertas" style="margin-top: 14px; display: flex; flex-direction: column; gap: 6px;"></div>
+            </div>
         </section>
 
-        <!-- Narrativa IA -->
-        <section class="esc-card">
+        <!-- Lectura ejecutiva (se rellena al simular) -->
+        <section class="esc-card" id="esc-narrativa-card" hidden>
             <h2>Lectura ejecutiva</h2>
-            <div id="esc-narrativa-wrap">
-                <div class="esc-narrativa-empty" id="esc-narrativa-empty">
-                    Pulsa <strong>"Lectura con IA"</strong> para que el modelo redacte un párrafo ejecutivo sobre este escenario.
-                </div>
-                <div id="esc-narrativa-loading" hidden class="esc-narrativa-loading">Redactando lectura…</div>
-                <div id="esc-narrativa-error" hidden class="esc-narrativa-error"></div>
-                <div id="esc-narrativa-text" hidden class="esc-narrativa"></div>
-            </div>
+            <div class="esc-narrativa" id="esc-narrativa-text"></div>
         </section>
     </div>
 </div>
@@ -456,6 +467,8 @@ window.escApp = (function() {
     var escenarios = {{ escenarios_guardados|tojson }};
     var valores = {};
     var escenarioActivo = null;  // id del escenario seleccionado
+    var ultimaSimulacion = null; // guarda el último resultado IA
+    var simulando = false;
 
     function pintarDrivers() {
         var grid = document.getElementById('esc-drivers');
@@ -489,12 +502,21 @@ window.escApp = (function() {
                 valEl.textContent = (v > 0 ? '+' : '') + v + sufijo;
                 valEl.classList.toggle('pos', v > 0);
                 valEl.classList.toggle('neg', v < 0);
-                simularDebounced();
+                marcarCambiosPendientes();
             }
             inp.addEventListener('input', sync);
             sync();
             grid.appendChild(cell);
         });
+    }
+
+    function marcarCambiosPendientes() {
+        // Si hay un resultado previo pero el usuario ha cambiado los drivers,
+        // avisamos que hay cambios pendientes de simular.
+        if (!ultimaSimulacion) return;
+        var meta = document.getElementById('esc-meta');
+        meta.textContent = 'has cambiado los drivers · pulsa "Simular con IA" para recalcular';
+        meta.style.color = 'var(--warn)';
     }
 
     function pintarEscenarios() {
@@ -524,11 +546,11 @@ window.escApp = (function() {
     function cargarEscenario(e) {
         escenarioActivo = e.id;
         valores = Object.assign({}, e.valores || {});
-        // Forzar defaults en los drivers que no estén en el escenario guardado
         drivers.forEach(function(d) { if (valores[d.id] === undefined) valores[d.id] = d.default || 0; });
+        ultimaSimulacion = null;
+        resetVistas();
         pintarDrivers();
         pintarEscenarios();
-        simular();
     }
 
     async function borrarEscenario(e) {
@@ -543,31 +565,80 @@ window.escApp = (function() {
         } catch (ex) { alert('Error al borrar: ' + ex.message); }
     }
 
-    async function simular() {
+    function resetVistas() {
+        document.getElementById('esc-sin-resultado').hidden = false;
+        document.getElementById('esc-loading-ia').hidden = true;
+        document.getElementById('esc-error-ia').hidden = true;
+        document.getElementById('esc-resultado-wrap').hidden = true;
+        document.getElementById('esc-narrativa-card').hidden = true;
         var meta = document.getElementById('esc-meta');
-        meta.textContent = 'simulando…';
+        meta.textContent = 'mueve los drivers y pulsa "Simular con IA"';
+        meta.style.color = '';
+    }
+
+    async function simularIA() {
+        if (simulando) return;
+        simulando = true;
+        var btn = document.getElementById('btn-simular');
+        btn.disabled = true;
+        document.getElementById('esc-sin-resultado').hidden = true;
+        document.getElementById('esc-error-ia').hidden = true;
+        document.getElementById('esc-resultado-wrap').hidden = true;
+        document.getElementById('esc-narrativa-card').hidden = true;
+        document.getElementById('esc-loading-ia').hidden = false;
+
         try {
-            var r = await fetch('/_api/escenarios/simular', {
+            var modelo = document.getElementById('esc-modelo').value;
+            var nombre = 'Escenario actual';
+            var activo = escenarios.find(function(x) { return x.id === escenarioActivo; });
+            if (activo) nombre = activo.nombre;
+
+            var r = await fetch('/_api/escenarios/simular-ia', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ valores: valores }),
+                body: JSON.stringify({ valores: valores, modelo: modelo, nombre: nombre }),
             });
             var j = await r.json();
-            if (!j.ok) throw new Error(j.error);
-            renderResultado(j.resultado);
+            document.getElementById('esc-loading-ia').hidden = true;
+            if (!j.ok) {
+                var err = document.getElementById('esc-error-ia');
+                err.textContent = j.error || 'Error al simular con IA.';
+                if (j.texto_bruto) err.textContent += ' · Respuesta parcial del modelo: ' + j.texto_bruto.slice(0, 300);
+                err.hidden = false;
+                document.getElementById('esc-sin-resultado').hidden = false;
+                return;
+            }
+            ultimaSimulacion = j.resultado;
+            renderResultadoIA(j.resultado);
         } catch (ex) {
-            meta.textContent = 'Error: ' + ex.message;
+            document.getElementById('esc-loading-ia').hidden = true;
+            var err = document.getElementById('esc-error-ia');
+            err.textContent = 'Error de conexión: ' + ex.message;
+            err.hidden = false;
+            document.getElementById('esc-sin-resultado').hidden = false;
+        } finally {
+            simulando = false;
+            btn.disabled = false;
         }
     }
-    var simularDebounced = debounce(simular, 350);
 
-    function renderResultado(res) {
+    function renderResultadoIA(res) {
         var meta = document.getElementById('esc-meta');
-        meta.textContent = 'Periodo base: FY' + (res.periodo_base || '—') + (res.moneda ? ' · ' + res.moneda : '');
+        meta.textContent = 'Periodo base: FY' + (res.periodo_base || '—') + (res.moneda ? ' · ' + res.moneda : '') + ' · modelo: ' + (res.modelo || '—');
+        meta.style.color = '';
+
+        // Razonamiento breve
+        var raz = document.getElementById('esc-razonamiento');
+        if (res.razonamiento_breve) {
+            raz.innerHTML = '<strong>Supuestos del modelo:</strong> ' + escapeHtml(res.razonamiento_breve);
+            raz.style.display = '';
+        } else {
+            raz.style.display = 'none';
+        }
 
         function pintarTabla(tbodyId, filas) {
             var tb = document.querySelector('#' + tbodyId + ' tbody');
             tb.innerHTML = '';
-            filas.forEach(function(f) {
+            (filas || []).forEach(function(f) {
                 var tr = document.createElement('tr');
                 if (f.subtotal) tr.className = 'sub';
                 var deltaCls = (f.delta > 0) ? 'delta-pos' : (f.delta < 0 ? 'delta-neg' : 'delta-flat');
@@ -575,8 +646,9 @@ window.escApp = (function() {
                     '<td></td>' +
                     '<td>' + fmtCorto(f.base) + '</td>' +
                     '<td>' + fmtCorto(f.escenario) + '</td>' +
-                    '<td class="' + deltaCls + '">' + (f.delta_pct !== null ? fmtDeltaPct(f.delta_pct) : '—') + '</td>';
-                tr.cells[0].textContent = f.concepto;
+                    '<td class="' + deltaCls + '">' + (f.delta_pct !== null && f.delta_pct !== undefined ? fmtDeltaPct(f.delta_pct) : '—') + '</td>';
+                tr.cells[0].textContent = f.concepto + (f.nota ? '  ·' : '');
+                if (f.nota) tr.cells[0].title = f.nota;
                 tb.appendChild(tr);
             });
         }
@@ -588,7 +660,7 @@ window.escApp = (function() {
         mcont.innerHTML = '';
         var m = res.margenes || {};
         function tarjetaM(lbl, b, e) {
-            if (b === null || e === null) return;
+            if (b === null || b === undefined || e === null || e === undefined) return;
             var div = document.createElement('div');
             div.className = 'esc-margen';
             var delta = e - b;
@@ -603,63 +675,53 @@ window.escApp = (function() {
         tarjetaM('Margen EBITDA', m.margen_ebitda_base, m.margen_ebitda_esc);
         tarjetaM('Margen neto', m.margen_neto_base, m.margen_neto_esc);
         tarjetaM('Tipo impositivo efectivo', m.tax_rate_base, m.tax_rate_esc);
-    }
 
-    async function pedirNarrativa() {
-        var btn = document.getElementById('btn-narrativa');
-        btn.disabled = true;
-        document.getElementById('esc-narrativa-empty').hidden = true;
-        document.getElementById('esc-narrativa-error').hidden = true;
-        document.getElementById('esc-narrativa-text').hidden = true;
-        document.getElementById('esc-narrativa-loading').hidden = false;
-        try {
-            var modelo = document.getElementById('esc-modelo').value;
-            var nombre = 'Escenario actual';
-            var activo = escenarios.find(function(x) { return x.id === escenarioActivo; });
-            if (activo) nombre = activo.nombre;
-            var r = await fetch('/_api/escenarios/narrativa', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ valores: valores, modelo: modelo, nombre: nombre }),
-            });
-            var j = await r.json();
-            document.getElementById('esc-narrativa-loading').hidden = true;
-            if (!j.ok) {
-                var err = document.getElementById('esc-narrativa-error');
-                err.textContent = j.error || 'No se pudo generar la lectura.';
-                err.hidden = false;
-                document.getElementById('esc-narrativa-empty').hidden = false;
-                return;
-            }
+        // Alertas
+        var alcont = document.getElementById('esc-alertas');
+        alcont.innerHTML = '';
+        (res.alertas || []).forEach(function(a) {
+            var box = document.createElement('div');
+            var color = a.tipo === 'critical' ? 'var(--bad)' : (a.tipo === 'warning' ? 'var(--warn)' : 'var(--info)');
+            var bg = a.tipo === 'critical' ? 'var(--bad-bg)' : (a.tipo === 'warning' ? 'var(--warn-bg)' : 'var(--info-bg)');
+            box.style.cssText = 'padding: 8px 12px; border-radius: 6px; border-left: 3px solid ' + color + '; background: ' + bg + '; color: var(--fg); font-size: 0.82rem;';
+            box.innerHTML = '<strong style="color:' + color + '; text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.5px;">' + (a.tipo || 'info') + '</strong> ' + escapeHtml(a.texto || '');
+            alcont.appendChild(box);
+        });
+
+        document.getElementById('esc-resultado-wrap').hidden = false;
+
+        // Lectura ejecutiva
+        if (res.lectura_ejecutiva) {
             var t = document.getElementById('esc-narrativa-text');
-            var parrafos = (j.texto || '').trim().split(/\n{2,}/);
+            var parrafos = (res.lectura_ejecutiva || '').trim().split(/\n{2,}/);
             t.innerHTML = parrafos.map(function(p) {
                 var e = p.replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 return '<p>' + e.replace(/\n/g, '<br>') + '</p>';
             }).join('');
-            t.hidden = false;
-        } catch (ex) {
-            document.getElementById('esc-narrativa-loading').hidden = true;
-            var err = document.getElementById('esc-narrativa-error');
-            err.textContent = 'Error: ' + ex.message; err.hidden = false;
-            document.getElementById('esc-narrativa-empty').hidden = false;
-        } finally {
-            btn.disabled = false;
+            document.getElementById('esc-narrativa-card').hidden = false;
         }
+    }
+
+    function escapeHtml(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function nuevoEscenario() {
         escenarioActivo = null;
         valores = {};
         drivers.forEach(function(d) { valores[d.id] = d.default || 0; });
+        ultimaSimulacion = null;
+        resetVistas();
         pintarDrivers();
         pintarEscenarios();
-        simular();
     }
     function reset() {
         valores = {};
         drivers.forEach(function(d) { valores[d.id] = 0; });
+        ultimaSimulacion = null;
+        resetVistas();
         pintarDrivers();
-        simular();
     }
 
     async function guardarEscenarioSubmit() {
@@ -717,11 +779,11 @@ window.escApp = (function() {
         init() {
             pintarEscenarios();
             pintarDrivers();
-            simular();
+            resetVistas();
         },
         nuevoEscenario: nuevoEscenario,
         reset: reset,
-        pedirNarrativa: pedirNarrativa,
+        simularIA: simularIA,
         guardarEscenarioSubmit: guardarEscenarioSubmit,
         guardarNuevoDriver: guardarNuevoDriver,
     };

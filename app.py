@@ -7123,72 +7123,226 @@ def _api_escenarios_simular():
     return jsonify({"ok": True, "resultado": res})
 
 
-@app.route("/_api/escenarios/narrativa", methods=["POST"])
-def _api_escenarios_narrativa():
+def _extraer_json(texto):
+    """Extrae el primer objeto JSON del texto bruto del LLM. Soporta code
+    fences ```json ... ``` y texto antes/después. Devuelve dict o None."""
+    if not texto:
+        return None
+    t = texto.strip()
+    # Quitar fences de código si existen
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", t, re.DOTALL | re.IGNORECASE)
+    if m:
+        try:
+            return json.loads(m.group(1))
+        except Exception:  # noqa: BLE001
+            pass
+    # Busca el primer {...} balanceado
+    start = t.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    for i in range(start, len(t)):
+        c = t[i]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(t[start:i + 1])
+                except Exception:  # noqa: BLE001
+                    return None
+    return None
+
+
+@app.route("/_api/escenarios/simular-ia", methods=["POST"])
+def _api_escenarios_simular_ia():
+    """Delega la simulación del escenario al LLM.
+
+    Enviamos la PyG y el Cash Flow del último FY (completos, sin resumir),
+    los drivers con sus valores, y pedimos JSON estructurado con la
+    proyección razonada + lectura ejecutiva + alertas.
+
+    El modelo puede aplicar efectos de segundo orden a su criterio:
+    apalancamiento operativo, elasticidad precio-coste, impacto en WC, etc.
+    """
     from flask import jsonify
     if not TICKER_FIJO or not _empresa_cotiza():
         return jsonify({"ok": False, "error": "Empresa no cotiza o no hay empresa activa."}), 400
+    data = request.get_json(silent=True) or {}
+    valores = data.get("valores") or {}
+    if not isinstance(valores, dict):
+        return jsonify({"ok": False, "error": "'valores' debe ser un objeto."}), 400
+    nombre_esc = (data.get("nombre") or "Escenario sin nombre").strip()
+    modelo = _normalizar_modelo(data.get("modelo") or MODELO_POR_DEFECTO)
+
     try:
         datos = _cargar_datos_ticker_fijo()
     except Exception as e:  # noqa: BLE001
         return jsonify({"ok": False, "error": f"No se pudieron cargar datos: {e}"}), 500
-    data = request.get_json(silent=True) or {}
-    valores = data.get("valores") or {}
-    nombre_esc = (data.get("nombre") or "Escenario sin nombre").strip()
-    res = _simular_escenario(datos, valores)
-    if not res:
-        return jsonify({"ok": False, "error": "Sin datos para generar lectura."}), 400
+    if not datos:
+        return jsonify({"ok": False, "error": "Sin datos financieros para esta empresa."}), 400
 
-    # Construimos un contexto compacto
-    lineas = [
-        f"Empresa: {_BRANDING.get('empresa','')} ({TICKER_FIJO})",
-        f"Escenario: {nombre_esc}",
-        f"Periodo base: FY{res.get('periodo_base','')}",
-        f"Moneda: {res.get('moneda') or 'n/d'}",
-        "",
-        "Drivers aplicados:",
-    ]
-    drivers_cfg = { d["id"]: d for d in _cargar_drivers_empresa() }
-    for did, val in valores.items():
-        d = drivers_cfg.get(did) or {}
+    periodos = datos.get("periodos") or []
+    if not periodos:
+        return jsonify({"ok": False, "error": "Sin cuenta de resultados base."}), 400
+
+    base = periodos[0]
+    periodo_base_lbl = str(base.get("periodo", ""))[:4]
+    moneda = datos.get("moneda") or "n/d"
+
+    # Partidas clave del último FY
+    def _n(x):
+        try:
+            return float(x) if x is not None else 0.0
+        except (TypeError, ValueError):
+            return 0.0
+
+    ingresos_b = _n(base.get("ingresos"))
+    cv_b       = _n(base.get("coste_ventas"))
+    bruto_b    = ingresos_b - cv_b
+    go_b       = _n(base.get("gastos_operativos"))
+    da_b       = _n(base.get("da"))
+    ebitda_b   = bruto_b - go_b
+    ebit_b     = ebitda_b - da_b
+    rf_b       = _n(base.get("resultado_financiero_neto"))
+    rai_b      = _n(base.get("resultado_antes_impuestos")) or (ebit_b + rf_b)
+    imp_b      = _n(base.get("impuestos"))
+    bn_b       = _n(base.get("beneficio_neto")) or (rai_b - imp_b)
+    tax_rate_b = (imp_b / rai_b * 100.0) if rai_b else 0.0
+    sga_b      = _n(base.get("sga"))
+    rd_b       = _n(base.get("rd"))
+
+    capex_b = abs(_n(_localizar_cashflow(datos, "Inversiones en inmovilizado")))
+    ocf_b   = _n(_localizar_cashflow(datos, "Flujo de caja operativo"))
+    fcf_b   = ocf_b - capex_b
+
+    # Drivers configurados + valor actual
+    drivers_cfg = _cargar_drivers_empresa()
+    drivers_contexto = []
+    for d in drivers_cfg:
+        val = valores.get(d["id"], d.get("default", 0) or 0)
         unidad = d.get("unidad", "pct")
-        signo = "+" if (val or 0) > 0 else ""
-        lineas.append(f"- {d.get('nombre', did)}: {signo}{val} {'pp' if unidad=='pp' else '%'}")
-    lineas.append("")
-    lineas.append("PyG proyectada (base → escenario):")
-    for fila in res["pyg"]:
-        if fila["delta_pct"] is not None:
-            lineas.append(f"  {fila['concepto']}: {fila['base']:,.0f} → {fila['escenario']:,.0f} ({fila['delta_pct']:+.1f}%)")
-        else:
-            lineas.append(f"  {fila['concepto']}: {fila['base']:,.0f} → {fila['escenario']:,.0f}")
-    lineas.append("")
-    lineas.append("Cash Flow proyectado:")
-    for fila in res["cashflow"]:
-        lineas.append(f"  {fila['concepto']}: {fila['base']:,.0f} → {fila['escenario']:,.0f}")
-    m = res["margenes"]
-    lineas.append("")
-    lineas.append(f"Margen EBITDA: {m['margen_ebitda_base']:.1f}% → {m['margen_ebitda_esc']:.1f}%")
-    lineas.append(f"Margen neto: {m['margen_neto_base']:.1f}% → {m['margen_neto_esc']:.1f}%")
+        drivers_contexto.append({
+            "id": d["id"], "nombre": d["nombre"], "unidad": unidad,
+            "valor": val, "descripcion": d.get("descripcion", ""),
+        })
+
+    # Contexto como texto
+    ctx = [
+        f"Empresa: {_BRANDING.get('empresa','')} ({TICKER_FIJO})",
+        f"Escenario propuesto: {nombre_esc}",
+        f"Ejercicio base: FY{periodo_base_lbl}",
+        f"Moneda: {moneda}",
+        "",
+        "## Datos base del último ejercicio cerrado (importes en unidades de la moneda reporting)",
+        "### Cuenta de resultados",
+        f"- Ingresos:                       {ingresos_b:,.0f}",
+        f"- Coste de ventas:                {cv_b:,.0f}",
+        f"- Beneficio bruto:                {bruto_b:,.0f}  (margen {bruto_b/ingresos_b*100 if ingresos_b else 0:.1f}%)",
+        f"- Gastos operativos:              {go_b:,.0f}",
+        f"    · de los cuales G&A:          {sga_b:,.0f}",
+        f"    · de los cuales I+D:          {rd_b:,.0f}",
+        f"- EBITDA:                         {ebitda_b:,.0f}  (margen {ebitda_b/ingresos_b*100 if ingresos_b else 0:.1f}%)",
+        f"- Amortizaciones (D&A):           {da_b:,.0f}",
+        f"- EBIT:                           {ebit_b:,.0f}",
+        f"- Resultado financiero neto:      {rf_b:,.0f}",
+        f"- Beneficio antes de impuestos:   {rai_b:,.0f}",
+        f"- Impuestos:                      {imp_b:,.0f}  (tasa efectiva {tax_rate_b:.1f}%)",
+        f"- Beneficio neto:                 {bn_b:,.0f}  (margen {bn_b/ingresos_b*100 if ingresos_b else 0:.1f}%)",
+        "",
+        "### Flujo de caja",
+        f"- Flujo de caja operativo (OCF):  {ocf_b:,.0f}",
+        f"- CAPEX (inversión en inmov.):    {capex_b:,.0f}  (salida de caja)",
+        f"- Flujo de caja libre (FCF):      {fcf_b:,.0f}",
+        "",
+        "## Drivers aplicados (unidades: pct = %, pp = puntos porcentuales sobre tasa)",
+    ]
+    for d in drivers_contexto:
+        unidad_txt = "pp" if d["unidad"] == "pp" else "%"
+        signo = "+" if (d["valor"] or 0) > 0 else ""
+        ctx.append(f"- {d['nombre']} ({d['id']}): {signo}{d['valor']} {unidad_txt}  —  {d['descripcion']}")
 
     prompt = (
-        "Eres analista financiero senior en una firma Big Four. Redacta una "
-        "**lectura ejecutiva de un escenario what-if** con los datos siguientes. "
-        "Idioma: español neutro corporativo. Formato: 2 a 3 párrafos cortos, sin "
-        "bullets, sin títulos, sin tablas, sin disclaimers. Máximo 200 palabras. "
-        "Cubre: (1) resumen del escenario y de los drivers aplicados; (2) impacto "
-        "más relevante en PyG (destacar EBITDA, beneficio neto, márgenes); (3) "
-        "impacto en caja (FCF, CAPEX); (4) una lectura global en una línea. No "
-        "inventes cifras más allá de las aportadas.\n\nDatos:\n" + "\n".join(lineas)
+        "Eres analista financiero senior en una firma Big Four. Tu tarea es "
+        "**proyectar la cuenta de resultados y el flujo de caja del próximo "
+        "ejercicio** aplicando los drivers que te indica el usuario. Puedes "
+        "ejercer tu criterio para efectos de segundo orden: apalancamiento "
+        "operativo, elasticidad precio-coste (si suben ingresos ¿el coste "
+        "variable escala proporcional?), estructura fija vs variable de los "
+        "gastos operativos, impacto en working capital sobre el OCF, etc. "
+        "Explica brevemente qué supuestos estás tomando.\n\n"
+        "RESPONDE EXCLUSIVAMENTE con un objeto JSON válido con este schema, "
+        "SIN texto antes o después, SIN markdown, SIN bloques de código. Las "
+        "cifras numéricas van como números (no strings). Cuando una línea no "
+        "cambie respecto a la base, pon el mismo valor.\n\n"
+        "{\n"
+        '  "razonamiento_breve": "1-2 frases explicando tus supuestos clave.",\n'
+        '  "pyg": [\n'
+        '    {"concepto": "Ingresos", "base": NUM, "escenario": NUM, "nota": "opcional"},\n'
+        '    {"concepto": "Coste de ventas", "base": NUM, "escenario": NUM, "nota": "..."},\n'
+        '    {"concepto": "Beneficio bruto", "base": NUM, "escenario": NUM, "subtotal": true},\n'
+        '    {"concepto": "Gastos operativos", "base": NUM, "escenario": NUM, "nota": "..."},\n'
+        '    {"concepto": "EBITDA", "base": NUM, "escenario": NUM, "subtotal": true},\n'
+        '    {"concepto": "Amortizaciones (D&A)", "base": NUM, "escenario": NUM},\n'
+        '    {"concepto": "EBIT", "base": NUM, "escenario": NUM, "subtotal": true},\n'
+        '    {"concepto": "Resultado financiero neto", "base": NUM, "escenario": NUM},\n'
+        '    {"concepto": "Beneficio antes de impuestos", "base": NUM, "escenario": NUM, "subtotal": true},\n'
+        '    {"concepto": "Impuestos", "base": NUM, "escenario": NUM, "nota": "tasa aplicada ..."},\n'
+        '    {"concepto": "Beneficio neto", "base": NUM, "escenario": NUM, "subtotal": true}\n'
+        '  ],\n'
+        '  "cashflow": [\n'
+        '    {"concepto": "Flujo de caja operativo", "base": NUM, "escenario": NUM, "nota": "..."},\n'
+        '    {"concepto": "CAPEX", "base": NEG, "escenario": NEG, "nota": "..."},\n'
+        '    {"concepto": "Flujo de caja libre", "base": NUM, "escenario": NUM, "subtotal": true}\n'
+        '  ],\n'
+        '  "margenes": {\n'
+        '    "margen_ebitda_base": NUM, "margen_ebitda_esc": NUM,\n'
+        '    "margen_neto_base": NUM, "margen_neto_esc": NUM,\n'
+        '    "tax_rate_base": NUM, "tax_rate_esc": NUM\n'
+        '  },\n'
+        '  "lectura_ejecutiva": "2-3 párrafos cortos en español corporativo explicando el escenario, los impactos relevantes y una lectura global de una línea. Sin bullets, sin títulos.",\n'
+        '  "alertas": [\n'
+        '    {"tipo": "warning|info|critical", "texto": "ej: el ratio DFN/EBITDA se dispara, o la reducción de OpEx propuesta es poco realista a corto plazo."}\n'
+        '  ]\n'
+        "}\n\n"
+        "Datos:\n" + "\n".join(ctx)
     )
-    modelo = _normalizar_modelo((data.get("modelo") or MODELO_POR_DEFECTO))
+
     try:
-        texto, _c = llamar_ia_con_reintentos(
-            prompt, max_tokens=900, modelo=modelo,
-            permitir_busqueda=False, modulo="escenarios",
+        texto_bruto, _c = llamar_ia_con_reintentos(
+            prompt, max_tokens=3500, modelo=modelo,
+            permitir_busqueda=False, modulo="escenarios-ia",
         )
     except Exception as e:  # noqa: BLE001
         return jsonify({"ok": False, "error": str(e)}), 500
-    return jsonify({"ok": True, "texto": (texto or "").strip(), "modelo": modelo})
+
+    obj = _extraer_json(texto_bruto)
+    if not obj or "pyg" not in obj:
+        return jsonify({
+            "ok": False,
+            "error": "El modelo no devolvió un JSON válido con la simulación.",
+            "texto_bruto": (texto_bruto or "")[:4000],
+        }), 500
+
+    # Enriquecer con deltas calculados server-side (por consistencia visual)
+    def _delta(fila):
+        try:
+            b = float(fila.get("base") or 0)
+            e = float(fila.get("escenario") or 0)
+            fila["delta"] = e - b
+            fila["delta_pct"] = ((e - b) / abs(b) * 100.0) if b else None
+        except Exception:  # noqa: BLE001
+            fila["delta"] = 0
+            fila["delta_pct"] = None
+        return fila
+    for seccion in ("pyg", "cashflow"):
+        obj[seccion] = [_delta(f) for f in (obj.get(seccion) or [])]
+    obj["periodo_base"] = periodo_base_lbl
+    obj["moneda"] = moneda
+    obj["modelo"] = modelo
+
+    return jsonify({"ok": True, "resultado": obj})
 
 
 # =====================================================================
