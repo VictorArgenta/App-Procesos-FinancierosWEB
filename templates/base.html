@@ -312,11 +312,11 @@
         .ds-side-nav[data-vision="equipo"]  .ds-nav-item[data-vision*="equipo"],
         .ds-nav-item[data-vision*="todas"] { display: flex; }
         /* Ocultar también las secciones vacías por visión */
-        .ds-side-section[data-vision]:not([data-vision*="todas"]) { display: none; }
-        .ds-side-nav[data-vision="ceo"]     .ds-side-section[data-vision*="ceo"],
-        .ds-side-nav[data-vision="cfo"]     .ds-side-section[data-vision*="cfo"],
-        .ds-side-nav[data-vision="equipo"]  .ds-side-section[data-vision*="equipo"],
-        .ds-side-section[data-vision*="todas"] { display: block; }
+        .ds-side-group[data-vision]:not([data-vision*="todas"]) { display: none; }
+        .ds-side-nav[data-vision="ceo"]     .ds-side-group[data-vision*="ceo"],
+        .ds-side-nav[data-vision="cfo"]     .ds-side-group[data-vision*="cfo"],
+        .ds-side-nav[data-vision="equipo"]  .ds-side-group[data-vision*="equipo"],
+        .ds-side-group[data-vision*="todas"] { display: block; }
         .ds-logo-full {
             display: inline-flex; align-items: center;
             justify-content: center;
@@ -367,12 +367,32 @@
         }
         .ds-side-nav::-webkit-scrollbar { width: 6px; }
         .ds-side-nav::-webkit-scrollbar-thumb { background: var(--nav-bg-elevated); border-radius: 3px; }
+        .ds-side-group { display: flex; flex-direction: column; margin-top: 4px; }
         .ds-side-section {
-            padding: 14px 12px 6px;
+            display: flex; align-items: center; justify-content: space-between;
+            width: 100%;
+            padding: 11px 12px 7px;
             font-size: 10.5px; font-weight: 700;
             letter-spacing: 0.7px; text-transform: uppercase;
             color: var(--nav-fg-dim);
+            background: transparent; border: 0;
+            cursor: pointer; font-family: inherit;
+            border-radius: 5px;
         }
+        .ds-side-section:hover { color: #fff; background: rgba(255, 255, 255, 0.04); }
+        .ds-side-section .chev {
+            transition: transform 0.18s ease;
+            opacity: 0.7; flex-shrink: 0;
+        }
+        .ds-side-section:hover .chev { opacity: 1; }
+        .ds-side-items {
+            display: flex; flex-direction: column; gap: 2px;
+            overflow: hidden;
+            max-height: 1200px;
+            transition: max-height 0.2s ease, opacity 0.18s ease;
+        }
+        .ds-side-group.collapsed .ds-side-items { max-height: 0; opacity: 0; }
+        .ds-side-group.collapsed .ds-side-section .chev { transform: rotate(-90deg); }
         .ds-nav-item {
             display: flex; align-items: center; gap: 11px;
             padding: 8px 12px;
@@ -1118,90 +1138,144 @@
         </div>
 
         <nav class="ds-side-nav" data-vision="cfo">
-            <div class="ds-side-section" data-vision="todas">Workspace</div>
-            <a class="ds-nav-item {% if request.path == '/' %}active{% endif %}" href="/" data-vision="todas">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                Inicio
-            </a>
-            <a class="ds-nav-item {% if '/habla-con-tus-datos' in request.path %}active{% endif %}" href="/habla-con-tus-datos" data-vision="todas">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                Habla con tus datos
-                <span class="ds-pill">AI</span>
-            </a>
-            {% if EMPRESA_COTIZA %}
-            <a class="ds-nav-item {% if '/panel-ejecutivo' in request.path %}active{% endif %}" href="/panel-ejecutivo" data-vision="ceo cfo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/></svg>
-                Panel ejecutivo
-            </a>
-            <a class="ds-nav-item {% if '/benchmark' in request.path %}active{% endif %}" href="/benchmark" data-vision="ceo cfo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-                Benchmark sectorial
-            </a>
-            {% endif %}
+            {% set chev %}<svg class="chev" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><polyline points="6 9 12 15 18 9"/></svg>{% endset %}
 
-            <div class="ds-side-section" data-vision="cfo equipo">Operar</div>
-            {% if EMPRESA_COTIZA %}
-            <a class="ds-nav-item {% if request.path.startswith('/analisis') or '/generar_informe' in request.path %}active{% endif %}" href="/analisis" data-vision="cfo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg>
-                Informe narrativo
-            </a>
-            {% endif %}
-            <a class="ds-nav-item {% if '/relacion-inversores' in request.path %}active{% endif %}" href="/relacion-inversores" data-vision="ceo cfo equipo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
-                Relación con Stakeholders
-                <span class="ds-pill" id="side-ir-count" hidden></span>
-            </a>
-            <a class="ds-nav-item {% if '/noticias' in request.path %}active{% endif %}" href="/noticias" data-vision="todas">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
-                Noticias del sector
-            </a>
-            <a class="ds-nav-item {% if '/informes-generados' in request.path %}active{% endif %}" href="/informes-generados" data-vision="cfo equipo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-                Informes generados
-            </a>
+            <div class="ds-side-group" data-vision="todas" data-group="workspace">
+                <button type="button" class="ds-side-section" data-collapse><span>Workspace</span>{{ chev }}</button>
+                <div class="ds-side-items">
+                    <a class="ds-nav-item {% if request.path == '/' %}active{% endif %}" href="/">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        Inicio
+                    </a>
+                    <a class="ds-nav-item {% if '/habla-con-tus-datos' in request.path %}active{% endif %}" href="/habla-con-tus-datos">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                        Habla con tus datos
+                        <span class="ds-pill">AI</span>
+                    </a>
+                    <a class="ds-nav-item {% if '/noticias' in request.path %}active{% endif %}" href="/noticias">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
+                        Noticias del sector
+                    </a>
+                    <a class="ds-nav-item {% if '/relacion-inversores' in request.path %}active{% endif %}" href="/relacion-inversores">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
+                        Relación con Stakeholders
+                        <span class="ds-pill" id="side-ir-count" hidden></span>
+                    </a>
+                </div>
+            </div>
 
             {% if EMPRESA_COTIZA %}
-            <a class="ds-nav-item {% if '/escenarios' in request.path %}active{% endif %}" href="/escenarios" data-vision="cfo">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/><circle cx="8" cy="13" r="1.5"/><circle cx="13" cy="8" r="1.5"/><circle cx="18" cy="10" r="1.5"/></svg>
-                Simulación de escenarios
-            </a>
+            <div class="ds-side-group" data-vision="ceo cfo" data-group="analitica">
+                <button type="button" class="ds-side-section" data-collapse><span>Analítica financiera</span>{{ chev }}</button>
+                <div class="ds-side-items">
+                    <a class="ds-nav-item {% if '/panel-ejecutivo' in request.path %}active{% endif %}" href="/panel-ejecutivo">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/></svg>
+                        Panel ejecutivo
+                    </a>
+                    <a class="ds-nav-item {% if '/benchmark' in request.path %}active{% endif %}" href="/benchmark">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                        Benchmark sectorial
+                    </a>
+                    <a class="ds-nav-item {% if request.path.startswith('/analisis') or '/generar_informe' in request.path %}active{% endif %}" href="/analisis">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/></svg>
+                        Informe narrativo
+                    </a>
+                    <a class="ds-nav-item {% if '/escenarios' in request.path %}active{% endif %}" href="/escenarios">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M8 17v-4"/><path d="M13 17V8"/><path d="M18 17v-7"/><circle cx="8" cy="13" r="1.5"/><circle cx="13" cy="8" r="1.5"/><circle cx="18" cy="10" r="1.5"/></svg>
+                        Simulación de escenarios
+                    </a>
+                    <a class="ds-nav-item {% if '/informes-generados' in request.path %}active{% endif %}" href="/informes-generados">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+                        Informes generados
+                    </a>
+                </div>
+            </div>
             {% endif %}
 
             {% if MOCK_META %}
-                <div class="ds-side-section" data-vision="ceo">Dirección general</div>
-                {% for slug, label in MOCK_NAV_CEO %}
-                <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}" data-vision="ceo">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-                    {{ label }}
-                </a>
-                {% endfor %}
+            {% set ico_ceo %}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{% endset %}
+            {% set ico_cfo %}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 17v-6"/><path d="M12 17V9"/><path d="M17 17v-4"/></svg>{% endset %}
+            {% set ico_eq %}<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 7-7"/><path d="M4 5h5"/><path d="M4 12h5"/><path d="M4 19h5"/></svg>{% endset %}
 
-                <div class="ds-side-section" data-vision="cfo">Dirección financiera</div>
-                {% for slug, label in MOCK_NAV_CFO %}
-                <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}" data-vision="cfo">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 17v-6"/><path d="M12 17V9"/><path d="M17 17v-4"/></svg>
-                    {{ label }}
-                </a>
-                {% endfor %}
+            <div class="ds-side-group" data-vision="ceo" data-group="ceo">
+                <button type="button" class="ds-side-section" data-collapse><span>Dirección general</span>{{ chev }}</button>
+                <div class="ds-side-items">
+                    {% for slug, label in MOCK_NAV_CEO %}
+                    <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}">
+                        {{ ico_ceo }}{{ label }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
 
-                <div class="ds-side-section" data-vision="equipo">Equipo operativo</div>
-                {% for slug, label in MOCK_NAV_EQUIPO %}
-                <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}" data-vision="equipo">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 7-7"/><path d="M4 5h5"/><path d="M4 12h5"/><path d="M4 19h5"/></svg>
-                    {{ label }}
-                </a>
-                {% endfor %}
+            <div class="ds-side-group" data-vision="cfo" data-group="cfo">
+                <button type="button" class="ds-side-section" data-collapse><span>Planificación y cierre</span>{{ chev }}</button>
+                <div class="ds-side-items">
+                    {% for slug, label in MOCK_NAV_CFO %}{% if slug in ['cierre-rapido','prevision-continua','prevision-drivers','presupuesto-vs-real','flujo-cierre','eliminaciones','estatutario-vs-gestion'] %}
+                    <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}">{{ ico_cfo }}{{ label }}</a>
+                    {% endif %}{% endfor %}
+                </div>
+            </div>
+
+            <div class="ds-side-group" data-vision="cfo" data-group="cfo-rent">
+                <button type="button" class="ds-side-section" data-collapse><span>Rentabilidad y costes</span>{{ chev }}</button>
+                <div class="ds-side-items">
+                    {% for slug, label in MOCK_NAV_CFO %}{% if slug in ['rentabilidad-dimension','cascada-margen','reparto-costes-abc'] %}
+                    <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}">{{ ico_cfo }}{{ label }}</a>
+                    {% endif %}{% endfor %}
+                </div>
+            </div>
+
+            <div class="ds-side-group" data-vision="cfo" data-group="cfo-tes">
+                <button type="button" class="ds-side-section" data-collapse><span>Tesorería y riesgo</span>{{ chev }}</button>
+                <div class="ds-side-items">
+                    {% for slug, label in MOCK_NAV_CFO %}{% if slug in ['prevision-caja-13s','posicion-tesoreria','exposicion-divisa','impacto-fx','covenants','deuda','asignacion-capital'] %}
+                    <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}">{{ ico_cfo }}{{ label }}</a>
+                    {% endif %}{% endfor %}
+                </div>
+            </div>
+
+            <div class="ds-side-group" data-vision="cfo" data-group="cfo-mkt">
+                <button type="button" class="ds-side-section" data-collapse><span>Relación con el mercado</span>{{ chev }}</button>
+                <div class="ds-side-items">
+                    {% for slug, label in MOCK_NAV_CFO %}{% if slug in ['qa-analistas','calendario-regulatorio'] %}
+                    <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}">{{ ico_cfo }}{{ label }}</a>
+                    {% endif %}{% endfor %}
+                </div>
+            </div>
+
+            <div class="ds-side-group" data-vision="equipo" data-group="eq-oper">
+                <button type="button" class="ds-side-section" data-collapse><span>Mi operativa del cierre</span>{{ chev }}</button>
+                <div class="ds-side-items">
+                    {% for slug, label in MOCK_NAV_EQUIPO %}{% if slug in ['tareas-cierre','asientos-contables','conciliacion-cuentas','conciliacion-inteligente','conciliacion-ic','extraccion-documentos','controles-calidad'] %}
+                    <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}">{{ ico_eq }}{{ label }}</a>
+                    {% endif %}{% endfor %}
+                </div>
+            </div>
+
+            <div class="ds-side-group" data-vision="equipo" data-group="eq-know">
+                <button type="button" class="ds-side-section" data-collapse><span>Conocimiento y reporting</span>{{ chev }}</button>
+                <div class="ds-side-items">
+                    {% for slug, label in MOCK_NAV_EQUIPO %}{% if slug in ['consulta-normativa','base-documental','report-builder','formacion-epm'] %}
+                    <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}">{{ ico_eq }}{{ label }}</a>
+                    {% endif %}{% endfor %}
+                </div>
+            </div>
             {% endif %}
 
-            <div class="ds-side-section" data-vision="todas">Administrar</div>
-            <a class="ds-nav-item {% if '/parametros' in request.path or request.path.startswith('/admin') %}active{% endif %}" href="/parametros" data-vision="todas">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>
-                Administración
-            </a>
-            <a class="ds-nav-item {% if '/coste' in request.path %}active{% endif %}" href="/coste" data-vision="todas">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
-                Coste de tokens
-            </a>
+            <div class="ds-side-group" data-vision="todas" data-group="admin">
+                <button type="button" class="ds-side-section" data-collapse><span>Administrar</span>{{ chev }}</button>
+                <div class="ds-side-items">
+                    <a class="ds-nav-item {% if '/parametros' in request.path or request.path.startswith('/admin') %}active{% endif %}" href="/parametros">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z"/><circle cx="12" cy="12" r="3"/></svg>
+                        Administración
+                    </a>
+                    <a class="ds-nav-item {% if '/coste' in request.path %}active{% endif %}" href="/coste">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg>
+                        Coste de tokens
+                    </a>
+                </div>
+            </div>
         </nav>
 
         <div class="ds-side-foot">
@@ -1561,6 +1635,32 @@
     }
 
     {% if TICKER_FIJO %}
+    // Sidebar: grupos colapsables con persistencia en localStorage.
+    (function() {
+        var navEl = document.querySelector('.ds-side-nav');
+        if (!navEl) return;
+        var KEY = 'dfin-side-collapsed';
+        var collapsed = {};
+        try { collapsed = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) {}
+        navEl.querySelectorAll('.ds-side-group').forEach(function(g) {
+            var key = g.getAttribute('data-group');
+            if (collapsed[key]) g.classList.add('collapsed');
+            // si el grupo contiene el item activo, forzamos expandido
+            if (g.querySelector('.ds-nav-item.active')) g.classList.remove('collapsed');
+        });
+        navEl.querySelectorAll('[data-collapse]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var g = btn.closest('.ds-side-group');
+                if (!g) return;
+                g.classList.toggle('collapsed');
+                var key = g.getAttribute('data-group');
+                if (g.classList.contains('collapsed')) collapsed[key] = true;
+                else delete collapsed[key];
+                try { localStorage.setItem(KEY, JSON.stringify(collapsed)); } catch (e) {}
+            });
+        });
+    })();
+
     // Selector de visión (CEO / CFO / Equipo). Persiste en localStorage y
     // filtra en caliente los ítems del sidebar vía CSS data-vision.
     (function() {
