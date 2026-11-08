@@ -7569,6 +7569,7 @@ REGLAS:
 5. NUNCA inventes cifras. NUNCA uses conocimiento del mundo externo.
 6. Usa el DICCIONARIO FUNCIONAL para interpretar correctamente términos, sinónimos corporativos y reglas de presentación.
 7. Tono profesional, en español. Respuesta directa y concisa.
+8. CENTRA LA RESPUESTA en lo que el usuario pregunta y NADA más. NO añadas KPIs, ratios ni comentarios colaterales que no correspondan directamente a la pregunta: aunque dispongas de muchos KPIs pre-calculados en los DATOS ESTRUCTURADOS, SÓLO utiliza y menciona los que son necesarios para responder. Si la pregunta es puramente cualitativa o documental (ej.: plantilla, hitos, estrategia, etc.), responde sin incluir cifras ni KPIs no solicitados.
 
 FORMATO DE LA RESPUESTA:
 - Cuerpo con marcadores [EST] y [N] inline.
@@ -7791,20 +7792,31 @@ def habla_preguntar():
 
     cuerpo, citas = _parsear_respuesta_con_citas(respuesta_bruta, fuentes_por_numero)
 
-    # KPIs usados por el frontend como "evidencias estructuradas"
-    kpis_usados = [
-        {
-            "nombre": k["nombre"],
-            "formula": k["formula"],
-            "valor": k["valor"],
-            "trace": [
-                {"etiqueta": et, "valor": val}
-                for et, val in k["trace"]
-            ],
-            "error": k.get("error"),
-        }
-        for k in kpis if k.get("valor") is not None
-    ]
+    # KPIs usados por el frontend como "evidencias estructuradas".
+    # Nota importante: los KPIs se precalculan todos para alimentar el prompt,
+    # pero sólo mostramos al usuario los que la respuesta cita explícitamente.
+    # Si la pregunta era puramente documental, la lista queda vacía.
+    def _norm_txt(s):
+        import unicodedata as _ud
+        return _ud.normalize("NFKD", (s or "").lower()).encode("ascii", "ignore").decode()
+
+    _cuerpo_norm = _norm_txt(cuerpo)
+    kpis_usados = []
+    for k in kpis:
+        if k.get("valor") is None:
+            continue
+        nombre_norm = _norm_txt(k.get("nombre"))
+        if nombre_norm and nombre_norm in _cuerpo_norm:
+            kpis_usados.append({
+                "nombre": k["nombre"],
+                "formula": k["formula"],
+                "valor": k["valor"],
+                "trace": [
+                    {"etiqueta": et, "valor": val}
+                    for et, val in k["trace"]
+                ],
+                "error": k.get("error"),
+            })
 
     ahora = _dt.now(_tz.utc).isoformat()
     chat["mensajes"].append({
