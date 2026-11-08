@@ -543,6 +543,9 @@
         {{ p.boton or 'Consultar' }}
     </button>
 </section>
+{% if p.detalle %}
+<section class="mk-section"><div class="mk-card" id="mk-picker-detail" style="display:none;"></div></section>
+{% endif %}
 {% endmacro %}
 
 {% macro render_form(f) %}
@@ -1136,6 +1139,9 @@
                 });
                 running = false;
                 document.querySelectorAll('.mk-act-btn').forEach(function(b){ b.removeAttribute('disabled'); });
+                if (typeof acc.onFinish === 'function') {
+                    try { acc.onFinish(); } catch (e) { console.error(e); }
+                }
                 return;
             }
             var li = document.createElement('li');
@@ -1156,18 +1162,187 @@
     });
 
     // Picker (desplegable + botón): simula "consultar" con la acción 0 por defecto
+    // y opcionalmente pinta un panel de detalle específico del tipo.
+    function esc(s) { return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+    function fmtES(n, decim) {
+        decim = decim == null ? 2 : decim;
+        return (+n).toLocaleString('es-ES', { minimumFractionDigits: decim, maximumFractionDigits: decim });
+    }
+    // Pseudorandom con seed estable (mulberry32)
+    function seedFromStr(s) {
+        var h = 2166136261;
+        for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 16777619) >>> 0; }
+        return h >>> 0;
+    }
+    function rngFactory(seed) {
+        var a = seed || 1;
+        return function() {
+            a |= 0; a = (a + 0x6D2B79F5) | 0;
+            var t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    // Generador específico: Tesorería · panel detalle + movimientos de la semana.
+    function pintarDetalleTesoreria(panelEl, p, banco, moneda) {
+        var bancos = (p.detalle && p.detalle.bancos) || {};
+        var info = bancos[banco] && bancos[banco][moneda];
+        if (!info) {
+            panelEl.style.display = 'block';
+            panelEl.innerHTML = '<h3>Posición en ' + esc(banco) + ' · ' + esc(moneda) + '</h3>' +
+                '<p style="color: var(--fg-dim); font-size: 0.9rem;">No se ha encontrado una cuenta operativa en ' +
+                esc(banco) + ' para la divisa ' + esc(moneda) + '. Revisa con el equipo de Tesorería si procede abrir una cuenta nueva.</p>';
+            return;
+        }
+
+        var saldo = info.saldo;
+        var cuenta = info.cuenta;
+        var sucursal = info.sucursal || '';
+        var iban = info.iban || '';
+
+        // Movimientos pseudoaleatorios deterministas por banco + moneda
+        var rand = rngFactory(seedFromStr(banco + '|' + moneda));
+        var conceptos = [
+            ['Cobro cliente ·', 'cobro'],
+            ['Transferencia IC ·', 'cobro'],
+            ['Pago impuestos ·', 'pago'],
+            ['Pago proveedor ·', 'pago'],
+            ['Nómina ·', 'pago'],
+            ['Pago intereses ·', 'pago'],
+            ['Dividendos recibidos ·', 'cobro'],
+            ['Ajuste FX ·', 'cobro'],
+            ['Comisiones bancarias ·', 'pago'],
+            ['Devolución IVA ·', 'cobro'],
+        ];
+        var contrapartes = ['Meta Platforms Inc.', 'Meta Ireland', 'Meta Singapore',
+                            'Hacienda USA', 'Agencia Tributaria ES', 'Acme Corp',
+                            'Nike Inc.', 'Microsoft Azure', 'Google Cloud',
+                            'AWS', 'HMRC (UK)', 'CNPJ-BR Hacienda'];
+        var hoy = new Date();
+        var movs = [];
+        var saldoCorriendo = saldo;
+        // Generamos de hoy hacia atrás 7 días para calcular saldo al final de cada día y después se invierte
+        for (var i = 0; i < 7; i++) {
+            var d = new Date(hoy.getTime() - i * 86400000);
+            var nmov = 1 + Math.floor(rand() * 3); // 1-3 movimientos por día
+            for (var j = 0; j < nmov; j++) {
+                var c = conceptos[Math.floor(rand() * conceptos.length)];
+                var cp = contrapartes[Math.floor(rand() * contrapartes.length)];
+                var signo = c[1] === 'cobro' ? 1 : -1;
+                // importes entre 0,1 % y 4 % del saldo
+                var pct = 0.001 + rand() * 0.04;
+                var importe = Math.round(saldo * pct);
+                movs.push({
+                    fecha: d,
+                    desc: c[0] + ' ' + cp,
+                    tipo: c[1],
+                    importe: signo * importe,
+                });
+            }
+        }
+        // Ordenamos cronológicamente ascendente y recalculamos saldo corriente
+        movs.sort(function(a, b) { return a.fecha - b.fecha; });
+        var saldoInicio = saldo - movs.reduce(function(acc, m) { return acc + m.importe; }, 0);
+        var running = saldoInicio;
+        movs.forEach(function(m) {
+            running += m.importe;
+            m.saldo = running;
+        });
+        // Para mostrar de más reciente a más antiguo
+        movs.reverse();
+
+        function fdate(d) {
+            var yyyy = d.getFullYear(), mm = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+            return dd + '/' + mm + '/' + yyyy;
+        }
+
+        var html = '<h3 style="margin: 0 0 14px;">Posición en ' + esc(banco) + ' · ' + esc(moneda) + '</h3>';
+        html += '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px;">' +
+            '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Saldo actual</div>' +
+                '<div style="font-size: 1.4rem; font-weight: 700; color: var(--fg);">' + esc(moneda) + ' ' + fmtES(saldo, 0) + '</div></div>' +
+            '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Cuenta</div>' +
+                '<div style="font-size: 0.95rem; color: var(--fg); font-variant-numeric: tabular-nums;">' + esc(cuenta) + '</div></div>' +
+            (sucursal ? '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Sucursal</div>' +
+                '<div style="font-size: 0.95rem; color: var(--fg);">' + esc(sucursal) + '</div></div>' : '') +
+            (iban ? '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">IBAN</div>' +
+                '<div style="font-size: 0.86rem; color: var(--fg); font-variant-numeric: tabular-nums;">' + esc(iban) + '</div></div>' : '') +
+            '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Saldo inicio semana</div>' +
+                '<div style="font-size: 0.95rem; color: var(--fg); font-variant-numeric: tabular-nums;">' + esc(moneda) + ' ' + fmtES(saldoInicio, 0) + '</div></div>' +
+            '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Movimientos semana</div>' +
+                '<div style="font-size: 0.95rem; color: var(--fg); font-weight: 700;">' + movs.length + '</div></div>' +
+            '</div>';
+
+        html += '<h3 style="margin: 18px 0 10px; font-size: 0.9rem;">Movimientos de la última semana</h3>';
+        html += '<div class="mk-tbl-wrap"><table class="mk-tbl">' +
+            '<thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th style="text-align:right;">Importe</th><th style="text-align:right;">Saldo tras mov.</th></tr></thead>' +
+            '<tbody>';
+        movs.forEach(function(m) {
+            var sign = m.importe >= 0 ? 'pos' : 'neg';
+            var color = m.importe >= 0 ? '#10b981' : '#ef4444';
+            html += '<tr>' +
+                '<td>' + fdate(m.fecha) + '</td>' +
+                '<td>' + esc(m.desc) + '</td>' +
+                '<td><span class="mk-sev ' + (m.tipo === 'cobro' ? 'baja' : 'media') + '">' + (m.tipo === 'cobro' ? 'Cobro' : 'Pago') + '</span></td>' +
+                '<td style="text-align:right; color:' + color + '; font-variant-numeric: tabular-nums;">' + (m.importe >= 0 ? '+' : '-') + esc(moneda) + ' ' + fmtES(Math.abs(m.importe), 0) + '</td>' +
+                '<td style="text-align:right; color: var(--fg); font-variant-numeric: tabular-nums;">' + esc(moneda) + ' ' + fmtES(m.saldo, 0) + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table></div>';
+
+        panelEl.style.display = 'block';
+        panelEl.innerHTML = html;
+    }
+
     document.querySelectorAll('[data-act-picker]').forEach(function(btn) {
         btn.addEventListener('click', function() {
             if (running) return;
             var acc = (MOD.picker && MOD.picker.accion) || acciones[0] || null;
             if (!acc) { return; }
-            // Compone un título dinámico con los valores seleccionados
             var sel = btn.closest('.mk-picker');
-            var vals = [];
-            sel.querySelectorAll('select, input').forEach(function(f) { if (f.value) vals.push(f.value); });
+            // Capturamos (name, value) de los campos del picker
+            var valuesByName = {};
+            var valsOrdenados = [];
+            sel.querySelectorAll('select, input').forEach(function(f) {
+                if (f.name) valuesByName[f.name] = f.value;
+                if (f.value) valsOrdenados.push(f.value);
+            });
             var titulo = acc.titulo || 'Consulta';
-            if (vals.length) titulo += ' · ' + vals.join(' · ');
-            simular(Object.assign({}, acc, { titulo: titulo }));
+            if (valsOrdenados.length) titulo += ' · ' + valsOrdenados.join(' · ');
+            // Lanzamos la simulación con callback "después": pintar detalle
+            var p = MOD.picker;
+            var tipo = p && p.detalle && p.detalle.tipo;
+            var pane = document.getElementById('mk-picker-detail');
+            simular(Object.assign({}, acc, {
+                titulo: titulo,
+                onFinish: function() {
+                    if (!pane || !tipo) return;
+                    if (tipo === 'tesoreria') {
+                        var banco  = valuesByName.banco  || (p.campos[0].opciones[1] || 'JP Morgan');
+                        var moneda = valuesByName.divisa || valuesByName.moneda || 'USD';
+                        if (banco === 'Todos') {
+                            // resumen agregado: mostramos el mayor saldo por banco en esa moneda
+                            var bancos = (p.detalle && p.detalle.bancos) || {};
+                            var html = '<h3>Resumen consolidado · todas las contrapartes · ' + esc(moneda) + '</h3>';
+                            html += '<div class="mk-tbl-wrap"><table class="mk-tbl"><thead><tr><th>Banco</th><th>Cuenta</th><th style="text-align:right;">Saldo</th></tr></thead><tbody>';
+                            var total = 0;
+                            Object.keys(bancos).forEach(function(b) {
+                                var info = bancos[b][moneda];
+                                if (!info) return;
+                                total += info.saldo;
+                                html += '<tr><td>' + esc(b) + '</td><td>' + esc(info.cuenta) + '</td>' +
+                                    '<td style="text-align:right; font-variant-numeric: tabular-nums;">' + esc(moneda) + ' ' + fmtES(info.saldo, 0) + '</td></tr>';
+                            });
+                            html += '<tr><td colspan="2" style="text-align:right; font-weight:700;">Total</td><td style="text-align:right; font-weight:700; color: var(--fg); font-variant-numeric: tabular-nums;">' + esc(moneda) + ' ' + fmtES(total, 0) + '</td></tr>';
+                            html += '</tbody></table></div>';
+                            pane.style.display = 'block';
+                            pane.innerHTML = html;
+                        } else {
+                            pintarDetalleTesoreria(pane, p, banco, moneda);
+                        }
+                    }
+                }
+            }));
         });
     });
 
