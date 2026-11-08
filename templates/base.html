@@ -1220,7 +1220,7 @@
             <div class="ds-side-group" data-vision="cfo" data-group="cfo-rent">
                 <button type="button" class="ds-side-section" data-collapse><span>Rentabilidad y costes</span>{{ chev }}</button>
                 <div class="ds-side-items">
-                    {% for slug, label in MOCK_NAV_CFO %}{% if slug in ['rentabilidad-dimension','cascada-margen','reparto-costes-abc'] %}
+                    {% for slug, label in MOCK_NAV_CFO %}{% if slug in ['rentabilidad-dimension'] %}
                     <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}">{{ ico_cfo }}{{ label }}</a>
                     {% endif %}{% endfor %}
                 </div>
@@ -1247,7 +1247,7 @@
             <div class="ds-side-group" data-vision="equipo" data-group="eq-oper">
                 <button type="button" class="ds-side-section" data-collapse><span>Mi operativa del cierre</span>{{ chev }}</button>
                 <div class="ds-side-items">
-                    {% for slug, label in MOCK_NAV_EQUIPO %}{% if slug in ['tareas-cierre','asientos-contables','conciliacion-cuentas','conciliacion-inteligente','conciliacion-ic','extraccion-documentos','controles-calidad'] %}
+                    {% for slug, label in MOCK_NAV_EQUIPO %}{% if slug in ['tareas-cierre','asientos-contables','conciliacion-cuentas','conciliacion-ic','extraccion-documentos','controles-calidad'] %}
                     <a class="ds-nav-item {% if request.path == '/modulo/' + slug %}active{% endif %}" href="/modulo/{{ slug }}">{{ ico_eq }}{{ label }}</a>
                     {% endif %}{% endfor %}
                 </div>

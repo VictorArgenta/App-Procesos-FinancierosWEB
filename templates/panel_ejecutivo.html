@@ -393,10 +393,10 @@
                 </div>
             </div>
             <div class="op-chart-wrap">
-                <h4>{{ icon("pie-chart", size=14) }} Composición P&amp;L {{ dashboard.periodo_ultimo }}</h4>
-                <small>Por cada € de ingresos del último FY</small>
+                <h4>{{ icon("bar-chart", size=14) }} De ingresos a beneficio neto {{ dashboard.periodo_ultimo }}</h4>
+                <small>Bridge del último FY · ingresos, deducciones y subtotales</small>
                 <div class="op-chart-canvas">
-                    <div id="op-composicion" style="width:100%;height:100%;" data-slices='{{ dashboard.composicion_pyg|tojson }}'></div>
+                    <div id="op-waterfall" style="width:100%;height:100%;" data-pasos='{{ dashboard.waterfall_pyg|tojson }}'></div>
                 </div>
             </div>
         </div>
@@ -545,40 +545,60 @@
         });
     }
 
-    // --- Composición (doughnut) ---
-    var elPie = document.getElementById('op-composicion');
-    if (elPie) {
+    // --- Waterfall P&L ---
+    var elWf = document.getElementById('op-waterfall');
+    if (elWf) {
         try {
-            var slices = JSON.parse(elPie.dataset.slices);
-            if (slices && slices.length) {
+            var pasos = JSON.parse(elWf.dataset.pasos || '[]');
+            if (pasos && pasos.length) {
                 var fg = cssVar('--fg') || '#0F172A';
                 var fgDim = cssVar('--fg-dim') || '#475569';
-                var surface = cssVar('--surface') || '#FFFFFF';
-                var cPie = echarts.init(elPie);
-                cPie.setOption({
-                    tooltip: {
-                        trigger: 'item',
+                var gridColor = cssVar('--border') || '#E2E8F0';
+                var brand = cssVar('--brand') || '#10b981';
+                // Normaliza pasos → arrays helper/up/down/total para bar stacked
+                var cats = pasos.map(function(p){ return p.label; });
+                var helper=[], up=[], down=[], totales=[], running = 0;
+                for (var i = 0; i < pasos.length; i++) {
+                    var p = pasos[i];
+                    if (p.tipo === 'total') {
+                        helper.push('-'); up.push('-'); down.push('-'); totales.push(p.valor); running = p.valor;
+                    } else if (p.tipo === 'positivo') {
+                        helper.push(running); up.push(p.valor); down.push('-'); totales.push('-'); running += p.valor;
+                    } else { // negativo
+                        running -= p.valor;
+                        helper.push(running); up.push('-'); down.push(p.valor); totales.push('-');
+                    }
+                }
+                var cWf = echarts.init(elWf);
+                cWf.setOption({
+                    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' },
                         backgroundColor: fg, borderColor: fg,
-                        textStyle: { color: surface, fontFamily: 'Inter', fontSize: 11 },
+                        textStyle: { color: '#fff', fontFamily: 'Inter', fontSize: 11 },
                         padding: [7, 11],
-                        valueFormatter: function(v) { return fmtCorto(v); },
-                    },
-                    legend: {
-                        orient: 'vertical', right: 0, top: 'middle', itemGap: 8,
-                        textStyle: { color: fgDim, fontSize: 11, fontFamily: 'Inter' },
-                        icon: 'roundRect',
-                    },
-                    series: [{
-                        type: 'pie', radius: ['55%', '78%'], center: ['38%', '50%'],
-                        avoidLabelOverlap: true, padAngle: 2,
-                        itemStyle: { borderRadius: 3, borderColor: surface, borderWidth: 2 },
-                        label: { show: false }, labelLine: { show: false },
-                        data: slices.map(function(s) { return { value: s.valor, name: s.label, itemStyle: { color: s.color } }; }),
-                    }],
+                        valueFormatter: function(v) { return (v === '-' || v == null) ? '' : fmtCorto(v); } },
+                    grid: { left: 42, right: 14, top: 18, bottom: 34 },
+                    xAxis: { type: 'category', data: cats,
+                        axisLine: { lineStyle: { color: gridColor } },
+                        axisLabel: { color: fgDim, fontSize: 10, fontFamily: 'Inter',
+                                     interval: 0, rotate: cats.length > 5 ? 18 : 0 } },
+                    yAxis: { type: 'value',
+                        axisLine: { lineStyle: { color: gridColor } },
+                        splitLine: { lineStyle: { color: gridColor, type: 'dashed' } },
+                        axisLabel: { color: fgDim, fontSize: 10, fontFamily: 'Inter',
+                                     formatter: function(v) { return fmtCorto(v); } } },
+                    series: [
+                        { name: '', type: 'bar', stack: 'wf', itemStyle: { color: 'transparent' }, data: helper },
+                        { name: 'Positivo', type: 'bar', stack: 'wf',
+                            itemStyle: { color: brand, borderRadius: [4, 4, 0, 0] }, data: up },
+                        { name: 'Negativo', type: 'bar', stack: 'wf',
+                            itemStyle: { color: '#ef4444', borderRadius: [0, 0, 4, 4] }, data: down },
+                        { name: 'Total',    type: 'bar', stack: 'wf',
+                            itemStyle: { color: '#2563eb', borderRadius: [4, 4, 4, 4] }, data: totales }
+                    ],
                 });
-                window.addEventListener('resize', function() { cPie.resize(); });
+                window.addEventListener('resize', function() { cWf.resize(); });
             }
-        } catch (e) { console.error('Chart composición:', e); }
+        } catch (e) { console.error('Chart waterfall:', e); }
     }
 })();
 </script>

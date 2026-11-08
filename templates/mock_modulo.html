@@ -289,6 +289,78 @@
     .mk-dim-narrative ul { margin: 4px 0 0; padding-left: 18px; color: var(--fg); }
     .mk-dim-foot { display: flex; justify-content: flex-end; }
 
+    /* ASIENTO CONTABLE (alta en el aplicativo de consolidación) */
+    .mk-journal {
+        display: flex; flex-direction: column; gap: 14px;
+    }
+    .mk-journal-head {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; padding: 18px;
+    }
+    .mk-journal-head h3 { margin: 0 0 12px; font-size: 0.95rem; font-weight: 700; color: var(--fg); }
+    .mk-journal-head-fields {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 12px;
+    }
+    .mk-journal-head-fields label { font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; display: block; margin-bottom: 4px; }
+    .mk-journal-head-fields input, .mk-journal-head-fields select, .mk-journal-head-fields textarea {
+        width: 100%; padding: 9px 11px; border: 1px solid var(--border);
+        background: var(--surface-muted); color: var(--fg);
+        border-radius: 8px; font-size: 0.88rem; font-family: inherit;
+    }
+    .mk-journal-head-fields input:focus, .mk-journal-head-fields select:focus, .mk-journal-head-fields textarea:focus { outline: none; border-color: var(--brand); }
+    .mk-journal-head-fields .wide { grid-column: 1 / -1; }
+
+    .mk-journal-tbl-wrap {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; padding: 18px; overflow-x: auto;
+    }
+    .mk-journal-tbl-wrap h3 { margin: 0 0 12px; font-size: 0.95rem; font-weight: 700; color: var(--fg); display: flex; justify-content: space-between; align-items: center; }
+    .mk-journal-tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 700px; }
+    .mk-journal-tbl thead th {
+        text-align: left; padding: 8px 10px;
+        color: var(--fg-dim); font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.4px; font-size: 0.7rem;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-muted);
+    }
+    .mk-journal-tbl th.num, .mk-journal-tbl td.num { text-align: right; width: 130px; }
+    .mk-journal-tbl td {
+        padding: 2px 4px;
+        border-bottom: 1px solid var(--border);
+    }
+    .mk-journal-tbl td input, .mk-journal-tbl td select {
+        width: 100%; border: 1px solid transparent; background: transparent;
+        color: var(--fg); padding: 7px 8px; border-radius: 5px;
+        font-family: inherit; font-size: 0.85rem;
+    }
+    .mk-journal-tbl td input:hover, .mk-journal-tbl td select:hover { border-color: var(--border); }
+    .mk-journal-tbl td input:focus, .mk-journal-tbl td select:focus { outline: none; border-color: var(--brand); background: var(--surface-muted); }
+    .mk-journal-tbl td.num input { text-align: right; font-variant-numeric: tabular-nums; }
+    .mk-journal-tbl tfoot td {
+        padding: 10px 10px; font-weight: 700; color: var(--fg);
+        border-top: 2px solid var(--border); background: var(--surface-muted);
+    }
+    .mk-journal-tbl tfoot td.pos { color: #10b981; }
+    .mk-journal-tbl tfoot td.neg { color: #ef4444; }
+    .mk-journal-foot {
+        display: flex; justify-content: space-between; align-items: center;
+        flex-wrap: wrap; gap: 10px;
+    }
+    .mk-journal-status {
+        display: inline-flex; align-items: center; gap: 7px;
+        font-size: 0.82rem; color: var(--fg-dim); font-weight: 600;
+    }
+    .mk-journal-status .ok  { color: #10b981; }
+    .mk-journal-status .err { color: #ef4444; }
+    .mk-journal-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+    .mk-journal-add {
+        background: transparent; border: 1px dashed var(--border);
+        color: var(--fg-dim); padding: 7px 12px; border-radius: 7px;
+        font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .mk-journal-add:hover { color: var(--fg); border-color: var(--border-strong); }
+
     /* ENLACES (vídeos / documentos) */
     .mk-links { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
     .mk-link {
@@ -471,6 +543,9 @@
         {{ p.boton or 'Consultar' }}
     </button>
 </section>
+{% if p.detalle %}
+<section class="mk-section"><div class="mk-card" id="mk-picker-detail" style="display:none;"></div></section>
+{% endif %}
 {% endmacro %}
 
 {% macro render_form(f) %}
@@ -574,7 +649,7 @@
     <div class="mk-card">
         <h3>{{ cl.titulo }}</h3>
         <ul class="mk-checklist">
-            {% for it in cl.items %}
+            {% for it in cl['items'] %}
             <li class="{{ 'done' if it.hecho else '' }}">
                 <span class="cb"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
                 <span class="txt">{{ it.texto }}</span>
@@ -585,12 +660,89 @@
 </section>
 {% endmacro %}
 
+{% macro render_asiento(j) %}
+<section class="mk-section">
+    <div class="mk-journal" id="mk-journal" data-journal-id="{{ j.id or 'journal' }}">
+        <div class="mk-journal-head">
+            <h3>{{ j.titulo or "Nuevo asiento · alta en OneStream" }}</h3>
+            <div class="mk-journal-head-fields">
+                {% for f in j.cabecera %}
+                <div class="{{ 'wide' if f.wide else '' }}">
+                    <label>{{ f.label }}</label>
+                    {% if f.tipo == 'select' %}
+                    <select name="{{ f.name }}">{% for o in f.opciones %}<option {% if o == f.valor %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+                    {% elif f.tipo == 'textarea' %}
+                    <textarea name="{{ f.name }}" rows="2">{{ f.valor or '' }}</textarea>
+                    {% elif f.tipo == 'date' %}
+                    <input type="date" name="{{ f.name }}" value="{{ f.valor or '' }}">
+                    {% else %}
+                    <input type="{{ f.tipo or 'text' }}" name="{{ f.name }}" value="{{ f.valor or '' }}" placeholder="{{ f.placeholder or '' }}">
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mk-journal-tbl-wrap">
+            <h3>Líneas del asiento <span class="mk-journal-status" id="mk-journal-status">—</span></h3>
+            <table class="mk-journal-tbl" id="mk-journal-tbl">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Cuenta</th>
+                        <th>Descripción</th>
+                        <th>Centro de coste</th>
+                        <th>Intercompañía</th>
+                        <th class="num">Débito</th>
+                        <th class="num">Crédito</th>
+                    </tr>
+                </thead>
+                <tbody id="mk-journal-body">
+                    {% for L in j.lineas %}
+                    <tr>
+                        <td style="color: var(--fg-dim); font-size: 0.78rem; padding-left: 10px;">{{ loop.index }}</td>
+                        <td><input type="text" value="{{ L.cuenta }}" data-col="cuenta"></td>
+                        <td><input type="text" value="{{ L.desc }}" data-col="desc"></td>
+                        <td><input type="text" value="{{ L.cc or '' }}" data-col="cc"></td>
+                        <td><input type="text" value="{{ L.ic or '' }}" data-col="ic"></td>
+                        <td class="num"><input type="text" inputmode="decimal" value="{{ L.debito or '' }}" data-col="debito"></td>
+                        <td class="num"><input type="text" inputmode="decimal" value="{{ L.credito or '' }}" data-col="credito"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="5" style="text-align: right;">Total</td>
+                        <td class="num" id="mk-journal-total-d">0,00</td>
+                        <td class="num" id="mk-journal-total-h">0,00</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" style="text-align: right;">Diferencia</td>
+                        <td class="num" colspan="2" id="mk-journal-diff">0,00</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div class="mk-journal-foot" style="margin-top: 14px;">
+                <button type="button" class="mk-journal-add" id="mk-journal-add">+ Añadir línea</button>
+                <div class="mk-journal-btns">
+                    <button type="button" class="mk-act-btn ghost">Guardar borrador</button>
+                    <button type="button" class="mk-act-btn" id="mk-journal-post">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        {{ j.boton or 'Contabilizar en OneStream' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endmacro %}
+
 {% macro render_enlaces(en) %}
 <section class="mk-section">
     <div class="mk-card">
         <h3>{{ en.titulo }}</h3>
         <div class="mk-links">
-            {% for it in en.items %}
+            {% for it in en['items'] %}
             <a class="mk-link {{ it.tipo }}" href="{{ it.url }}" target="_blank" rel="noopener">
                 <span class="mk-link-icon">
                     {% if it.tipo == 'video' %}
@@ -781,6 +933,8 @@
         {{ render_dim_switcher(mod.dim_switcher) }}
     {% elif seccion == 'enlaces' and mod.enlaces %}
         {{ render_enlaces(mod.enlaces) }}
+    {% elif seccion == 'asiento' and mod.asiento %}
+        {{ render_asiento(mod.asiento) }}
     {% elif seccion == 'chat' and mod.chat %}
         {{ render_chat(mod.chat) }}
     {% elif seccion == 'bloques' and mod.bloques %}
@@ -985,6 +1139,9 @@
                 });
                 running = false;
                 document.querySelectorAll('.mk-act-btn').forEach(function(b){ b.removeAttribute('disabled'); });
+                if (typeof acc.onFinish === 'function') {
+                    try { acc.onFinish(); } catch (e) { console.error(e); }
+                }
                 return;
             }
             var li = document.createElement('li');
@@ -1005,18 +1162,187 @@
     });
 
     // Picker (desplegable + botón): simula "consultar" con la acción 0 por defecto
+    // y opcionalmente pinta un panel de detalle específico del tipo.
+    function esc(s) { return String(s).replace(/[&<>]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]; }); }
+    function fmtES(n, decim) {
+        decim = decim == null ? 2 : decim;
+        return (+n).toLocaleString('es-ES', { minimumFractionDigits: decim, maximumFractionDigits: decim });
+    }
+    // Pseudorandom con seed estable (mulberry32)
+    function seedFromStr(s) {
+        var h = 2166136261;
+        for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 16777619) >>> 0; }
+        return h >>> 0;
+    }
+    function rngFactory(seed) {
+        var a = seed || 1;
+        return function() {
+            a |= 0; a = (a + 0x6D2B79F5) | 0;
+            var t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    // Generador específico: Tesorería · panel detalle + movimientos de la semana.
+    function pintarDetalleTesoreria(panelEl, p, banco, moneda) {
+        var bancos = (p.detalle && p.detalle.bancos) || {};
+        var info = bancos[banco] && bancos[banco][moneda];
+        if (!info) {
+            panelEl.style.display = 'block';
+            panelEl.innerHTML = '<h3>Posición en ' + esc(banco) + ' · ' + esc(moneda) + '</h3>' +
+                '<p style="color: var(--fg-dim); font-size: 0.9rem;">No se ha encontrado una cuenta operativa en ' +
+                esc(banco) + ' para la divisa ' + esc(moneda) + '. Revisa con el equipo de Tesorería si procede abrir una cuenta nueva.</p>';
+            return;
+        }
+
+        var saldo = info.saldo;
+        var cuenta = info.cuenta;
+        var sucursal = info.sucursal || '';
+        var iban = info.iban || '';
+
+        // Movimientos pseudoaleatorios deterministas por banco + moneda
+        var rand = rngFactory(seedFromStr(banco + '|' + moneda));
+        var conceptos = [
+            ['Cobro cliente ·', 'cobro'],
+            ['Transferencia IC ·', 'cobro'],
+            ['Pago impuestos ·', 'pago'],
+            ['Pago proveedor ·', 'pago'],
+            ['Nómina ·', 'pago'],
+            ['Pago intereses ·', 'pago'],
+            ['Dividendos recibidos ·', 'cobro'],
+            ['Ajuste FX ·', 'cobro'],
+            ['Comisiones bancarias ·', 'pago'],
+            ['Devolución IVA ·', 'cobro'],
+        ];
+        var contrapartes = ['Meta Platforms Inc.', 'Meta Ireland', 'Meta Singapore',
+                            'Hacienda USA', 'Agencia Tributaria ES', 'Acme Corp',
+                            'Nike Inc.', 'Microsoft Azure', 'Google Cloud',
+                            'AWS', 'HMRC (UK)', 'CNPJ-BR Hacienda'];
+        var hoy = new Date();
+        var movs = [];
+        var saldoCorriendo = saldo;
+        // Generamos de hoy hacia atrás 7 días para calcular saldo al final de cada día y después se invierte
+        for (var i = 0; i < 7; i++) {
+            var d = new Date(hoy.getTime() - i * 86400000);
+            var nmov = 1 + Math.floor(rand() * 3); // 1-3 movimientos por día
+            for (var j = 0; j < nmov; j++) {
+                var c = conceptos[Math.floor(rand() * conceptos.length)];
+                var cp = contrapartes[Math.floor(rand() * contrapartes.length)];
+                var signo = c[1] === 'cobro' ? 1 : -1;
+                // importes entre 0,1 % y 4 % del saldo
+                var pct = 0.001 + rand() * 0.04;
+                var importe = Math.round(saldo * pct);
+                movs.push({
+                    fecha: d,
+                    desc: c[0] + ' ' + cp,
+                    tipo: c[1],
+                    importe: signo * importe,
+                });
+            }
+        }
+        // Ordenamos cronológicamente ascendente y recalculamos saldo corriente
+        movs.sort(function(a, b) { return a.fecha - b.fecha; });
+        var saldoInicio = saldo - movs.reduce(function(acc, m) { return acc + m.importe; }, 0);
+        var running = saldoInicio;
+        movs.forEach(function(m) {
+            running += m.importe;
+            m.saldo = running;
+        });
+        // Para mostrar de más reciente a más antiguo
+        movs.reverse();
+
+        function fdate(d) {
+            var yyyy = d.getFullYear(), mm = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+            return dd + '/' + mm + '/' + yyyy;
+        }
+
+        var html = '<h3 style="margin: 0 0 14px;">Posición en ' + esc(banco) + ' · ' + esc(moneda) + '</h3>';
+        html += '<div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px;">' +
+            '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Saldo actual</div>' +
+                '<div style="font-size: 1.4rem; font-weight: 700; color: var(--fg);">' + esc(moneda) + ' ' + fmtES(saldo, 0) + '</div></div>' +
+            '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Cuenta</div>' +
+                '<div style="font-size: 0.95rem; color: var(--fg); font-variant-numeric: tabular-nums;">' + esc(cuenta) + '</div></div>' +
+            (sucursal ? '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Sucursal</div>' +
+                '<div style="font-size: 0.95rem; color: var(--fg);">' + esc(sucursal) + '</div></div>' : '') +
+            (iban ? '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">IBAN</div>' +
+                '<div style="font-size: 0.86rem; color: var(--fg); font-variant-numeric: tabular-nums;">' + esc(iban) + '</div></div>' : '') +
+            '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Saldo inicio semana</div>' +
+                '<div style="font-size: 0.95rem; color: var(--fg); font-variant-numeric: tabular-nums;">' + esc(moneda) + ' ' + fmtES(saldoInicio, 0) + '</div></div>' +
+            '<div><div style="font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600;">Movimientos semana</div>' +
+                '<div style="font-size: 0.95rem; color: var(--fg); font-weight: 700;">' + movs.length + '</div></div>' +
+            '</div>';
+
+        html += '<h3 style="margin: 18px 0 10px; font-size: 0.9rem;">Movimientos de la última semana</h3>';
+        html += '<div class="mk-tbl-wrap"><table class="mk-tbl">' +
+            '<thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th style="text-align:right;">Importe</th><th style="text-align:right;">Saldo tras mov.</th></tr></thead>' +
+            '<tbody>';
+        movs.forEach(function(m) {
+            var sign = m.importe >= 0 ? 'pos' : 'neg';
+            var color = m.importe >= 0 ? '#10b981' : '#ef4444';
+            html += '<tr>' +
+                '<td>' + fdate(m.fecha) + '</td>' +
+                '<td>' + esc(m.desc) + '</td>' +
+                '<td><span class="mk-sev ' + (m.tipo === 'cobro' ? 'baja' : 'media') + '">' + (m.tipo === 'cobro' ? 'Cobro' : 'Pago') + '</span></td>' +
+                '<td style="text-align:right; color:' + color + '; font-variant-numeric: tabular-nums;">' + (m.importe >= 0 ? '+' : '-') + esc(moneda) + ' ' + fmtES(Math.abs(m.importe), 0) + '</td>' +
+                '<td style="text-align:right; color: var(--fg); font-variant-numeric: tabular-nums;">' + esc(moneda) + ' ' + fmtES(m.saldo, 0) + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table></div>';
+
+        panelEl.style.display = 'block';
+        panelEl.innerHTML = html;
+    }
+
     document.querySelectorAll('[data-act-picker]').forEach(function(btn) {
         btn.addEventListener('click', function() {
             if (running) return;
             var acc = (MOD.picker && MOD.picker.accion) || acciones[0] || null;
             if (!acc) { return; }
-            // Compone un título dinámico con los valores seleccionados
             var sel = btn.closest('.mk-picker');
-            var vals = [];
-            sel.querySelectorAll('select, input').forEach(function(f) { if (f.value) vals.push(f.value); });
+            // Capturamos (name, value) de los campos del picker
+            var valuesByName = {};
+            var valsOrdenados = [];
+            sel.querySelectorAll('select, input').forEach(function(f) {
+                if (f.name) valuesByName[f.name] = f.value;
+                if (f.value) valsOrdenados.push(f.value);
+            });
             var titulo = acc.titulo || 'Consulta';
-            if (vals.length) titulo += ' · ' + vals.join(' · ');
-            simular(Object.assign({}, acc, { titulo: titulo }));
+            if (valsOrdenados.length) titulo += ' · ' + valsOrdenados.join(' · ');
+            // Lanzamos la simulación con callback "después": pintar detalle
+            var p = MOD.picker;
+            var tipo = p && p.detalle && p.detalle.tipo;
+            var pane = document.getElementById('mk-picker-detail');
+            simular(Object.assign({}, acc, {
+                titulo: titulo,
+                onFinish: function() {
+                    if (!pane || !tipo) return;
+                    if (tipo === 'tesoreria') {
+                        var banco  = valuesByName.banco  || (p.campos[0].opciones[1] || 'JP Morgan');
+                        var moneda = valuesByName.divisa || valuesByName.moneda || 'USD';
+                        if (banco === 'Todos') {
+                            // resumen agregado: mostramos el mayor saldo por banco en esa moneda
+                            var bancos = (p.detalle && p.detalle.bancos) || {};
+                            var html = '<h3>Resumen consolidado · todas las contrapartes · ' + esc(moneda) + '</h3>';
+                            html += '<div class="mk-tbl-wrap"><table class="mk-tbl"><thead><tr><th>Banco</th><th>Cuenta</th><th style="text-align:right;">Saldo</th></tr></thead><tbody>';
+                            var total = 0;
+                            Object.keys(bancos).forEach(function(b) {
+                                var info = bancos[b][moneda];
+                                if (!info) return;
+                                total += info.saldo;
+                                html += '<tr><td>' + esc(b) + '</td><td>' + esc(info.cuenta) + '</td>' +
+                                    '<td style="text-align:right; font-variant-numeric: tabular-nums;">' + esc(moneda) + ' ' + fmtES(info.saldo, 0) + '</td></tr>';
+                            });
+                            html += '<tr><td colspan="2" style="text-align:right; font-weight:700;">Total</td><td style="text-align:right; font-weight:700; color: var(--fg); font-variant-numeric: tabular-nums;">' + esc(moneda) + ' ' + fmtES(total, 0) + '</td></tr>';
+                            html += '</tbody></table></div>';
+                            pane.style.display = 'block';
+                            pane.innerHTML = html;
+                        } else {
+                            pintarDetalleTesoreria(pane, p, banco, moneda);
+                        }
+                    }
+                }
+            }));
         });
     });
 
@@ -1029,6 +1355,88 @@
             simular(acc);
         });
     });
+
+    // ASIENTO CONTABLE · alta en el aplicativo de consolidación
+    (function journal() {
+        var box = document.getElementById('mk-journal');
+        if (!box) return;
+        var body = document.getElementById('mk-journal-body');
+        var totD = document.getElementById('mk-journal-total-d');
+        var totH = document.getElementById('mk-journal-total-h');
+        var diff = document.getElementById('mk-journal-diff');
+        var status = document.getElementById('mk-journal-status');
+        var add  = document.getElementById('mk-journal-add');
+        var post = document.getElementById('mk-journal-post');
+
+        function parseNum(s) {
+            if (!s) return 0;
+            s = String(s).replace(/\./g, '').replace(',', '.').trim();
+            var v = parseFloat(s);
+            return isNaN(v) ? 0 : v;
+        }
+        function fmt(n) {
+            return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        function recalc() {
+            var d = 0, h = 0;
+            body.querySelectorAll('tr').forEach(function(tr) {
+                d += parseNum(tr.querySelector('input[data-col="debito"]').value);
+                h += parseNum(tr.querySelector('input[data-col="credito"]').value);
+            });
+            totD.textContent = fmt(d);
+            totH.textContent = fmt(h);
+            var df = d - h;
+            diff.textContent = fmt(df);
+            diff.classList.remove('pos', 'neg');
+            if (Math.abs(df) < 0.005) {
+                diff.classList.add('pos');
+                status.innerHTML = '<span class="ok">● Cuadrado</span>';
+            } else {
+                diff.classList.add('neg');
+                status.innerHTML = '<span class="err">● Descuadrado · diferencia ' + fmt(df) + '</span>';
+            }
+        }
+        body.addEventListener('input', function(e) {
+            if (e.target && (e.target.dataset.col === 'debito' || e.target.dataset.col === 'credito')) recalc();
+        });
+        add.addEventListener('click', function() {
+            var n = body.querySelectorAll('tr').length + 1;
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td style="color: var(--fg-dim); font-size: 0.78rem; padding-left: 10px;">' + n + '</td>' +
+                '<td><input type="text" data-col="cuenta"></td>' +
+                '<td><input type="text" data-col="desc"></td>' +
+                '<td><input type="text" data-col="cc"></td>' +
+                '<td><input type="text" data-col="ic"></td>' +
+                '<td class="num"><input type="text" inputmode="decimal" data-col="debito"></td>' +
+                '<td class="num"><input type="text" inputmode="decimal" data-col="credito"></td>';
+            body.appendChild(tr);
+            recalc();
+        });
+        post.addEventListener('click', function() {
+            if (running) return;
+            recalc();
+            if (diff.classList.contains('neg')) {
+                status.innerHTML = '<span class="err">● No se puede contabilizar un asiento descuadrado</span>';
+                return;
+            }
+            var acc = (MOD.asiento && MOD.asiento.accion) || {
+                titulo: 'Contabilizando asiento en OneStream',
+                pasos: [
+                    'Validando cabecera (escenario, entidad, periodo)…',
+                    'Comprobando cuentas contra el COA de OneStream…',
+                    'Aplicando reglas de validación (balanceo, dimensiones obligatorias)…',
+                    'Registrando el asiento en el workflow de Journals…',
+                ],
+                resultado: [
+                    'Asiento registrado en OneStream con ID JE-2026-10-0872.',
+                    'Status · «Submitted» pendiente de revisión por el reviewer.',
+                    'Notificación enviada al controller responsable.',
+                ],
+            };
+            simular(acc);
+        });
+        recalc();
+    })();
 
     // CHAT · "Habla con los manuales"
     (function chat() {
