@@ -574,7 +574,7 @@
     <div class="mk-card">
         <h3>{{ cl.titulo }}</h3>
         <ul class="mk-checklist">
-            {% for it in cl.items %}
+            {% for it in cl['items'] %}
             <li class="{{ 'done' if it.hecho else '' }}">
                 <span class="cb"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
                 <span class="txt">{{ it.texto }}</span>
@@ -590,7 +590,7 @@
     <div class="mk-card">
         <h3>{{ en.titulo }}</h3>
         <div class="mk-links">
-            {% for it in en.items %}
+            {% for it in en['items'] %}
             <a class="mk-link {{ it.tipo }}" href="{{ it.url }}" target="_blank" rel="noopener">
                 <span class="mk-link-icon">
                     {% if it.tipo == 'video' %}
