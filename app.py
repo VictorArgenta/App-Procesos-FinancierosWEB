@@ -3169,12 +3169,23 @@ def _set_ticker_activo(nuevo_ticker):
     _cargar_acumulado_coste()
     logger.info("=" * 70)
     logger.info("TICKER cambiado a %s · fichero=%s", TICKER_FIJO, _LOG_FILE)
-    # Cargar memoria de IR y datos básicos.
+    # Memoria IR es ligera, carga síncrona.
     try:
         _cargar_memoria_ir()
-        _cargar_datos_ticker_fijo()
     except Exception as e:
-        logger.exception("Fallo al inicializar datos del nuevo ticker: %s", e)
+        logger.exception("Fallo al cargar memoria IR del nuevo ticker: %s", e)
+    # Precarga de datos financieros en background: así el redirect a la home
+    # es inmediato. El endpoint AJAX /_api/home/dashboard reutilizará el
+    # caché cuando esté listo; si llega antes, hará su propia carga.
+    def _precargar():
+        try:
+            _cargar_datos_ticker_fijo()
+        except Exception as e:  # noqa: BLE001
+            logger.exception("Fallo al precargar datos del nuevo ticker: %s", e)
+    try:
+        _threading.Thread(target=_precargar, daemon=True).start()
+    except Exception as e:  # noqa: BLE001
+        logger.exception("No se pudo lanzar la precarga de datos: %s", e)
     try:
         # En el cambio de empresa desde la UI, lanzamos la indexación RAG
         # en background para que el usuario no espere. El RAG estará vacío
