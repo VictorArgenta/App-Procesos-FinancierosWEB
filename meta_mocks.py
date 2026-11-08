@@ -136,17 +136,27 @@ _CEO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura ejecutiva del avance del plan",
+                "bullets": [
+                    "El OKR corporativo acumulado alcanza 0,74 sobre 1 (+0,06 vs Q3), impulsado por los pilares de Family of Apps y Business Messaging; sin embargo, la brecha se amplía respecto de los dos pilares críticos (Reality Labs y Regulación), que continúan por debajo del plan y drenan puntos agregados.",
+                    "Family of Apps sigue siendo la palanca que sostiene el plan: Instagram Reels concentra la mayor parte del crecimiento orgánico y ha entrado un trimestre antes de lo previsto en la zona verde del OKR, al apalancarse en las mejoras del ranker Llama-RT que están incrementando CPM y fill-rate de forma consistente.",
+                    "Business Messaging adelanta objetivos de 2026 por la monetización acelerada de WhatsApp Business (+41 % YoY) y por la mejora del margen de contribución, lo que abre la puerta a reconsiderar la asignación de capex en los próximos ciclos de planificación.",
+                ],
+            },
+            {
                 "titulo": "Alto riesgo",
                 "bullets": [
-                    "Llama 4 Enterprise · go-to-market retrasado 1 trimestre por disponibilidad GPU.",
-                    "Reality Labs · reducción de pérdidas por debajo del objetivo FY (-18 % vs -25 %).",
+                    "Llama 4 Enterprise sigue retrasado un trimestre por la escasez de GPUs disponibles, lo que empuja ingresos previstos al Q1 del año siguiente y obliga a replanificar el ramp-up comercial B2B; el impacto estimado sobre ingresos FY está acotado a USD 0,9 B pero hay un segundo riesgo de precio si la competencia reacciona antes.",
+                    "Reality Labs reduce pérdidas a un ritmo del 18 % frente al objetivo del 25 %, por sobrecoste de hardware y por calendario comercial más lento de lo previsto; el Consejo ha pedido un plan correctivo con milestones trimestrales y revisión explícita del capex del pilar en el próximo comité de capital allocation.",
+                    "Regulación en la UE (DMA/DSA) y en varios estados de EEUU avanza por detrás del plan de adaptación; la combinación de mayor coste de compliance y riesgo de sanción material justifica reforzar el presupuesto de Legal & Compliance en el próximo forecast.",
                 ],
             },
             {
                 "titulo": "Progreso destacado",
                 "bullets": [
-                    "Monetización WhatsApp +41 % YoY (objetivo 2026 ya alcanzado).",
-                    "Reels · share of time 32 % (+6 pts YoY).",
+                    "Monetización WhatsApp +41 % YoY, por encima del objetivo de 2026 ya alcanzado; la palanca principal es el lanzamiento del pricing dinámico por conversación en LatAm y la ampliación del catálogo de Business APIs, que han incorporado 42 k cuentas de pago en una sola semana en EMEA.",
+                    "Reels suma 32 % de share of time (+6 pts YoY) y actúa como amortiguador del posible impacto regulatorio en Feed; su margen de contribución supera ya al de Instagram Feed por primera vez en la historia del producto.",
+                    "El desarrollo del pilar AI Infra avanza al 68 % del plan y mantiene al grupo dentro del rango guía de capex comunicado al mercado, aun habiendo acelerado el despliegue de 1,2 M de aceleradores durante el ejercicio.",
                 ],
             },
         ],
@@ -256,17 +266,26 @@ _CEO = {
             {
                 "titulo": "Preparación destacada",
                 "bullets": [
-                    "15:00 · Satya Nadella (Microsoft) — follow-up Azure/Llama hosting.",
-                    "Puntos clave: pricing GPU, SLAs, cláusulas de salida.",
-                    "Antecedentes: 3 llamadas previas, último MoU 2025-09-14.",
+                    "15:00 · Satya Nadella (Microsoft): tercera reunión del ciclo tras la firma del MoU en septiembre 2025. La contraparte llega a la mesa queriendo cerrar el pricing GPU trimestral y el régimen de SLA para cargas de inferencia Llama; nuestra posición es defender un suelo de capacidad reservada con un ajuste trimestral automático indexado a la curva de hardware.",
+                    "Puntos clave de negociación: (i) pricing GPU por hora con rangos explícitos para los próximos 8 trimestres, (ii) definición de SLA de latencia y disponibilidad con penalizaciones bidireccionales, (iii) cláusula de salida con notificación mínima de 12 meses y precio justo basado en benchmark externo.",
+                    "Antecedentes relevantes: 3 llamadas previas, último MoU firmado el 2025-09-14, dos escaladas por soporte en el primer trimestre (ambas resueltas) y una queja pública de un cliente estratégico en el ecosistema de Microsoft que debería mantenerse fuera de agenda.",
                 ],
             },
             {
                 "titulo": "Material disponible",
                 "bullets": [
-                    "Briefing · 1 página",
-                    "Dossier contraparte · 4 páginas",
-                    "Últimos resultados y noticias · 2 páginas",
+                    "Briefing ejecutivo · 1 página con mensajes clave, cifras y la posición acordada con el equipo de legal.",
+                    "Dossier contraparte · 4 páginas con biografía del interlocutor, últimos movimientos públicos y análisis financiero reciente.",
+                    "Últimos resultados y noticias · 2 páginas con las métricas financieras del trimestre y la ficha de prensa relevante.",
+                    "Memoria del MoU anterior · 2 páginas con las cláusulas ya acordadas y los puntos abiertos que arrastramos desde la última negociación.",
+                ],
+            },
+            {
+                "titulo": "Qué hace el motor",
+                "bullets": [
+                    "Cruza automáticamente la agenda del CEO con el CRM, con el registro de comunicaciones relevantes y con la base documental interna para proponer un dossier por cita.",
+                    "Puede rebajar la profundidad del material (de dossier ejecutivo a briefing de 1 página) para que el CEO siga la reunión sólo con los puntos esenciales en pantalla.",
+                    "Los dossiers generados quedan versionados en la base documental con permisos restringidos al Office of the CEO.",
                 ],
             },
         ],
@@ -366,11 +385,27 @@ _CEO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa agregada",
+                "bullets": [
+                    "La fotografía de las últimas 24 horas sitúa el impacto neto estimado en P&L en USD -214 M, concentrado en tres frentes: una debilidad incipiente en ingresos publicitarios por una regresión del ranker de Shop ads, un desvío estructural de capex AI y una señal temprana en liquidez de LatAm por una caída de saldo en la cuenta operativa de Meta Brasil.",
+                    "El conjunto de alertas media/alta apunta a presión sobre márgenes (coste GPU, FX) y a un cambio de régimen en el ritmo del capex: el motor estima que el desvío acumulado de capex puede añadir hasta 2 pts al drenaje de FCF del ejercicio si no se activa una revisión del plan de infra.",
+                    "No hay alertas abiertas con impacto directo sobre covenants ni sobre el rating; la combinación de buffer EBITDA y de deuda neta vuelve el riesgo manejable incluso si se materializan los escenarios medios de las alertas abiertas.",
+                ],
+            },
+            {
                 "titulo": "Alertas que requieren decisión del CEO",
                 "bullets": [
-                    "Revisión del plan capex AI infra · comité convocado para el 14-nov.",
-                    "Lanzar hedge adicional EUR/USD por 2 B según memo del tesorero.",
-                    "Validar comunicación al mercado sobre el ritmo de recompras.",
+                    "Revisión del plan capex AI infra · comité convocado para el 14-nov. El memo del CFO propone congelar un 7 % del capex comprometido hasta validar si la caída de CPM en Shop ads es puntual o estructural.",
+                    "Lanzar hedge adicional EUR/USD por 2 B siguiendo el memo del tesorero; la exposición abierta tras el movimiento del cross supera en 0,6 B el umbral de política interna y conviene autorizar formalmente la operación.",
+                    "Validar la comunicación al mercado sobre el ritmo de recompras: la alerta de severidad media sugiere publicar una nota ampliando el programa en el earnings call siguiente para absorber la narrativa de mayor capex.",
+                ],
+            },
+            {
+                "titulo": "Cómo se gobiernan las alertas",
+                "bullets": [
+                    "El motor cruza datos de Oracle EPM, SAP S/4HANA, Kyriba y Snowflake y aplica reglas de variación material (>5 % vs plan o >USD 50 M en valor absoluto). Las reglas están versionadas y auditadas trimestralmente por Control Interno.",
+                    "Cada alerta lleva un SLA de respuesta: severidad alta en < 2 h, media en < 24 h y baja en < 72 h. El cumplimiento del SLA se reporta mensualmente al Comité de Riesgos.",
+                    "El usuario puede silenciar alertas sólo con justificación escrita, que queda archivada en la base documental junto con el ID de la alerta para trazabilidad futura.",
                 ],
             },
         ],
@@ -449,11 +484,26 @@ _CEO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa de la exposición agregada",
+                "bullets": [
+                    "La exposición financiera agregada ponderada por impacto se sitúa en USD 1,82 B, con una cobertura media del 68 % y un VaR 1D al 95 % de USD 44 M; los dos vectores de mayor concentración siguen siendo mercado (FX y tipos) y capex, que juntos explican el 56 % del total.",
+                    "El perfil del balance es defensivo: ratio deuda neta/EBITDA 0,21x, EBITDA/intereses 28,4x y liquidez disponible (caja + RCF) superior a 58 B. En ningún escenario adverso simulado el grupo pierde grado de inversión ni activa cláusulas de aceleración.",
+                    "El riesgo fiscal se mantiene elevado por el ciclo BEPS 2.0 y la sentencia reciente del CJUE sobre tratamiento de royalties intragrupo; se recomienda elevar el apetito de riesgo fiscal a la próxima sesión del Consejo con una propuesta formal de rango objetivo.",
+                ],
+            },
+            {
                 "titulo": "Riesgos con acción pendiente del Consejo",
                 "bullets": [
-                    "Aumentar ratio de cobertura FX hasta el 80 % — propuesta ya elevada.",
-                    "Pre-financiar vencimientos 2028 vía emisión bonos 10y.",
-                    "Validar el apetito de riesgo fiscal post sentencia CJUE.",
+                    "Aumentar el ratio de cobertura FX hasta el 80 %. La propuesta ya está elevada y espera luz verde para abrir forwards por USD 2 B en EUR y USD 1 B en JPY con horizonte 6 meses.",
+                    "Pre-financiar los vencimientos 2028 vía emisión de bonos 10y antes del próximo movimiento esperado en la curva de tipos. El coste total estimado de oportunidad de no actuar se cifra en USD 180 M a lo largo de la vida del instrumento.",
+                    "Validar formalmente el apetito de riesgo fiscal tras la sentencia del CJUE y actualizar la política de precios de transferencia para Meta Ireland ↔ Meta Platforms Inc.",
+                ],
+            },
+            {
+                "titulo": "Metodología",
+                "bullets": [
+                    "El VaR se calcula con 1 año de histórico y simulación histórica paramétrica. El motor recalcula exposiciones a diario y aplica shocks estándar (±5 %, ±10 %, ±15 %) además de escenarios ad-hoc tipo crisis 2008 o COVID-20.",
+                    "Cada riesgo lleva asignado un owner, una mitigación documentada y un residual tras mitigación; el reporting al Comité de Riesgos se realiza mensualmente con detalle del movimiento.",
                 ],
             },
         ],
@@ -517,9 +567,25 @@ _CEO = {
             {
                 "titulo": "Lectura analistas",
                 "bullets": [
-                    "7 de 10 analistas top sitúan su estimación dentro del rango de guidance.",
-                    "Riesgo al alza en ingresos — estacionalidad Q4 publicidad.",
-                    "Riesgo a la baja en margen por intensificación capex.",
+                    "7 de los 10 analistas top sitúan su estimación central dentro del rango de guidance publicado, lo que confirma que la narrativa del mercado y la posición interna están razonablemente alineadas. Los tres que se desvían lo hacen a la baja sobre capex y a la baja sobre margen, dos frentes que ya tenemos identificados en nuestras propias alertas y en el forecast interno.",
+                    "El riesgo al alza en ingresos del trimestre viene de la estacionalidad del gasto publicitario en Q4, que históricamente sorprende al alza en el tramo final del trimestre. Tres de los últimos cuatro Q4 cerraron en el extremo superior del rango por efecto Black Friday / Holiday.",
+                    "El riesgo a la baja en margen se concentra en la intensificación del capex AI y en el repunte del coste GPU/hora, factores que ya se están trasladando al modelo rolling forecast.",
+                ],
+            },
+            {
+                "titulo": "Diferencias clave entre guidance y consenso",
+                "bullets": [
+                    "Ingresos: el punto medio de guidance (USD 186 B) queda ligeramente por debajo del consenso (USD 187,2 B); el gap es asumible y se puede cubrir con un cierre fuerte en diciembre.",
+                    "Capex: guidance 72-75 B frente a consenso 73,8 B — ambos puntos de referencia están alineados, pero varios analistas publican rangos individuales por encima de 75 B que podrían requerir aclaración en el próximo earnings call.",
+                    "FCF: la mayor divergencia aparece aquí; los analistas que bajan estimaciones lo hacen por el componente de FCF al estimar un drenaje mayor del previsto por capex AI.",
+                ],
+            },
+            {
+                "titulo": "Preparación para la próxima earnings call",
+                "bullets": [
+                    "Reforzar la narrativa de retorno esperado del capex AI con ejemplos concretos de margen incremental por euro invertido.",
+                    "Clarificar el perímetro del capex comunicado (incluye u no leases operativos equivalentes y compras de hardware diferido) para alinear al consenso en 2027.",
+                    "Preparar respuesta tipo para la pregunta recurrente sobre guidance de FCF 2027, que ya aparece en la mitad de los informes previos.",
                 ],
             },
         ],
@@ -563,11 +629,27 @@ _CEO = {
         },
         "bloques": [
             {
+                "titulo": "Lectura cualitativa del panel",
+                "bullets": [
+                    "La plantilla global crece de forma controlada (+2,1 % YTD) con una rotación anualizada del 6,8 % (-0,4 pts frente al cierre del año anterior) y un eNPS de 34 que supone el mejor dato histórico. El trimestre consolida la narrativa interna de que la contención de costes no está dañando el compromiso del equipo.",
+                    "La fotografía por región muestra que EEUU/Canadá y Europa cumplen los objetivos de talento, mientras que Asia-Pacífico presenta tres señales a seguir: rotación por encima de la media del grupo (9,1 %), eNPS más bajo que el resto (27) y mayor concentración de posiciones críticas abiertas respecto de su plantilla.",
+                    "La rotación por función revela un riesgo específico en AI Research (9,4 %), por encima de la media de 6,8 %; el equipo de retención ya ha activado un plan de refuerzo con mentoring y revisiones salariales enfocadas a este colectivo.",
+                ],
+            },
+            {
                 "titulo": "Alertas de talento",
                 "bullets": [
-                    "Rotación voluntaria en AI Research +3 pts vs media compañía.",
-                    "DE&I · promoción femenina a nivel D+ 29 % (objetivo 32 %).",
-                    "Mánager scores al alza en todas las regiones salvo APAC.",
+                    "Rotación voluntaria en AI Research +3 pts frente a la media de la compañía. La causa principal identificada es la presión salarial del mercado y la expectativa de oportunidades en nuevas start-ups fundadas por ex-empleados.",
+                    "DE&I · promoción femenina a nivel D+ del 29 % frente al objetivo del 32 %. La brecha se concentra en los pipelines de AI Research y Infra; el Comité de Nombramientos tiene en agenda un plan correctivo de 18 meses.",
+                    "Los mánager scores suben en todas las regiones salvo APAC, donde se mantienen estables; se está ampliando el programa de 'mánager como coach' a Singapur, Tokio y Bangalore para corregir la tendencia.",
+                ],
+            },
+            {
+                "titulo": "Decisiones elevadas al CEO",
+                "bullets": [
+                    "Aprobar el plan de retención específico para AI Research (presupuesto adicional de USD 60 M en bonos a 3 años).",
+                    "Autorizar una nueva ronda de hiring en APAC enfocada a cerrar posiciones críticas antes del cierre del Q1 del año próximo.",
+                    "Revisar la política de promoción D+ con foco en la ratio de pipelines femeninos a nivel director.",
                 ],
             },
         ],
@@ -644,10 +726,27 @@ _CFO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa del cierre",
+                "bullets": [
+                    "A día +2 la estimación de EBIT de octubre se sitúa en USD 5,745 B, +USD 165 M sobre plan y +2,3 % YoY. La desviación favorable procede principalmente del mix de ingresos (Reels y Business Messaging por encima de plan) y queda parcialmente compensada por mayor coste GPU.",
+                    "La fotografía neta es positiva: todos los KPIs principales (ingresos, EBIT, beneficio neto) cierran el mes por encima de plan, los controles automáticos están al 88 % y las entidades representativas ya han reportado. El riesgo residual se concentra en dos partidas identificadas y acotadas.",
+                    "La versión definitiva del cierre mensual del grupo se publicará en D+8 siguiendo la cadencia habitual; antes del cierre formal el motor seguirá recalculando a diario los estimados con los movimientos que se vayan registrando en SAP S/4HANA.",
+                ],
+            },
+            {
                 "titulo": "Puntos abiertos",
                 "bullets": [
-                    "Devengos marketing LatAm — pendiente conciliación de 42 OC.",
-                    "Pérdida por obsolescencia hardware RL · 38 M en revisión.",
+                    "Devengos marketing LatAm — pendiente conciliación de 42 OC. El importe estimado es USD 18 M y el equipo de Controller LatAm tiene fecha compromiso D+3 para cerrar la provisión o confirmar el consumo real.",
+                    "Pérdida por obsolescencia hardware RL · USD 38 M en revisión. El criterio contable requiere confirmación del equipo de Reality Labs sobre el porcentaje de hardware obsoleto y su valor recuperable. En caso de confirmación, impactaría el margen RL del trimestre.",
+                    "Pendiente validar el devengo de bonus anual con HR data, previsto para jueves 12:00.",
+                ],
+            },
+            {
+                "titulo": "Próximas acciones",
+                "bullets": [
+                    "Ejecutar el recálculo automático de D+3 una vez cierren las entidades retrasadas (Meta Brasil y Oculus Hardware).",
+                    "Preparar la nota de cierre anticipado para el Comité de Dirección con los highlights del mes.",
+                    "Programar la revisión del controller y la firma del CFO para D+5 a las 14:00 CET según el plan.",
                 ],
             },
         ],
@@ -728,11 +827,27 @@ _CFO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa del rolling forecast",
+                "bullets": [
+                    "El modelo apunta a un FY2026 con ingresos de USD 189 B (+18 % YoY), EBIT de USD 76 B (+16 %) y un FCF comprimido hasta los USD 24 B (-11 %) por la aceleración del capex AI; el crecimiento sigue siendo el más fuerte del ciclo pero con una conversión a caja más exigente que en los años anteriores.",
+                    "La aceleración del capex se concentra en el Q4 de 2026 y el Q1 de 2027, periodos en los que el motor estima que la relación capex/EBIT cruza por primera vez el 100 %. La estrategia de recompras y dividendos sigue siendo compatible con estos niveles gracias al colchón de caja operativa y al acceso a mercado mayorista.",
+                    "Los drivers del modelo revelan una sensibilidad asimétrica: el CPM de Reels y el coste GPU/hora explican más del 60 % de la varianza del escenario central; cualquier cambio sostenido en esas dos variables requiere revisión del forecast completo.",
+                ],
+            },
+            {
                 "titulo": "Drivers con mayor sensibilidad",
                 "bullets": [
-                    "CPM Reels (±5 % → ±USD 2,1 B ingresos anuales).",
-                    "Coste GPU hora (±10 % → ±USD 1,6 B opex).",
-                    "Headcount AI Infra (±500 FTE → ±USD 180 M opex).",
+                    "CPM Reels — una variación de ±5 % mueve los ingresos anuales en ±USD 2,1 B. El motor recalcula el CPM promedio diariamente a partir de la mezcla de surfaces activas en ese momento.",
+                    "Coste GPU hora — una variación de ±10 % desplaza opex en ±USD 1,6 B. Este driver incorpora el calendario público de pricing de los proveedores Tier-1 y el porcentaje de capacidad reservada vs spot.",
+                    "Headcount AI Infra — un ajuste de ±500 FTE representa ±USD 180 M en opex completo (salario, equity, soporte). El modelo lo trata como variable discreta porque los ciclos de contratación tienen granularidad trimestral.",
+                ],
+            },
+            {
+                "titulo": "Lecturas por trimestre",
+                "bullets": [
+                    "Q4 2026E · pico del año en capex trimestral, con 22 B; se compensa con un ingreso trimestral histórico por estacionalidad publicitaria.",
+                    "Q1 2027E · primer trimestre del año con FCF por debajo de USD 4 B debido al arrastre de inversiones; se recupera a partir de Q2 2027.",
+                    "El escenario optimista (CPM Reels +3 %) aporta USD +1,3 B de ingresos adicionales y añade 0,4 pts de margen EBIT a nivel de año completo.",
                 ],
             },
         ],
@@ -783,11 +898,27 @@ _CFO = {
         },
         "bloques": [
             {
+                "titulo": "Lectura cualitativa de la posición 13s",
+                "bullets": [
+                    "La semana 47 es el punto más exigente del horizonte, con la combinación del pago de impuestos federales (USD 7,3 B) y una concentración habitual de pagos a proveedores de infra. El saldo mínimo se queda en USD 39 B y no dispara ningún límite interno pero reduce el buffer disponible.",
+                    "La semana 49 refuerza el drenaje con el vencimiento del bono senior (USD 2,5 B) justo antes del pago trimestral de dividendos. El motor ya tiene reservada una emisión EMTN de 1,5 B para la S52, lo que recompone el saldo final hasta USD 48,6 B.",
+                    "El perfil global es cómodo: liquidez disponible sostenida, cobros estables en todas las semanas y un buffer agregado compatible con la política de caja interna (saldo mínimo objetivo USD 35 B).",
+                ],
+            },
+            {
                 "titulo": "Semanas críticas",
                 "bullets": [
-                    "Semana 47 · pago impuestos federales USD 7,3 B.",
-                    "Semana 49 · vencimiento bono senior USD 2,5 B.",
-                    "Semana 51 · dividendo trimestral USD 1,3 B.",
+                    "Semana 47 · pago de impuestos federales (USD 7,3 B). El equipo fiscal ya dispone del aval bancario y la operación está confirmada.",
+                    "Semana 49 · vencimiento del bono senior (USD 2,5 B). La refinanciación está prevista con dos emisiones mayoristas en S52 y S2 del año siguiente.",
+                    "Semana 51 · dividendo trimestral (USD 1,3 B). Operativa habitual, sin incidencias esperadas.",
+                ],
+            },
+            {
+                "titulo": "Acciones del equipo de Tesorería",
+                "bullets": [
+                    "Confirmar en S46 los compromisos de cobros intercompany con las entidades europeas para asegurar el flujo de la semana 47.",
+                    "Pre-negociar las condiciones del nuevo tramo EMTN con los bancos sindicados antes del vencimiento del bono S49.",
+                    "Mantener el ratio de concentración por banco dentro del 40 % durante todo el horizonte.",
                 ],
             },
         ],
@@ -829,10 +960,27 @@ _CFO = {
         },
         "bloques": [
             {
+                "titulo": "Lectura cualitativa de covenants",
+                "bullets": [
+                    "La posición agregada es claramente cómoda: el ratio de deuda neta sobre EBITDA se queda en 0,21x frente al covenant máximo de 2,0x, y la cobertura de intereses supera por siete veces el mínimo contractual exigido. Ninguno de los 12 covenants vigentes tiene holgura inferior al 60 % de su umbral.",
+                    "La estructura de deuda contribuye a ese perfil: vida media 6,4 años, coste medio 4,7 % y mix equilibrado entre bonos senior y programa EMTN. El próximo cuello de refinanciación aparece en 2028 y ya está contemplado en el plan de pre-financiación.",
+                    "El rating actual (A1 / A+) está respaldado por las dos agencias con outlook estable; no se contempla ninguna acción de rating en el próximo trimestre salvo un escenario adverso extremo que no se ha detectado en el monitoring de alertas.",
+                ],
+            },
+            {
                 "titulo": "Próximos tests",
                 "bullets": [
-                    "RCF USD 10 B · test trimestral 31-dic-2026.",
-                    "Programa EMTN · test semestral 30-jun-2027.",
+                    "RCF USD 10 B · test trimestral el 31-dic-2026. La proyección interna anticipa un cumplimiento con un margen > 1,7x sobre el umbral.",
+                    "Programa EMTN · test semestral el 30-jun-2027. Sin incidencias esperadas; el equipo de Tesorería tiene en agenda el envío del informe reglamentario con 15 días de antelación.",
+                    "Bono convertible 2028 · seguimiento continuo del strike price y del precio de la acción; no hay ningún trigger activo.",
+                ],
+            },
+            {
+                "titulo": "Recomendaciones",
+                "bullets": [
+                    "Mantener la política de buffer de holgura al menos 50 % por encima del covenant más exigente.",
+                    "Considerar el refuerzo del programa de recompras cuando la deuda neta baje por debajo de 15 B, dejando siempre margen para capex AI.",
+                    "Actualizar el modelo de stress-test con los últimos movimientos de tipos antes del cierre anual.",
                 ],
             },
         ],
@@ -1014,10 +1162,27 @@ _CFO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa de la conciliación intercompany",
+                "bullets": [
+                    "El 98 % de los pares intercompañía del grupo están conciliados automáticamente. Las 8 diferencias que quedan por encima del umbral material (USD 100 k) suman USD 11,4 M y están todas documentadas con responsable asignado y fecha límite de cierre.",
+                    "Los dos casos con mayor exposición (Royalties Meta Ireland ↔ Meta Platforms Inc. por USD 3,2 M y Servicios compartidos Meta Singapore ↔ APAC por USD 1,1 M) son recurrentes trimestre a trimestre por las diferencias temporales en el reconocimiento. El equipo fiscal está trabajando en una propuesta para alinearlos de forma estructural.",
+                    "La edad media de las diferencias pendientes es de 7 días, muy por debajo del objetivo interno (14 días). No hay partidas con antigüedad superior al mes.",
+                ],
+            },
+            {
                 "titulo": "Casos prioritarios",
                 "bullets": [
-                    "Royalties Meta Ireland ↔ Meta Platforms Inc. · USD 3,2 M.",
-                    "Servicios compartidos Meta Singapore ↔ APAC · USD 1,1 M.",
+                    "Royalties Meta Ireland ↔ Meta Platforms Inc. · USD 3,2 M. Pendiente de revisión fiscal conjunta y de confirmación del porcentaje aplicado tras la última actualización del TP policy.",
+                    "Servicios compartidos Meta Singapore ↔ APAC · USD 1,1 M. Se está automatizando la regla de reparto para que el lag no vuelva a generar la diferencia en el próximo mes.",
+                    "Pagos de ads buyback Meta Brasil ↔ Meta Platforms Inc. · USD 0,8 M. Diferencia explicada por el tipo de cambio aplicado; será neutralizada en el próximo ajuste top-side.",
+                ],
+            },
+            {
+                "titulo": "Buenas prácticas",
+                "bullets": [
+                    "Lanzar el matcheo automático al menos una vez al día en los últimos 5 días del mes para reducir la cola al cierre.",
+                    "Elevar al controller cualquier diferencia > USD 100 k con antigüedad superior a 48 h.",
+                    "Documentar siempre la causa raíz de la diferencia, no sólo el ajuste; el motor usará esa información en próximos entrenamientos.",
                 ],
             },
         ],
@@ -1280,11 +1445,27 @@ _CFO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa de la rentabilidad por dimensión",
+                "bullets": [
+                    "El cruce multidimensional confirma que Family of Apps concentra la rentabilidad del grupo con un margen operativo del 48 % (+2 pts YoY) y que Reels se consolida como el canal más rentable (55 % de margen operativo). La contribución marginal de Reality Labs sigue siendo negativa pero mejora 4 pts frente al año anterior.",
+                    "Por tipo de cliente, la concentración es significativa: los 100 mayores anunciantes aportan el 38 % del total de ingresos con un margen contribución del 61 %, mientras que el segmento SMB, con 1,24 millones de cuentas, aporta sólo un 2 % de los ingresos a un margen del 42 %. Esta estructura asimétrica es la que permite al grupo absorber con holgura la base amplia de SMB a pesar de su mayor coste relativo.",
+                    "Por geografía, EEUU/CA se mantiene como el mercado premium (ARPU USD 72,4 y margen 61 %) frente a regiones como APAC o LatAm, donde el crecimiento es superior pero la monetización está todavía escalando. La estrategia de pricing diferenciado y las novedades en Business Messaging están cerrando progresivamente el gap de ARPU.",
+                ],
+            },
+            {
                 "titulo": "Reparto y análisis de costes por negocio",
                 "bullets": [
-                    "ABC activity-based costing desplegado en 92 % de centros de coste.",
-                    "Drivers: horas GPU, impresiones servidas, tickets soporte.",
-                    "Modelo reconstruible por canal, segmento y tipología de cliente.",
+                    "El costing ABC está desplegado en el 92 % de los centros de coste del grupo. Los drivers principales (horas GPU, impresiones servidas, tickets de soporte, FTE de producto) están versionados y auditados por Control Interno.",
+                    "El modelo es reconstruible en cualquier combinación de dimensiones (canal × segmento × tipo de cliente × geografía). La celda con mayor margen es Reels · Top-100 global · EEUU/CA (72 %) y la de menor es Audience Network · SMB · APAC (11 %).",
+                    "La disciplina del motor permite comparar la misma celda a lo largo del tiempo o simular el impacto de cambios de pricing / mix sin tener que reconstruir todo el modelo contable.",
+                ],
+            },
+            {
+                "titulo": "Recomendaciones",
+                "bullets": [
+                    "Reforzar la inversión comercial en el segmento mid-market (46 % de margen y crecimiento sostenido) para acercar progresivamente su contribución a la de la gran cuenta.",
+                    "Revisar la estrategia de pricing en APAC y LatAm, aprovechando el crecimiento de la base para capturar más ARPU sin comprometer la adopción.",
+                    "Mantener el equilibrio del mix de canales: Reels y Reels-adyacentes son la palanca principal del margen incremental, pero el peso de Feed sigue siendo relevante para la diversificación.",
                 ],
             },
         ],
@@ -1325,11 +1506,27 @@ _CFO = {
         },
         "bloques": [
             {
+                "titulo": "Lectura cualitativa de la desviación YTD",
+                "bullets": [
+                    "La fotografía acumulada hasta octubre muestra una sobre-ejecución positiva en ingresos (+4,2 %) y en EBIT (+5,9 %) frente al plan, pero con un sobreajuste en capex (+7,2 %) y una ligera tensión en opex por I+D y Marketing. El balance neto es favorable y la compañía queda en zona verde en los indicadores comunicados al mercado.",
+                    "El patrón de desviación es coherente con la narrativa del año: la demanda publicitaria y el tiempo en Reels han sido los motores de los ingresos adicionales, mientras que el ritmo de inversión en infraestructura AI ha arrastrado al capex por encima del plan comprometido. No hay desviaciones significativas en coste de ventas ni en G&A.",
+                    "Por responsable, CRO y CTO son los que concentran las desviaciones materiales; CMO y COO quedan dentro del rango de variación habitual y no requieren acciones específicas.",
+                ],
+            },
+            {
                 "titulo": "Top explicadores",
                 "bullets": [
-                    "CPM Reels por encima de plan → +USD 2,8 B ingresos.",
-                    "GPU superior a plan por aceleración de clusters → +USD 1,1 B capex.",
-                    "Headcount AI Infra +12 % vs plan → +USD 0,5 B opex.",
+                    "CPM Reels por encima de plan → +USD 2,8 B en ingresos. La mejora del ranker Llama-RT y el incremento del inventario disponible han sido los drivers dominantes del efecto precio.",
+                    "GPU superior a plan por aceleración del despliegue de clusters → +USD 1,1 B en capex. La aceleración responde a la necesidad estratégica de dar capacidad a Llama 4 Enterprise y será revisada en el próximo comité de capital allocation.",
+                    "Headcount AI Infra +12 % vs plan → +USD 0,5 B en opex. El plan se replanificará en el forecast rolling con un objetivo de estabilización progresiva.",
+                ],
+            },
+            {
+                "titulo": "Acciones de FP&A",
+                "bullets": [
+                    "Revisar el forecast de cierre de año con el nuevo escenario de capex sobre-ejecutado para alinear la narrativa al mercado.",
+                    "Pedir al CTO un plan de aterrizaje para contratación AI Infra con hitos trimestrales durante el próximo año.",
+                    "Validar con CRO si el efecto CPM Reels es estructural o puntual, para recalibrar el modelo de volumen × precio.",
                 ],
             },
         ],
@@ -1579,10 +1776,27 @@ _CFO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa del reparto ABC",
+                "bullets": [
+                    "El cuadro de activity-based costing confirma que la infraestructura de computación es la primera palanca de coste (USD 18,4 B) y crece a un ritmo de +22 % YoY arrastrada por la demanda de Reels y por la entrada en producción de Llama 4 Enterprise. Es la partida más monitorizada por el motor y la que tiene mayor granularidad en el reparto (horas GPU por producto).",
+                    "Las actividades de content moderation y de legal & compliance están al alza por el endurecimiento regulatorio (DMA/DSA en Europa, SEC en EEUU, CMA en Reino Unido). Aun representando pesos relativamente bajos, su tendencia es la que más se acelera y conviene supervisarlas trimestre a trimestre.",
+                    "El coste por USD de ingreso varía mucho entre segmentos: desde 0,21 en las grandes cuentas hasta 1,82 en SMB. La asimetría es estructural y justifica mantener las economías de escala en las grandes cuentas como palanca de rentabilidad agregada.",
+                ],
+            },
+            {
                 "titulo": "Consumo por producto",
                 "bullets": [
-                    "Reels concentra el 38 % de infra computing — tendencia al alza.",
-                    "WhatsApp aporta 14 % del coste content moderation y crece deprisa.",
+                    "Reels concentra el 38 % de la infraestructura de computing. La tendencia es al alza y el motor estima que el peso seguirá creciendo con la mayor penetración de recomendaciones basadas en modelos generativos.",
+                    "WhatsApp aporta un 14 % del coste de content moderation y crece deprisa por la expansión de Business APIs y por la mayor exigencia regulatoria sobre privacidad y menores.",
+                    "Reality Labs sigue concentrando un coste elevado de I+D (14 % del coste total del segmento) con una base de ingresos todavía pequeña, lo que explica el margen contribución negativo del negocio.",
+                ],
+            },
+            {
+                "titulo": "Decisiones derivadas",
+                "bullets": [
+                    "Revisar el modelo de pricing interno (transfer pricing) para asignar correctamente la infraestructura compartida entre productos.",
+                    "Priorizar inversiones de eficiencia en la pila de content moderation, donde cada mejora de 1 % de automatización libera varios M USD al año.",
+                    "Mantener la trazabilidad del coste por producto en cada ciclo de forecast; el motor lo actualiza mensualmente y queda disponible en la base documental.",
                 ],
             },
         ],
@@ -1978,11 +2192,26 @@ _EQUIPO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa de mi lista",
+                "bullets": [
+                    "El 69 % de mis tareas del cierre están cerradas y el 19 % restante está en curso. Hay dos tareas vencidas que requieren acción inmediata: la conciliación del banco JPMC Nueva York y la revisión de un soporte del auditor. Ambas tareas tienen dependencias externas (statement banco y confirmación del equipo de RL) y el responsable alternativo ya está notificado.",
+                    "Mi SLA personal acumulado se mantiene en 96 %, por encima del objetivo del 92 %. El ritmo de ejecución está bien distribuido en la semana y no hay picos de carga concentrados en los últimos días del mes.",
+                    "La próxima tarea a vencer es la carga de devengos de marketing LatAm (hoy 17:00). El motor ha anticipado el 85 % del importe estimado con base en el patrón histórico y espera la confirmación final para generar el asiento automáticamente.",
+                ],
+            },
+            {
                 "titulo": "Próximas",
                 "bullets": [
-                    "Cargar devengos marketing LatAm · hoy 17:00.",
-                    "Conciliación Meta Brasil ↔ Meta Platforms Inc. · mañana 10:00.",
-                    "Revisión final cuentas 51x · mañana 15:00.",
+                    "Cargar devengos de marketing LatAm hoy a las 17:00 — el motor ya ha pre-rellenado los importes y sólo necesita la validación del Controller regional.",
+                    "Conciliación Meta Brasil ↔ Meta Platforms Inc. mañana a las 10:00 — pendiente del cierre de BR y de la generación automática del fichero de diferencias.",
+                    "Revisión final de cuentas 51x mañana a las 15:00 — la lista de partidas abiertas ya está preparada en la base documental.",
+                ],
+            },
+            {
+                "titulo": "Consejos del motor",
+                "bullets": [
+                    "Puedes marcar varias tareas del día como completadas de una sola vez con el botón «Marcar lote como completado». El motor comprobará automáticamente las dependencias antes de cerrarlas.",
+                    "Para las tareas con soporte documental, arrastrar el PDF al panel añade el soporte a BlackLine y actualiza el estado.",
                 ],
             },
         ],
@@ -2053,10 +2282,27 @@ _EQUIPO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa del motor de conciliación",
+                "bullets": [
+                    "La tasa de matcheo automático está en el 96 %, un máximo histórico. Se ha logrado gracias a la combinación de reglas heurísticas y de patrones aprendidos de las conciliaciones manuales de los últimos 12 meses. Esto reduce la carga manual del equipo en más de 320 h/mes y libera capacidad para centrarse en las conciliaciones de mayor valor.",
+                    "El 3 % de items con match sugerido corresponden a casos donde el motor tiene una confianza media; se recomienda revisarlos uno a uno antes de aceptarlos. El 1 % restante se envía directamente a la cola de revisión manual.",
+                    "La cola actual de 412 items pendientes es la habitual en días de cierre; el motor estima que se podrá cerrar antes del final de la jornada con un único lanzamiento de matcheo masivo.",
+                ],
+            },
+            {
                 "titulo": "Patrones aprendidos recientemente",
                 "bullets": [
-                    "Reconocimiento de royalties IC con lag de 2 días.",
-                    "Pagos a partners publicitarios con referencias truncadas.",
+                    "Reconocimiento de royalties intercompañía con lag de 2 días entre fecha de operación en la entidad origen y recepción en la entidad destino. El patrón se añadió a partir de 1.800 casos y tiene una precisión del 97 %.",
+                    "Pagos a partners publicitarios con referencias truncadas por limitación del sistema del partner. El motor añade una tolerancia a la coincidencia parcial de referencia y compara importe y fecha como respaldo.",
+                    "Próximo candidato a entrenamiento: pagos a terceros con comisión bancaria restada en origen (frecuencia creciente en LatAm y APAC).",
+                ],
+            },
+            {
+                "titulo": "Gobierno del modelo",
+                "bullets": [
+                    "Cada patrón aprendido pasa por una muestra retenida de validación antes de desplegarse en producción.",
+                    "Control Interno audita trimestralmente el rendimiento del motor por categoría de patrón y publica los resultados en la base documental.",
+                    "El umbral de confianza para match automático es del 92 %, por debajo del cual la decisión sube a revisión manual.",
                 ],
             },
         ],
@@ -2252,10 +2498,26 @@ _EQUIPO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa del asistente normativo",
+                "bullets": [
+                    "El asistente ha resuelto 248 consultas de media al día en el último trimestre con un acierto top-1 del 84 % (+4 pts respecto del trimestre anterior). La mejora se explica por la ampliación del corpus (SEC y PGC) y por el ajuste del modelo de recuperación tras incorporar el feedback explícito de los analistas.",
+                    "Las consultas más frecuentes giran en torno a Ingresos (IFRS 15), Arrendamientos (IFRS 16) y Instrumentos Financieros (IFRS 9). El motor reconoce el marco regulatorio de origen del usuario y prioriza las referencias más próximas a su jurisdicción cuando hay alternativas.",
+                    "Cada respuesta cita siempre párrafo, enlace al documento original y versión vigente. Las respuestas se pueden marcar como útiles o insuficientes para alimentar el ciclo de mejora.",
+                ],
+            },
+            {
                 "titulo": "Ejemplo de respuesta",
                 "bullets": [
-                    "«Según IFRS 15 §31, el ingreso se reconoce cuando se satisface la obligación...»",
-                    "Se cita siempre párrafo, enlace al documento original y versión vigente.",
+                    "«Según IFRS 15 §31, el ingreso se reconoce cuando se satisface la obligación...» La respuesta incluye el texto literal del párrafo, el enlace a la versión vigente de la norma y, si procede, una referencia a la política interna que lo materializa en nuestro grupo.",
+                    "Cuando la respuesta tiene impacto material en el reporting, el motor sugiere escalar la consulta al Head of Reporting o al Chief Accounting Officer para validación.",
+                ],
+            },
+            {
+                "titulo": "Buenas prácticas",
+                "bullets": [
+                    "Formular preguntas concretas con contexto (producto, geografía, importes) para mejorar la calidad de la respuesta.",
+                    "Marcar las respuestas como útiles / insuficientes; es la principal fuente de aprendizaje del modelo.",
+                    "Si la respuesta involucra materia fiscal, revisar con el equipo de Tax antes de aplicarla a un caso real.",
                 ],
             },
         ],
@@ -2332,12 +2594,20 @@ _EQUIPO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa del asistente documental",
+                "bullets": [
+                    "La base documental funciona como un asistente de conversación sobre los manuales de las herramientas EPM conectadas (Oracle EPM Cloud, OneStream, SAP Group Reporting, SAP S/4HANA, Workday Adaptive, Kyriba) y sobre la documentación interna del cliente (políticas, manuales de proceso, plantillas). Cada respuesta se emite con las citas verificables que permiten localizar la fuente original y su versión vigente.",
+                    "El uso diario alcanza las 840 consultas con una precisión top-1 del 91 % y una latencia media de 1,8 s. El motor prioriza el manual oficial de la herramienta frente al procedimiento interno cuando ambos aplican, pero devuelve ambos como fuentes para que el usuario pueda contrastarlos.",
+                    "Las respuestas se pueden guardar en el workspace del usuario para su consulta posterior y para alimentar el historial de documentación del área. Cada fuente añadida al corpus pasa por un proceso de validación por el Centro de Excelencia de Finanzas.",
+                ],
+            },
+            {
                 "titulo": "Fuentes más utilizadas esta semana",
                 "bullets": [
-                    "Manual oficial SAP Group Reporting 2026 · 184 consultas.",
-                    "Política interna de doble materialidad CSRD · 128 consultas.",
-                    "Manual Oracle EPM Cloud · 96 consultas.",
-                    "Procedimiento interno de cierre mensual · 72 consultas.",
+                    "Manual oficial SAP Group Reporting 2026 · 184 consultas. Secciones más consultadas: journal entries, ajustes top-side, eliminaciones.",
+                    "Política interna de doble materialidad CSRD · 128 consultas. Concentración en las áreas de sostenibilidad y reporting regulatorio.",
+                    "Manual Oracle EPM Cloud · 96 consultas. Secciones más consultadas: FCCS (consolidación), PBCS (planificación) y Narrative Reporting.",
+                    "Procedimiento interno de cierre mensual · 72 consultas. Alta coincidencia con la primera semana del cierre; se refleja en el patrón de uso a lo largo del mes.",
                 ],
             },
         ],
@@ -2395,10 +2665,27 @@ _EQUIPO = {
         ],
         "bloques": [
             {
+                "titulo": "Lectura cualitativa del constructor",
+                "bullets": [
+                    "La plataforma centraliza la elaboración de informes recurrentes (dirección financiera, consejo, reguladores, operaciones, comercial y externo) sobre plantillas versionadas en Workiva. El 74 % del contenido se compone a partir de bloques reutilizables (narrativa, tablas, gráficos), lo que acorta a 22 minutos el tiempo medio por informe.",
+                    "La disciplina del constructor garantiza que todos los informes del grupo comparten definiciones de KPI, moneda, perímetro y formato. Si cambia una definición (p.ej. el perímetro de consolidación), la actualización se propaga a todos los informes que la utilizan.",
+                    "El historial de 612 informes publicados YTD permite auditar fácilmente la evolución del mismo informe en distintos periodos; cada versión incluye la trazabilidad completa al dato de origen.",
+                ],
+            },
+            {
                 "titulo": "Novedades",
                 "bullets": [
-                    "Plantilla «Informe de margen por canal» certificada.",
-                    "Bloques reutilizables de narrativa por región.",
+                    "Nueva plantilla «Informe de margen por canal» certificada por Control Interno; sustituye a la versión manual que se usaba hasta ahora.",
+                    "Catálogo de bloques reutilizables de narrativa por región. Están pensados para acelerar la redacción de los párrafos de contexto cuando se añade un capítulo geográfico al informe.",
+                    "Export a formato navegable (HTML con interactividad) para los informes destinados al Comité de Dirección; facilita la exploración por KPI sin tener que imprimir el PDF.",
+                ],
+            },
+            {
+                "titulo": "Buenas prácticas",
+                "bullets": [
+                    "Reutilizar bloques existentes siempre que sea posible, incluso si hay que hacer pequeños ajustes; cuanto más estándar es la narrativa, más consistente queda el reporting del grupo.",
+                    "Marcar como obsoletas las plantillas no usadas en los últimos 12 meses para mantener el catálogo limpio.",
+                    "Validar cada informe final con el responsable del área antes de publicarlo en la base documental.",
                 ],
             },
         ],
@@ -2540,11 +2827,27 @@ _EQUIPO = {
         },
         "bloques": [
             {
+                "titulo": "Lectura cualitativa del catálogo",
+                "bullets": [
+                    "El catálogo formativo cubre las herramientas EPM que utilizamos en el grupo: Oracle EPM Cloud (FCCS y PBCS), OneStream, SAP Group Reporting, SAP S/4HANA, Workday Adaptive Planning y Kyriba. Cada curso enlaza al material oficial del fabricante o al manual interno equivalente, y el motor recomienda la secuencia de aprendizaje según el rol del usuario.",
+                    "El consumo diario alcanza las 420 consultas de media, con un total acumulado de 6.820 horas de formación en el ejercicio. Los cursos están disponibles en vídeo, manual escrito y taller presencial, y los contenidos se actualizan cuando el fabricante publica una nueva release.",
+                    "El seguimiento individualizado permite al Responsable de Formación identificar gaps en el equipo y proponer rotaciones o workshops específicos para cubrirlos.",
+                ],
+            },
+            {
                 "titulo": "Casos resueltos esta semana",
                 "bullets": [
-                    "Cómo cargar un formulario FCCS con intercompañía.",
-                    "Cómo publicar un cube en OneStream con escenarios.",
-                    "Cómo personalizar una plantilla de reporting en Oracle Narrative Reporting.",
+                    "Cómo cargar un formulario FCCS con intercompañía (Oracle EPM) · recurso vídeo + manual interno, 27 usuarios completaron el contenido.",
+                    "Cómo publicar un cube en OneStream con escenarios · guía rápida en la base documental, utilizada por el equipo de consolidación.",
+                    "Cómo personalizar una plantilla de reporting en Oracle Narrative Reporting · taller presencial de 2 h impartido por el Centro de Excelencia.",
+                ],
+            },
+            {
+                "titulo": "Buenas prácticas",
+                "bullets": [
+                    "Antes de empezar el curso, revisar los requisitos previos para asegurar que el nivel es el adecuado.",
+                    "Marcar el curso como completado al terminar para alimentar el historial formativo del equipo.",
+                    "Enviar feedback explícito al final de cada curso; ayuda a priorizar los próximos contenidos del catálogo.",
                 ],
             },
         ],

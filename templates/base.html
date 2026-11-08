@@ -1680,6 +1680,11 @@
             nav.setAttribute('data-vision', v);
             document.body.setAttribute('data-vision', v);
             try { localStorage.setItem('dfin-vision', v); } catch (e) {}
+            // Cada cambio de visión reinicia la navegación en el inicio
+            // para que el usuario vea la home propia de ese perfil.
+            if (window.location.pathname !== '/') {
+                window.location.href = '/';
+            }
         });
     })();
 

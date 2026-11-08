@@ -3736,6 +3736,25 @@ def _resumen_dashboard_home(datos, kpis_ids=None):
             waterfall.append({"label": "Impuestos", "valor": abs(imp), "tipo": "negativo"})
         waterfall.append({"label": "Beneficio neto", "valor": bn, "tipo": "total"})
 
+    # Composición P&L (compatibilidad con el panel ejecutivo imprimible).
+    # Es una partición de los ingresos en los bloques de gasto + el beneficio
+    # neto resultante, para un pie chart donde la suma ≈ ingresos.
+    composicion = []
+    if ing_u and ing_u > 0:
+        _cv = abs(_n(ultimo.get("coste_ventas")) or 0)
+        _go = abs(_n(ultimo.get("gastos_operativos")) or 0)
+        _imp = abs(_n(ultimo.get("impuestos")) or 0)
+        _bn = _n(ultimo.get("beneficio_neto"))
+        if _bn is None:
+            _bn = ing_u - _cv - _go - _imp
+        composicion = [
+            {"label": "Coste de ventas",   "valor": _cv},
+            {"label": "Gastos operativos", "valor": _go},
+            {"label": "Impuestos",         "valor": _imp},
+            {"label": "Beneficio neto",    "valor": max(_bn, 0)},
+        ]
+        composicion = [s for s in composicion if (s.get("valor") or 0) > 0]
+
     return {
         "labels": labels,
         "moneda": datos.get("moneda") or "",
@@ -3757,6 +3776,8 @@ def _resumen_dashboard_home(datos, kpis_ids=None):
         },
         # Waterfall P&L del último FY (reemplaza el antiguo pie de composición)
         "waterfall_pyg": waterfall,
+        # Pie de composición P&L (usado por el panel ejecutivo imprimible)
+        "composicion_pyg": composicion,
     }
 
 
