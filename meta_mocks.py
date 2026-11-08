@@ -162,135 +162,6 @@ _CEO = {
         ],
     },
 
-    "preparacion-reuniones": {
-        "titulo": "Preparación de reuniones",
-        "subtitulo": "Dossier ejecutivo generado para cada cita de la agenda",
-        "vision": "ceo",
-        "fuente": "Google Calendar · Salesforce · LinkedIn Sales Navigator",
-        "ultima": "Sincronizado · hace 12 min",
-        "layout": ["picker", "kpis", "timeline", "acciones", "grafico", "bloques"],
-        "picker": {
-            "id": "mtg",
-            "campos": [
-                {"label": "Reunión", "name": "reunion", "tipo": "select", "opciones": [
-                    "Satya Nadella (Microsoft) · hoy 15:00",
-                    "Consejo asesor AI safety · hoy 17:30",
-                    "Analistas sell-side top-5 · mañana 09:30",
-                    "CNIL (Francia) · mañana 14:00",
-                    "Comité capital allocation · jueves 11:00",
-                ]},
-                {"label": "Profundidad", "name": "nivel", "tipo": "select", "opciones": [
-                    "Briefing · 1 página",
-                    "Dossier estándar · 4 páginas",
-                    "Dossier ejecutivo · 8 páginas",
-                ]},
-            ],
-            "boton": "Generar dossier",
-            "accion": {
-                "titulo": "Generando dossier ejecutivo",
-                "pasos": [
-                    "Consultando CRM e histórico de interacciones…",
-                    "Recuperando últimos resultados y comunicados de la contraparte…",
-                    "Agregando puntos abiertos y notas de reuniones previas…",
-                    "Dando formato al briefing ejecutivo…",
-                ],
-                "resultado": [
-                    "Dossier disponible en la base documental.",
-                    "3 puntos clave de negociación destacados.",
-                    "Enviado al asistente del CEO para revisión final.",
-                ],
-            },
-        },
-        "kpis": [
-            _kpi("Reuniones próximas 7 días", "23"),
-            _kpi("Con dossier listo", "19", "83 %", "pos"),
-            _kpi("Pendientes de preparación", "4", None, "warn"),
-            _kpi("Tiempo ahorrado estimado", "6 h 30"),
-        ],
-        "grafico": {
-            "tipo": "bar",
-            "titulo": "Reuniones por tipo (próximas 2 semanas)",
-            "categorias": ["Consejo", "Clientes top", "Inversores",
-                           "Regulador", "Equipo interno", "Prensa"],
-            "serie": [2, 7, 5, 3, 11, 2],
-        },
-        "timeline": {
-            "titulo": "Agenda próximos 3 días",
-            "eventos": [
-                {"cuando": "Hoy · 15:00", "titulo": "Satya Nadella (Microsoft)",
-                 "desc": "Follow-up acuerdo Azure/Llama hosting — pricing GPU, SLAs, cláusulas de salida.",
-                 "estado": "now"},
-                {"cuando": "Hoy · 17:30", "titulo": "Consejo asesor de AI safety",
-                 "desc": "Revisión del marco de red-teaming para Llama 5."},
-                {"cuando": "Mañana · 09:30", "titulo": "Analistas sell-side top-5",
-                 "desc": "Revisión de forecast Q4 y pipeline capex 2027."},
-                {"cuando": "Mañana · 14:00", "titulo": "CNIL (Francia)",
-                 "desc": "Audiencia preliminar sobre tratamiento de datos de menores."},
-                {"cuando": "Jueves · 11:00", "titulo": "Comité ejecutivo capital allocation",
-                 "desc": "Validación programa de recompra ampliado."},
-            ],
-        },
-        "acciones": [
-            {
-                "label": "Generar dossier reunión seleccionada",
-                "icono": "file",
-                "titulo": "Generando dossier · Satya Nadella (Microsoft) · hoy 15:00",
-                "pasos": [
-                    "Consultando CRM e histórico de interacciones…",
-                    "Recuperando últimos resultados y comunicaciones de Microsoft…",
-                    "Agregando puntos abiertos y notas de reuniones previas…",
-                    "Dando formato al briefing ejecutivo de 1 página…",
-                ],
-                "resultado": [
-                    "Dossier de 4 páginas disponible en la base documental.",
-                    "3 puntos clave de negociación destacados automáticamente.",
-                    "Enviado al asistente del CEO para revisión final.",
-                ],
-            },
-            {
-                "label": "Sincronizar agenda",
-                "icono": "calendar",
-                "titulo": "Sincronizando con Google Calendar",
-                "pasos": [
-                    "Conectando con Google Calendar vía OAuth…",
-                    "Revisando citas de los próximos 14 días…",
-                    "Marcando reuniones sin dossier preparado…",
-                ],
-                "resultado": [
-                    "4 reuniones nuevas detectadas · dossier en cola.",
-                    "1 reunión reasignada al EA (presencial a remoto).",
-                ],
-            },
-        ],
-        "bloques": [
-            {
-                "titulo": "Preparación destacada",
-                "bullets": [
-                    "15:00 · Satya Nadella (Microsoft): tercera reunión del ciclo tras la firma del MoU en septiembre 2025. La contraparte llega a la mesa queriendo cerrar el pricing GPU trimestral y el régimen de SLA para cargas de inferencia Llama; nuestra posición es defender un suelo de capacidad reservada con un ajuste trimestral automático indexado a la curva de hardware.",
-                    "Puntos clave de negociación: (i) pricing GPU por hora con rangos explícitos para los próximos 8 trimestres, (ii) definición de SLA de latencia y disponibilidad con penalizaciones bidireccionales, (iii) cláusula de salida con notificación mínima de 12 meses y precio justo basado en benchmark externo.",
-                    "Antecedentes relevantes: 3 llamadas previas, último MoU firmado el 2025-09-14, dos escaladas por soporte en el primer trimestre (ambas resueltas) y una queja pública de un cliente estratégico en el ecosistema de Microsoft que debería mantenerse fuera de agenda.",
-                ],
-            },
-            {
-                "titulo": "Material disponible",
-                "bullets": [
-                    "Briefing ejecutivo · 1 página con mensajes clave, cifras y la posición acordada con el equipo de legal.",
-                    "Dossier contraparte · 4 páginas con biografía del interlocutor, últimos movimientos públicos y análisis financiero reciente.",
-                    "Últimos resultados y noticias · 2 páginas con las métricas financieras del trimestre y la ficha de prensa relevante.",
-                    "Memoria del MoU anterior · 2 páginas con las cláusulas ya acordadas y los puntos abiertos que arrastramos desde la última negociación.",
-                ],
-            },
-            {
-                "titulo": "Qué hace el motor",
-                "bullets": [
-                    "Cruza automáticamente la agenda del CEO con el CRM, con el registro de comunicaciones relevantes y con la base documental interna para proponer un dossier por cita.",
-                    "Puede rebajar la profundidad del material (de dossier ejecutivo a briefing de 1 página) para que el CEO siga la reunión sólo con los puntos esenciales en pantalla.",
-                    "Los dossiers generados quedan versionados en la base documental con permisos restringidos al Office of the CEO.",
-                ],
-            },
-        ],
-    },
-
     "alertas-proactivas": {
         "titulo": "Alertas financieras proactivas",
         "subtitulo": "Señales con impacto en resultados, caja o cumplimiento",
@@ -1056,7 +927,7 @@ _CFO = {
         "titulo": "Flujo de cierre consolidado",
         "subtitulo": "Estado del cierre mensual del grupo",
         "vision": "cfo",
-        "fuente": "SAP Group Reporting",
+        "fuente": "OneStream",
         "ultima": "Cierre octubre · día 4 de 8",
         "layout": ["checklist", "stat_ribbon", "tabla", "acciones", "grafico"],
         "checklist": {
@@ -1108,7 +979,7 @@ _CFO = {
         "titulo": "Conciliación intercompany",
         "subtitulo": "Diferencias abiertas entre entidades del grupo",
         "vision": "equipo",
-        "fuente": "SAP Group Reporting · BlackLine",
+        "fuente": "OneStream · BlackLine",
         "ultima": "Hoy 08:12",
         "kpis": [
             _kpi("Pares conciliados", "412 / 420", "98 %", "pos"),
@@ -1144,11 +1015,29 @@ _CFO = {
         },
         "acciones": [
             {
+                "label": "Proponer conciliación con IA",
+                "icono": "sparkles",
+                "titulo": "Propuesta de conciliación asistida por IA · 8 diferencias abiertas",
+                "pasos": [
+                    "Cargando movimientos pendientes desde OneStream y BlackLine…",
+                    "Cruzando referencias, importes, fechas y partidas análogas en el histórico…",
+                    "Analizando políticas de precios de transferencia y tipo de cambio aplicable…",
+                    "Puntuando propuestas por grado de confianza y por impacto en el cierre…",
+                    "Componiendo justificación textual y asiento sugerido por cada diferencia…",
+                ],
+                "resultado": [
+                    "6 de 8 diferencias con propuesta de conciliación completa (confianza media 92 %).",
+                    "Royalties Meta Ireland ↔ Meta Platforms Inc. · propuesta reclasificar USD 3,0 M a cuenta 76211 con asiento sugerido listo para aplicar en OneStream.",
+                    "Servicios compartidos Meta Singapore ↔ APAC · propuesta ajuste de lag de 2 días con asiento top-side preparado.",
+                    "2 diferencias (Meta Brasil FX y Oculus HW transfer price) requieren validación del equipo fiscal antes de ejecutar la propuesta.",
+                ],
+            },
+            {
                 "label": "Lanzar matching automático",
                 "icono": "zap",
                 "titulo": "Matching intercompany · 420 pares",
                 "pasos": [
-                    "Conectando con SAP Group Reporting…",
+                    "Conectando con OneStream…",
                     "Cargando movimientos pendientes…",
                     "Aplicando reglas de matcheo (tolerancia ±0,5 %)…",
                     "Enviando a BlackLine para validación…",
@@ -1192,7 +1081,7 @@ _CFO = {
         "titulo": "Eliminaciones de consolidación",
         "subtitulo": "Automatización vs ajuste manual",
         "vision": "cfo",
-        "fuente": "SAP Group Reporting",
+        "fuente": "OneStream",
         "ultima": "Pre-cierre octubre",
         "kpis": [
             _kpi("Eliminaciones automáticas", "USD 22,4 B", "94 %", "pos"),
@@ -1222,7 +1111,7 @@ _CFO = {
         "titulo": "Estatutario vs gestión",
         "subtitulo": "Reconciliación de perímetro y métricas",
         "vision": "cfo",
-        "fuente": "SAP Group Reporting · Oracle EPM",
+        "fuente": "OneStream · Oracle EPM",
         "ultima": "Cierre Q3 2026",
         "kpis": [
             _kpi("Ingresos estatutarios", "USD 149 B"),
@@ -1977,97 +1866,6 @@ _EQUIPO = {
         ],
     },
 
-    "conciliacion-inteligente": {
-        "titulo": "Conciliación inteligente",
-        "subtitulo": "Matching asistido por el motor de conciliación",
-        "vision": "equipo",
-        "fuente": "BlackLine · SAP S/4HANA",
-        "ultima": "Hoy",
-        "kpis": [
-            _kpi("Items analizados", "128.420"),
-            _kpi("Matcheo automático", "96 %", "+2 pts", "pos"),
-            _kpi("Match sugerido", "3 %"),
-            _kpi("Items en cola", "412", None, "warn"),
-        ],
-        "grafico": {
-            "tipo": "line",
-            "titulo": "Tasa de match automático (últimos 12 meses)",
-            "serie": [0.88, 0.89, 0.90, 0.91, 0.92, 0.93,
-                      0.94, 0.94, 0.95, 0.95, 0.96, 0.96],
-        },
-        "tabla": {
-            "titulo": "Items pendientes de revisión (muestra)",
-            "columnas": ["Severidad", "Fuente", "Referencia",
-                         "Importe", "Posible match", "Confianza"],
-            "filas": [
-                ["Media", "SAP S/4HANA",  "IC-2026-10-8421",   "USD 1,2 M",  "IC-IE-2026-10-7812",    "88 %"],
-                ["Media", "BlackLine",    "AR-NY-918344",      "USD 240 k",  "AR-NY-918344-partial",  "76 %"],
-                ["Media", "SAP S/4HANA",  "AP-EMEA-77012",     "USD 180 k",  "AP-EMEA-77012-rev",     "81 %"],
-                ["Baja",  "BlackLine",    "PR-APAC-112",       "USD 42 k",   "PR-APAC-112-v2",        "64 %"],
-                ["Baja",  "SAP S/4HANA",  "TAX-US-33091",      "USD 64 k",   "— (sin candidato)",      "—"],
-            ],
-        },
-        "acciones": [
-            {
-                "label": "Lanzar matcheo masivo",
-                "icono": "zap",
-                "titulo": "Matcheo masivo · 412 items pendientes",
-                "pasos": [
-                    "Cargando items de la cola…",
-                    "Aplicando reglas heurísticas (fecha, importe, referencia)…",
-                    "Aplicando patrón aprendido (royalties lag 2 d)…",
-                    "Solicitando confirmación en BlackLine…",
-                ],
-                "resultado": [
-                    "398 matcheos automáticos realizados.",
-                    "14 items quedan para revisión manual.",
-                    "Tiempo medio por item · 98 ms.",
-                ],
-            },
-            {
-                "label": "Entrenar con nuevo patrón",
-                "icono": "activity",
-                "titulo": "Entrenamiento · nuevo patrón de referencia",
-                "pasos": [
-                    "Cargando últimos 12 meses de conciliaciones manuales…",
-                    "Identificando patrón candidato…",
-                    "Validando sobre muestra retenida…",
-                ],
-                "resultado": [
-                    "Patrón añadido · 'pagos partners referencias truncadas'.",
-                    "Precisión sobre muestra · 94,2 %.",
-                    "Despliegue programado para el próximo cierre.",
-                ],
-            },
-        ],
-        "bloques": [
-            {
-                "titulo": "Lectura cualitativa del motor de conciliación",
-                "bullets": [
-                    "La tasa de matcheo automático está en el 96 %, un máximo histórico. Se ha logrado gracias a la combinación de reglas heurísticas y de patrones aprendidos de las conciliaciones manuales de los últimos 12 meses. Esto reduce la carga manual del equipo en más de 320 h/mes y libera capacidad para centrarse en las conciliaciones de mayor valor.",
-                    "El 3 % de items con match sugerido corresponden a casos donde el motor tiene una confianza media; se recomienda revisarlos uno a uno antes de aceptarlos. El 1 % restante se envía directamente a la cola de revisión manual.",
-                    "La cola actual de 412 items pendientes es la habitual en días de cierre; el motor estima que se podrá cerrar antes del final de la jornada con un único lanzamiento de matcheo masivo.",
-                ],
-            },
-            {
-                "titulo": "Patrones aprendidos recientemente",
-                "bullets": [
-                    "Reconocimiento de royalties intercompañía con lag de 2 días entre fecha de operación en la entidad origen y recepción en la entidad destino. El patrón se añadió a partir de 1.800 casos y tiene una precisión del 97 %.",
-                    "Pagos a partners publicitarios con referencias truncadas por limitación del sistema del partner. El motor añade una tolerancia a la coincidencia parcial de referencia y compara importe y fecha como respaldo.",
-                    "Próximo candidato a entrenamiento: pagos a terceros con comisión bancaria restada en origen (frecuencia creciente en LatAm y APAC).",
-                ],
-            },
-            {
-                "titulo": "Gobierno del modelo",
-                "bullets": [
-                    "Cada patrón aprendido pasa por una muestra retenida de validación antes de desplegarse en producción.",
-                    "Control Interno audita trimestralmente el rendimiento del motor por categoría de patrón y publica los resultados en la base documental.",
-                    "El umbral de confianza para match automático es del 92 %, por debajo del cual la decisión sube a revisión manual.",
-                ],
-            },
-        ],
-    },
-
     "extraccion-documentos": {
         "titulo": "Extracción de documentos",
         "subtitulo": "Facturas, contratos y soportes digitalizados",
@@ -2102,31 +1900,85 @@ _EQUIPO = {
 
     "asientos-contables": {
         "titulo": "Asientos contables",
-        "subtitulo": "Propuestas de asiento sugeridas",
+        "subtitulo": "Alta manual de un asiento en el aplicativo de consolidación",
         "vision": "equipo",
-        "fuente": "SAP S/4HANA · Oracle EPM",
+        "fuente": "OneStream · Journals",
         "ultima": "Hoy",
-        "kpis": [
-            _kpi("Asientos propuestos", "214"),
-            _kpi("Aceptados sin cambio", "192", "90 %", "pos"),
-            _kpi("Corregidos por usuario", "18"),
-            _kpi("Rechazados", "4", None, "neg"),
+        "layout": ["stat_ribbon", "asiento", "bloques"],
+        "stat_ribbon": [
+            {"label": "Aplicación",      "valor": "META_Consol"},
+            {"label": "Workflow",        "valor": "Journals · Oct-26"},
+            {"label": "Mi rol",          "valor": "Preparer"},
+            {"label": "Journals del mes","valor": "214"},
+            {"label": "Pendientes revisión", "valor": "9", "tono": "warn"},
+            {"label": "Status conexión", "valor": "OneStream · online", "tono": "pos"},
         ],
-        "grafico": {
-            "tipo": "bar",
-            "titulo": "Asientos por naturaleza",
-            "categorias": ["Devengos", "Reclasif.", "Ajustes IC",
-                           "Provisiones", "Amortizaciones",
-                           "Otros"],
-            "serie": [62, 48, 36, 28, 22, 18],
+        "asiento": {
+            "id": "je-new",
+            "titulo": "Nuevo asiento · alta en OneStream",
+            "boton": "Contabilizar en OneStream",
+            "cabecera": [
+                {"label": "Aplicación", "name": "app",   "tipo": "select",
+                 "opciones": ["META_Consol", "META_Mgmt", "META_Stat"], "valor": "META_Consol"},
+                {"label": "Escenario",  "name": "esc",   "tipo": "select",
+                 "opciones": ["Actual", "Budget", "Forecast", "Management - Sim"], "valor": "Actual"},
+                {"label": "Entidad",    "name": "ent",   "tipo": "select",
+                 "opciones": ["META_IE (Meta Ireland)", "META_US (Meta Platforms Inc.)",
+                              "META_SG (Meta Singapore)", "META_BR (Meta Brasil)",
+                              "META_UK (Meta UK)", "META_ES (Meta España)"],
+                 "valor": "META_IE (Meta Ireland)"},
+                {"label": "Periodo",    "name": "per",   "tipo": "select",
+                 "opciones": ["Oct-26", "Nov-26", "Dic-26"], "valor": "Oct-26"},
+                {"label": "Tipo",       "name": "tipo",  "tipo": "select",
+                 "opciones": ["Standard", "Top-side only", "Reclasificación", "Devengo",
+                              "Eliminación IC", "Ajuste auditor"], "valor": "Top-side only"},
+                {"label": "Divisa",     "name": "div",   "tipo": "select",
+                 "opciones": ["USD", "EUR", "GBP", "BRL", "SGD"], "valor": "USD"},
+                {"label": "Fecha",      "name": "fecha", "tipo": "date", "valor": "2026-10-31"},
+                {"label": "Referencia", "name": "ref",   "tipo": "text", "valor": "JE-2026-10-0872"},
+                {"label": "Descripción","name": "desc",  "tipo": "textarea", "wide": True,
+                 "valor": "Devengo de royalties IC Meta Ireland ↔ Meta Platforms Inc. correspondiente a octubre 2026, pendiente de recepción de factura."},
+            ],
+            "lineas": [
+                {"cuenta": "60211", "desc": "Royalties licencias IP · devengo mes",
+                 "cc": "CC-IE-001", "ic": "META_US", "debito": "3.200.000,00", "credito": ""},
+                {"cuenta": "47411", "desc": "Devengo acreedor IC",
+                 "cc": "CC-IE-001", "ic": "META_US", "debito": "", "credito": "3.200.000,00"},
+                {"cuenta": "",      "desc": "",
+                 "cc": "",          "ic": "",       "debito": "", "credito": ""},
+            ],
+            "accion": {
+                "titulo": "Contabilizando asiento en OneStream · workflow Journals",
+                "pasos": [
+                    "Validando cabecera (aplicación, escenario, entidad, periodo)…",
+                    "Comprobando cuentas contra el COA activo de OneStream…",
+                    "Validando dimensiones obligatorias (centro de coste, intercompañía)…",
+                    "Aplicando reglas de validación (balanceo ±0,005, perímetro, FX)…",
+                    "Registrando el journal en el workflow activo…",
+                ],
+                "resultado": [
+                    "Asiento JE-2026-10-0872 registrado en OneStream.",
+                    "Status · «Submitted» pendiente de revisión por el reviewer asignado (Controller IE).",
+                    "Dimensiones completadas correctamente · IC marcado con META_US.",
+                    "Notificación de revisión enviada al reviewer en el workflow Journals · Oct-26.",
+                ],
+            },
         },
         "bloques": [
             {
-                "titulo": "Reglas de autocompletado",
+                "titulo": "Lectura cualitativa",
                 "bullets": [
-                    "Cuenta contable por patrón de descripción.",
-                    "Centro de coste por entidad origen.",
-                    "Elemento de IVA por tipología de proveedor.",
+                    "Esta pantalla replica la experiencia de alta de un journal entry en OneStream (workspace Workflow · Journals). Permite capturar la cabecera (aplicación, escenario, entidad, periodo, tipo de asiento, divisa, fecha, referencia, descripción) y las líneas con cuenta, descripción, centro de coste, intercompañía, débito y crédito.",
+                    "El sistema valida en tiempo real el balanceo del asiento (totales de débito vs crédito) y bloquea la contabilización si queda descuadrado. Al pulsar «Contabilizar en OneStream», el motor simula la publicación del journal con los mismos pasos de validación que aplicaría la herramienta real.",
+                    "Los asientos quedan en status «Submitted» y pasan al reviewer asignado antes de aprobarse. La trazabilidad completa queda disponible en el historial de journals del periodo.",
+                ],
+            },
+            {
+                "titulo": "Reglas de autocompletado habituales",
+                "bullets": [
+                    "Cuenta contable sugerida a partir del patrón de descripción (royalties, servicios compartidos, devengos recurrentes).",
+                    "Centro de coste propuesto por la entidad de origen y el perfil del usuario.",
+                    "Marca de intercompañía obligatoria cuando el tipo de asiento es de eliminación o de servicios IC.",
                 ],
             },
         ],
@@ -2303,27 +2155,27 @@ _EQUIPO = {
                 "Base documental cliente (Confluence, SharePoint, Alation)",
             ],
             "sugerencias": [
-                "¿Cómo configuro un ajuste top-side en SAP Group Reporting?",
+                "¿Cómo configuro un ajuste top-side en OneStream?",
                 "¿Qué pasos tengo que seguir para publicar un cube en OneStream?",
                 "Dame el procedimiento interno para conciliar una cuenta 51x.",
                 "¿Dónde está la política de doble materialidad CSRD?",
                 "¿Cómo lanzo un forecast de caja a 13 semanas en Kyriba?",
             ],
             "historia": [
-                {"rol": "usuario", "texto": "¿Cómo configuro un ajuste top-side en SAP Group Reporting?"},
+                {"rol": "usuario", "texto": "¿Cómo configuro un ajuste top-side en OneStream?"},
                 {"rol": "bot",
-                 "texto": "Los ajustes top-side en SAP Group Reporting se configuran desde la transacción FINCS-GRP · Journal Entries, seleccionando el periodo y la versión. Debes elegir un tipo de documento con la marca «Top-side only» y asegurarte de que el flag de conservación de perímetro está activo. Luego introduces la pareja débito/crédito y el sistema valida automáticamente con la regla de consolidación.",
+                 "texto": "Los ajustes top-side en OneStream se registran desde el workspace Workflow · Journals, seleccionando la aplicación, el escenario, la entidad de consolidación y el periodo. Debes elegir un tipo de journal con la marca «Top-side only» y asegurarte de que el flag de conservación de perímetro está activo. A continuación introduces las líneas débito/crédito y el sistema valida automáticamente con la regla de consolidación OneStream (Confirmation Rules).",
                  "citas": [
-                     {"fuente": "SAP Group Reporting · User Guide 2026",
+                     {"fuente": "OneStream · Journals User Guide 2026",
                       "seccion": "§4.2 Journal entry types", "pagina": "p. 148"},
-                     {"fuente": "Manual interno · cómo registrar ajustes de consolidación",
+                     {"fuente": "Manual interno · cómo registrar ajustes de consolidación en OneStream",
                       "seccion": "v3.1", "pagina": "p. 12"},
                  ]},
                 {"rol": "usuario", "texto": "¿Y si quiero que el ajuste no afecte al reporting estatutario?"},
                 {"rol": "bot",
-                 "texto": "Para que un ajuste afecte sólo a la vista de gestión y no al reporting estatutario, hay que marcar el documento con un tipo que tenga el perímetro «Management reporting only» y seleccionar el escenario correspondiente antes de grabar. El libro estatutario queda intacto porque SAP no propaga los asientos marcados de gestión. Si lo necesitas para una revisión posterior, también existe la versión «Management - Sim» para pruebas en escenarios.",
+                 "texto": "Para que un ajuste afecte sólo a la vista de gestión y no al reporting estatutario, hay que marcar el journal con el escenario «Management reporting only» y asegurarse de que el cubo seleccionado es el de Management antes de grabar. OneStream mantiene el libro estatutario intacto porque no propaga los journals marcados de gestión al cubo Statutory. Si necesitas una revisión posterior, la plataforma permite usar un escenario «Management - Sim» para pruebas sin afectar a producción.",
                  "citas": [
-                     {"fuente": "SAP Group Reporting · Config Guide",
+                     {"fuente": "OneStream · Consolidation Config Guide",
                       "seccion": "§7.1 Management vs Statutory", "pagina": "p. 76"},
                      {"fuente": "Política interna · estatutario vs gestión",
                       "seccion": "v2.4", "pagina": "p. 5"},
@@ -2364,7 +2216,7 @@ _EQUIPO = {
             {
                 "titulo": "Fuentes más utilizadas esta semana",
                 "bullets": [
-                    "Manual oficial SAP Group Reporting 2026 · 184 consultas. Secciones más consultadas: journal entries, ajustes top-side, eliminaciones.",
+                    "Manual oficial OneStream 2026 · 184 consultas. Secciones más consultadas: journal entries, ajustes top-side, eliminaciones.",
                     "Política interna de doble materialidad CSRD · 128 consultas. Concentración en las áreas de sostenibilidad y reporting regulatorio.",
                     "Manual Oracle EPM Cloud · 96 consultas. Secciones más consultadas: FCCS (consolidación), PBCS (planificación) y Narrative Reporting.",
                     "Procedimiento interno de cierre mensual · 72 consultas. Alta coincidencia con la primera semana del cierre; se refleja en el patrón de uso a lo largo del mes.",
@@ -2515,9 +2367,9 @@ _EQUIPO = {
                 {"tipo": "video", "titulo": "OneStream · modelado de un cubo de consolidación",
                  "duracion": "1 h 12", "fuente": "OneStream Academy",
                  "url": "https://academy.onestream.com/consolidation"},
-                {"tipo": "video", "titulo": "SAP Group Reporting · nuevos ajustes top-side",
-                 "duracion": "36 min", "fuente": "SAP Learning Hub",
-                 "url": "https://learning.sap.com/group-reporting"},
+                {"tipo": "video", "titulo": "OneStream · ajustes top-side avanzados",
+                 "duracion": "36 min", "fuente": "OneStream Academy",
+                 "url": "https://academy.onestream.com/top-side-journals"},
                 {"tipo": "doc",   "titulo": "Manual interno · cómo subir ficheros planos a Oracle FCCS",
                  "paginas": "22 páginas", "fuente": "Base documental interna",
                  "url": "/docs/manuales/oracle-fccs-ficheros-planos.pdf"},
@@ -2625,7 +2477,6 @@ MOCK_MODULOS.update(_EQUIPO)
 MOCK_NAV = {
     "ceo": [
         ("plan-estrategico",     "Plan estratégico"),
-        ("preparacion-reuniones","Preparación reuniones"),
         ("alertas-proactivas",   "Alertas financieras"),
         ("mapa-riesgos",         "Mapa riesgos financieros"),
         ("guidance-tracker",     "Expectativas al mercado"),
@@ -2652,7 +2503,6 @@ MOCK_NAV = {
     ],
     "equipo": [
         ("tareas-cierre",           "Mis tareas de cierre"),
-        ("conciliacion-inteligente","Conciliación inteligente"),
         ("conciliacion-ic",         "Conciliación intercompany"),
         ("extraccion-documentos",   "Extracción documentos"),
         ("asientos-contables",      "Asientos contables"),
@@ -2747,8 +2597,6 @@ HOME_BLOCKS_META = [
         "items": [
             _m("plan-estrategico",      "Plan estratégico",
                "Avance de iniciativas por pilar estratégico."),
-            _m("preparacion-reuniones", "Preparación de reuniones",
-               "Dossier ejecutivo para tus próximas reuniones."),
             _m("alertas-proactivas",    "Alertas financieras",
                "Señales con impacto en P&L, caja o cumplimiento."),
             _m("mapa-riesgos",          "Mapa de riesgos financieros",
@@ -2839,10 +2687,8 @@ HOME_BLOCKS_META = [
                "Propuestas de asiento sugeridas listas para validar."),
             _m("conciliacion-cuentas",    "Conciliación de cuentas",
                "Estado del cierre cuenta a cuenta."),
-            _m("conciliacion-inteligente","Conciliación inteligente",
-               "Matching asistido por el motor de conciliación."),
             _m("conciliacion-ic",         "Conciliación intercompany",
-               "Diferencias abiertas entre entidades del grupo."),
+               "Diferencias abiertas entre entidades del grupo con propuesta de la IA."),
             _m("extraccion-documentos",   "Extracción de documentos",
                "Facturas, contratos y soportes digitalizados."),
             _m("controles-calidad",       "Controles de calidad",

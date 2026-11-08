@@ -289,6 +289,78 @@
     .mk-dim-narrative ul { margin: 4px 0 0; padding-left: 18px; color: var(--fg); }
     .mk-dim-foot { display: flex; justify-content: flex-end; }
 
+    /* ASIENTO CONTABLE (alta en el aplicativo de consolidación) */
+    .mk-journal {
+        display: flex; flex-direction: column; gap: 14px;
+    }
+    .mk-journal-head {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; padding: 18px;
+    }
+    .mk-journal-head h3 { margin: 0 0 12px; font-size: 0.95rem; font-weight: 700; color: var(--fg); }
+    .mk-journal-head-fields {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+        gap: 12px;
+    }
+    .mk-journal-head-fields label { font-size: 0.72rem; color: var(--fg-dim); text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; display: block; margin-bottom: 4px; }
+    .mk-journal-head-fields input, .mk-journal-head-fields select, .mk-journal-head-fields textarea {
+        width: 100%; padding: 9px 11px; border: 1px solid var(--border);
+        background: var(--surface-muted); color: var(--fg);
+        border-radius: 8px; font-size: 0.88rem; font-family: inherit;
+    }
+    .mk-journal-head-fields input:focus, .mk-journal-head-fields select:focus, .mk-journal-head-fields textarea:focus { outline: none; border-color: var(--brand); }
+    .mk-journal-head-fields .wide { grid-column: 1 / -1; }
+
+    .mk-journal-tbl-wrap {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: 12px; padding: 18px; overflow-x: auto;
+    }
+    .mk-journal-tbl-wrap h3 { margin: 0 0 12px; font-size: 0.95rem; font-weight: 700; color: var(--fg); display: flex; justify-content: space-between; align-items: center; }
+    .mk-journal-tbl { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 700px; }
+    .mk-journal-tbl thead th {
+        text-align: left; padding: 8px 10px;
+        color: var(--fg-dim); font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.4px; font-size: 0.7rem;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface-muted);
+    }
+    .mk-journal-tbl th.num, .mk-journal-tbl td.num { text-align: right; width: 130px; }
+    .mk-journal-tbl td {
+        padding: 2px 4px;
+        border-bottom: 1px solid var(--border);
+    }
+    .mk-journal-tbl td input, .mk-journal-tbl td select {
+        width: 100%; border: 1px solid transparent; background: transparent;
+        color: var(--fg); padding: 7px 8px; border-radius: 5px;
+        font-family: inherit; font-size: 0.85rem;
+    }
+    .mk-journal-tbl td input:hover, .mk-journal-tbl td select:hover { border-color: var(--border); }
+    .mk-journal-tbl td input:focus, .mk-journal-tbl td select:focus { outline: none; border-color: var(--brand); background: var(--surface-muted); }
+    .mk-journal-tbl td.num input { text-align: right; font-variant-numeric: tabular-nums; }
+    .mk-journal-tbl tfoot td {
+        padding: 10px 10px; font-weight: 700; color: var(--fg);
+        border-top: 2px solid var(--border); background: var(--surface-muted);
+    }
+    .mk-journal-tbl tfoot td.pos { color: #10b981; }
+    .mk-journal-tbl tfoot td.neg { color: #ef4444; }
+    .mk-journal-foot {
+        display: flex; justify-content: space-between; align-items: center;
+        flex-wrap: wrap; gap: 10px;
+    }
+    .mk-journal-status {
+        display: inline-flex; align-items: center; gap: 7px;
+        font-size: 0.82rem; color: var(--fg-dim); font-weight: 600;
+    }
+    .mk-journal-status .ok  { color: #10b981; }
+    .mk-journal-status .err { color: #ef4444; }
+    .mk-journal-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+    .mk-journal-add {
+        background: transparent; border: 1px dashed var(--border);
+        color: var(--fg-dim); padding: 7px 12px; border-radius: 7px;
+        font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .mk-journal-add:hover { color: var(--fg); border-color: var(--border-strong); }
+
     /* ENLACES (vídeos / documentos) */
     .mk-links { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
     .mk-link {
@@ -585,6 +657,83 @@
 </section>
 {% endmacro %}
 
+{% macro render_asiento(j) %}
+<section class="mk-section">
+    <div class="mk-journal" id="mk-journal" data-journal-id="{{ j.id or 'journal' }}">
+        <div class="mk-journal-head">
+            <h3>{{ j.titulo or "Nuevo asiento · alta en OneStream" }}</h3>
+            <div class="mk-journal-head-fields">
+                {% for f in j.cabecera %}
+                <div class="{{ 'wide' if f.wide else '' }}">
+                    <label>{{ f.label }}</label>
+                    {% if f.tipo == 'select' %}
+                    <select name="{{ f.name }}">{% for o in f.opciones %}<option {% if o == f.valor %}selected{% endif %}>{{ o }}</option>{% endfor %}</select>
+                    {% elif f.tipo == 'textarea' %}
+                    <textarea name="{{ f.name }}" rows="2">{{ f.valor or '' }}</textarea>
+                    {% elif f.tipo == 'date' %}
+                    <input type="date" name="{{ f.name }}" value="{{ f.valor or '' }}">
+                    {% else %}
+                    <input type="{{ f.tipo or 'text' }}" name="{{ f.name }}" value="{{ f.valor or '' }}" placeholder="{{ f.placeholder or '' }}">
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mk-journal-tbl-wrap">
+            <h3>Líneas del asiento <span class="mk-journal-status" id="mk-journal-status">—</span></h3>
+            <table class="mk-journal-tbl" id="mk-journal-tbl">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Cuenta</th>
+                        <th>Descripción</th>
+                        <th>Centro de coste</th>
+                        <th>Intercompañía</th>
+                        <th class="num">Débito</th>
+                        <th class="num">Crédito</th>
+                    </tr>
+                </thead>
+                <tbody id="mk-journal-body">
+                    {% for L in j.lineas %}
+                    <tr>
+                        <td style="color: var(--fg-dim); font-size: 0.78rem; padding-left: 10px;">{{ loop.index }}</td>
+                        <td><input type="text" value="{{ L.cuenta }}" data-col="cuenta"></td>
+                        <td><input type="text" value="{{ L.desc }}" data-col="desc"></td>
+                        <td><input type="text" value="{{ L.cc or '' }}" data-col="cc"></td>
+                        <td><input type="text" value="{{ L.ic or '' }}" data-col="ic"></td>
+                        <td class="num"><input type="text" inputmode="decimal" value="{{ L.debito or '' }}" data-col="debito"></td>
+                        <td class="num"><input type="text" inputmode="decimal" value="{{ L.credito or '' }}" data-col="credito"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="5" style="text-align: right;">Total</td>
+                        <td class="num" id="mk-journal-total-d">0,00</td>
+                        <td class="num" id="mk-journal-total-h">0,00</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" style="text-align: right;">Diferencia</td>
+                        <td class="num" colspan="2" id="mk-journal-diff">0,00</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div class="mk-journal-foot" style="margin-top: 14px;">
+                <button type="button" class="mk-journal-add" id="mk-journal-add">+ Añadir línea</button>
+                <div class="mk-journal-btns">
+                    <button type="button" class="mk-act-btn ghost">Guardar borrador</button>
+                    <button type="button" class="mk-act-btn" id="mk-journal-post">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        {{ j.boton or 'Contabilizar en OneStream' }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endmacro %}
+
 {% macro render_enlaces(en) %}
 <section class="mk-section">
     <div class="mk-card">
@@ -781,6 +930,8 @@
         {{ render_dim_switcher(mod.dim_switcher) }}
     {% elif seccion == 'enlaces' and mod.enlaces %}
         {{ render_enlaces(mod.enlaces) }}
+    {% elif seccion == 'asiento' and mod.asiento %}
+        {{ render_asiento(mod.asiento) }}
     {% elif seccion == 'chat' and mod.chat %}
         {{ render_chat(mod.chat) }}
     {% elif seccion == 'bloques' and mod.bloques %}
@@ -1029,6 +1180,88 @@
             simular(acc);
         });
     });
+
+    // ASIENTO CONTABLE · alta en el aplicativo de consolidación
+    (function journal() {
+        var box = document.getElementById('mk-journal');
+        if (!box) return;
+        var body = document.getElementById('mk-journal-body');
+        var totD = document.getElementById('mk-journal-total-d');
+        var totH = document.getElementById('mk-journal-total-h');
+        var diff = document.getElementById('mk-journal-diff');
+        var status = document.getElementById('mk-journal-status');
+        var add  = document.getElementById('mk-journal-add');
+        var post = document.getElementById('mk-journal-post');
+
+        function parseNum(s) {
+            if (!s) return 0;
+            s = String(s).replace(/\./g, '').replace(',', '.').trim();
+            var v = parseFloat(s);
+            return isNaN(v) ? 0 : v;
+        }
+        function fmt(n) {
+            return n.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        function recalc() {
+            var d = 0, h = 0;
+            body.querySelectorAll('tr').forEach(function(tr) {
+                d += parseNum(tr.querySelector('input[data-col="debito"]').value);
+                h += parseNum(tr.querySelector('input[data-col="credito"]').value);
+            });
+            totD.textContent = fmt(d);
+            totH.textContent = fmt(h);
+            var df = d - h;
+            diff.textContent = fmt(df);
+            diff.classList.remove('pos', 'neg');
+            if (Math.abs(df) < 0.005) {
+                diff.classList.add('pos');
+                status.innerHTML = '<span class="ok">● Cuadrado</span>';
+            } else {
+                diff.classList.add('neg');
+                status.innerHTML = '<span class="err">● Descuadrado · diferencia ' + fmt(df) + '</span>';
+            }
+        }
+        body.addEventListener('input', function(e) {
+            if (e.target && (e.target.dataset.col === 'debito' || e.target.dataset.col === 'credito')) recalc();
+        });
+        add.addEventListener('click', function() {
+            var n = body.querySelectorAll('tr').length + 1;
+            var tr = document.createElement('tr');
+            tr.innerHTML = '<td style="color: var(--fg-dim); font-size: 0.78rem; padding-left: 10px;">' + n + '</td>' +
+                '<td><input type="text" data-col="cuenta"></td>' +
+                '<td><input type="text" data-col="desc"></td>' +
+                '<td><input type="text" data-col="cc"></td>' +
+                '<td><input type="text" data-col="ic"></td>' +
+                '<td class="num"><input type="text" inputmode="decimal" data-col="debito"></td>' +
+                '<td class="num"><input type="text" inputmode="decimal" data-col="credito"></td>';
+            body.appendChild(tr);
+            recalc();
+        });
+        post.addEventListener('click', function() {
+            if (running) return;
+            recalc();
+            if (diff.classList.contains('neg')) {
+                status.innerHTML = '<span class="err">● No se puede contabilizar un asiento descuadrado</span>';
+                return;
+            }
+            var acc = (MOD.asiento && MOD.asiento.accion) || {
+                titulo: 'Contabilizando asiento en OneStream',
+                pasos: [
+                    'Validando cabecera (escenario, entidad, periodo)…',
+                    'Comprobando cuentas contra el COA de OneStream…',
+                    'Aplicando reglas de validación (balanceo, dimensiones obligatorias)…',
+                    'Registrando el asiento en el workflow de Journals…',
+                ],
+                resultado: [
+                    'Asiento registrado en OneStream con ID JE-2026-10-0872.',
+                    'Status · «Submitted» pendiente de revisión por el reviewer.',
+                    'Notificación enviada al controller responsable.',
+                ],
+            };
+            simular(acc);
+        });
+        recalc();
+    })();
 
     // CHAT · "Habla con los manuales"
     (function chat() {
