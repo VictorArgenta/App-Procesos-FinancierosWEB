@@ -584,7 +584,6 @@
     </button>
     {% endfor %}
 </section>
-<section class="mk-section"><div class="mk-run" id="mk-run"><h3 id="mk-run-title">Procesando…</h3><div class="mk-progress"><span id="mk-run-bar"></span></div><ol class="mk-steps" id="mk-run-steps"></ol><div class="mk-result" id="mk-run-result"><span class="mk-done">· Resultado</span><ul id="mk-run-result-list"></ul></div></div></section>
 {% endmacro %}
 
 {% macro render_action_hero(ah) %}
@@ -945,6 +944,9 @@
         {% endif %}
     {% endif %}
 {% endfor %}
+
+{# Panel de ejecución global — se usa para acciones, pickers y formularios simulados #}
+<section class="mk-section"><div class="mk-run" id="mk-run"><h3 id="mk-run-title">Procesando…</h3><div class="mk-progress"><span id="mk-run-bar"></span></div><ol class="mk-steps" id="mk-run-steps"></ol><div class="mk-result" id="mk-run-result"><span class="mk-done">· Resultado</span><ul id="mk-run-result-list"></ul></div></div></section>
 
 {% endblock %}
 
